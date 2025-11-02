@@ -2,7 +2,8 @@ import axios from 'axios';
 import * as constantsV from '../../constants/constatantsV';
 
 export interface Product {
-  _id: string;
+  id: string;              // normalized id for UI
+  _id?: string;            // original backend alias
   name: string;
   description: string;
   price: number;
@@ -22,14 +23,26 @@ class ProductService {
   // This is correct for getProducts
   async getProducts(): Promise<Product[]> {
     const response = await axios.get(`${this.baseUrl}`);
-    return response.data.data; // ✅ Correct
+    const items = response.data.data || [];
+    // Normalize id and price for UI
+    return items.map((p: any) => ({
+      ...p,
+      id: String(p.id ?? p._id),
+      price: Number(p.price)
+    }));
   }
   
   // This is WRONG for getProductById
   async getProductById(productId: string): Promise<Product | null> {
     try {
       const response = await axios.get(`${this.baseUrl}/${productId}`);
-      return response.data.data; // Changed from response.data to response.data.data
+      const p = response.data.data;
+      if (!p) return null;
+      return {
+        ...p,
+        id: String(p.id ?? p._id),
+        price: Number(p.price)
+      };
     } catch (error) {
       console.error('Failed to get product:', error);
       return null;
