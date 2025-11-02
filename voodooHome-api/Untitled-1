@@ -1,0 +1,12 @@
+//MONGO_URI=mongodb://localhost:27017/voodooHome
+
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRE=30d
+PORT=5000
+
+MONGO_URI=mongodb+srv://vijaychauhan0056:admin@cluster0.6v4wr.mongodb.net/voodooSmart?retryWrites=true&w=majority&appName=Cluster0
+
+//DATABASEURL = mongodb://localhost:27017/ecommerce
+//DATABASEURL = mongodb+srv://vijaychauhan0056:admin@cluster0.6v4wr.mongodb.net/voodooSmart?retryWrites=true&w=majority&appName=Cluster0
+//DATABASEURL = mongodb://localhost:27017/ecommerce
+//mongodb+srv://vijaychauhan0056:admin@cluster0.6v4wr.mongodb.net/CoffeeDb?retryWrites=true&w=majority&appName=Cluster0s

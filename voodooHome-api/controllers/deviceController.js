@@ -1,0 +1,320 @@
+const Device = require('../models/Device');
+const Room = require('../models/Room');
+
+// @desc    Get all devices for a user
+// @route   GET /api/devices
+// @access  Private
+exports.getDevices = async (req, res) => {
+  try {
+    const devices = await Device.find({ user: req.user.id });
+    
+    res.json({
+      success: true,
+      count: devices.length,
+      data: devices
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get single device
+// @route   GET /api/devices/:id
+// @access  Private
+exports.getDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    res.json({
+      success: true,
+      data: device
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Create new device
+// @route   POST /api/devices
+// @access  Private
+exports.createDevice = async (req, res) => {
+  try {
+    // Add user to req.body
+    req.body.user = req.user.id;
+
+    // Check if room exists if room ID is provided
+    if (req.body.room) {
+      const room = await Room.findById(req.body.room);
+      if (!room) {
+        return res.status(404).json({ message: 'Room not found' });
+      }
+
+      // Make sure user owns room
+      if (room.user.toString() !== req.user.id) {
+        return res.status(401).json({ message: 'Not authorized to use this room' });
+      }
+    }
+
+    const device = await Device.create(req.body);
+
+    // Room assignment is handled via device.room_id in SQL
+
+    res.status(201).json({
+      success: true,
+      data: device
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update device
+// @route   PUT /api/devices/:id
+// @access  Private
+exports.updateDevice = async (req, res) => {
+  try {
+    let device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to update this device' });
+    }
+
+    // If room is being changed, verify new room belongs to user
+    if (req.body.room && (!device.room || String(device.room) !== String(req.body.room))) {
+      const room = await Room.findById(req.body.room);
+      if (!room) {
+        return res.status(404).json({ message: 'Room not found' });
+      }
+      if (String(room.user) !== String(req.user.id)) {
+        return res.status(401).json({ message: 'Not authorized to use this room' });
+      }
+    }
+
+    device = await Device.findByIdAndUpdate(req.params.id, req.body);
+
+    res.json({
+      success: true,
+      data: device
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Delete device
+// @route   DELETE /api/devices/:id
+// @access  Private
+exports.deleteDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to delete this device' });
+    }
+
+    // Room references are managed via device.room_id; nothing to pull from rooms
+
+    await device.remove();
+
+    res.json({
+      success: true,
+      data: {}
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Check device status
+// @route   GET /api/devices/:id/status
+// @access  Private
+exports.checkDeviceStatus = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    // In a real application, you would communicate with the device here
+    // For now, we'll just return the current status
+    res.json({
+      success: true,
+      data: {
+        isConnected: device.isConnected,
+        lastSeen: device.lastSeen,
+        ipAddress: device.ipAddress
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Configure device WiFi
+// @route   POST /api/devices/:id/configure
+// @access  Private
+exports.configureDeviceWifi = async (req, res) => {
+  try {
+    const { ssid, password } = req.body;
+
+    if (!ssid || !password) {
+      return res.status(400).json({ message: 'Please provide SSID and password' });
+    }
+
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to configure this device' });
+    }
+
+    // In a real application, you would send the configuration to the device here
+    // For now, we'll just update the device record
+    await Device.findByIdAndUpdate(device.id, { ssid });
+
+    res.json({
+      success: true,
+      data: await Device.findById(device.id)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Control device (turn on/off)
+// @route   POST /api/devices/:id/control
+// @access  Private
+exports.controlDevice = async (req, res) => {
+  try {
+    const { action, brightness } = req.body;
+
+    if (!action || !['on', 'off', 'toggle'].includes(action)) {
+      return res.status(400).json({ message: 'Please provide valid action: on, off, or toggle' });
+    }
+
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to control this device' });
+    }
+
+    // Update device state based on action
+    switch (action) {
+      case 'on':
+        device.isOn = true;
+        break;
+      case 'off':
+        device.isOn = false;
+        break;
+      case 'toggle':
+        device.isOn = !device.isOn;
+        break;
+    }
+
+    // Update brightness if provided
+    if (brightness !== undefined && brightness >= 0 && brightness <= 100) {
+      device.brightness = brightness;
+    }
+
+    // Update last seen timestamp and persist state
+    const lastSeen = new Date();
+    await Device.findByIdAndUpdate(device.id, {
+      isOn: device.isOn,
+      brightness: device.brightness,
+      lastSeen
+    });
+    const updated = await Device.findById(device.id);
+
+    // In a real application, you would send the control command to the actual device here
+    // For ESP8266, you might send HTTP request to device's IP address
+
+    res.json({
+      success: true,
+      message: `Device ${action === 'toggle' ? (device.isOn ? 'turned on' : 'turned off') : action}`,
+      data: {
+        id: updated._id,
+        name: updated.name,
+        isOn: updated.isOn,
+        brightness: updated.brightness,
+        lastSeen: updated.lastSeen
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get device state
+// @route   GET /api/devices/:id/state
+// @access  Private
+exports.getDeviceState = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+
+    // Make sure user owns device
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: device._id,
+        name: device.name,
+        isOn: device.isOn,
+        brightness: device.brightness,
+        isConnected: device.isConnected,
+        lastSeen: device.lastSeen
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
