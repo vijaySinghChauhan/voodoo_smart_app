@@ -41,6 +41,9 @@ app.use('/voodoo/api/chat', require('./routes/chat'));
 app.use('/voodoo/api/help', require('./routes/help'));
 app.use('/voodoo/api/health', require('./routes/health'));
 app.use('/voodoo/api/orders', require('./routes/orders'));
+app.use('/voodoo/api/addresses', require('./routes/addresses'));
+app.use('/voodoo/api/payments', require('./routes/payments'));
+app.use('/voodoo/api/phonepe', require('./routes/phonepe'));
 // Error handler middleware
 app.use(errorHandler);
 

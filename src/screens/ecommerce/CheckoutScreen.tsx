@@ -8,14 +8,23 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import orderService from '../../services/ecommerce/orderService';
 import cartService from '../../services/ecommerce/cartService';
 import RazorpayCheckout from 'react-native-razorpay';
+import paymentService from '../../services/ecommerce/paymentService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const CheckoutScreen = ({ route, navigation }) => {
+interface CheckoutProps {
+  route: { params: { totalAmount: number } };
+  navigation: any;
+}
+
+const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
   const { totalAmount } = route.params;
   const [name, setName] = useState('Vijay Singh Chauhan');
   const [email, setEmail] = useState('vijaychaauhan0056@gmail.com');
@@ -39,29 +48,70 @@ const CheckoutScreen = ({ route, navigation }) => {
     return true;
   };
 
+  const handlePhonePePay = async () => {
+    if (!validateForm()) return;
+    setIsLoading(true);
+    try {
+      // Construct a callback URL to return to the app post payment
+      const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
+      const { redirectUrl } = await paymentService.initiatePhonePePayment({
+        amount: totalAmount,
+        currency: 'INR',
+        customerName: name,
+        customerPhone: phone,
+        customerEmail: email,
+        orderId: undefined,
+        callbackUrl,
+      });
+
+      if (!redirectUrl) {
+        throw new Error('PhonePe redirect URL not available');
+      }
+
+      await Linking.openURL(redirectUrl);
+
+      Alert.alert(
+        'Complete Payment',
+        'After completing PhonePe payment, tap Confirm to place your order.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              const storedTxn = await AsyncStorage.getItem('last_phonepe_txn_id');
+              await handlePaymentSuccess(storedTxn || ('phonepe_' + Date.now()));
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'PhonePe Error', text2: (error as any)?.message || 'Unable to start PhonePe payment', position: 'bottom' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  
   const handlePayment = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
     try {
-      // Create an order on your backend
-      const orderData = {
-        amount: totalAmount * 100, // Razorpay expects amount in paise
-        currency: 'INR',
-        receipt: 'order_' + Date.now(),
-      };
-
-      const order = await orderService.createOrder(orderData);
+      let keyId = await paymentService.getRazorpayKey();
+      // Fallback to test key if backend key is not available
+      if (!keyId) {
+        keyId = 'rzp_test_q6jv7paIUDvF6t';
+      }
 
       // Initialize Razorpay payment
       const options = {
         description: 'VoodooTech Smart Home Products',
         image: 'https://your-app-logo-url.png',
         currency: 'INR',
-        key: 'rzp_test_q6jv7paIUDvF6t', // Replace with your Razorpay Key ID
+        key: keyId,
         amount: totalAmount * 100,
         name: 'VoodooTech Smart',
-        order_id: order.id,
+        order_id: '',
         prefill: {
           email,
           contact: phone,
@@ -78,18 +128,18 @@ const CheckoutScreen = ({ route, navigation }) => {
         .catch((error) => {
           // Handle failure
           setIsLoading(false);
-          Toast.show({
-            type: 'error',
-            text1: 'Payment Failed',
-            text2: error.description || 'Something went wrong',
-            position: 'bottom'
-          });
-        });
+                          Toast.show({
+                            type: 'error',
+                            text1: 'Payment Failed',
+                            text2: error.description || 'Something went wrong',
+                            position: 'bottom'
+                          });
+                        });
     } catch (error) {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to initiate payment',
+        text2: '' + (error instanceof Error ? error.message : String(error)),
         position: 'bottom'
       });
       setIsLoading(false);
@@ -110,11 +160,8 @@ const CheckoutScreen = ({ route, navigation }) => {
         zipCode,
       };
 
-      await orderService.completeOrder({
-        paymentId,
-        amount: totalAmount,
-        shippingAddress,
-      });
+      const items = await cartService.getCartItems();
+      await orderService.createOrder({ paymentId, amount: totalAmount, shippingAddress, items });
 
       // Clear the cart
       await cartService.clearCart();
@@ -241,6 +288,18 @@ const CheckoutScreen = ({ route, navigation }) => {
             <Text style={styles.payButtonText}>Pay with Razorpay</Text>
           )}
         </TouchableOpacity>
+{/* 
+        <TouchableOpacity
+          style={[styles.payButton, styles.phonepeButton]}
+          onPress={handlePhonePePay}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.payButtonText}>Pay with PhonePe</Text>
+          )}
+        </TouchableOpacity> */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -332,6 +391,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     marginTop: 16,
+  },
+  phonepeButton: {
+    backgroundColor: '#6b1f9d',
   },
   payButtonText: {
     color: '#fff',

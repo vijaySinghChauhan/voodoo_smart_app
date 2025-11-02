@@ -1,4 +1,6 @@
 import React from 'react';
+import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -32,6 +34,8 @@ import ProductDetailScreen from './src/screens/ecommerce/ProductDetailScreen';
 import CartScreen from './src/screens/ecommerce/CartScreen';
 import CheckoutScreen from './src/screens/ecommerce/CheckoutScreen';
 import OrderHistoryScreen from './src/screens/ecommerce/OrderHistoryScreen';
+import AddressListScreen from './src/screens/ecommerce/AddressListScreen';
+import AddressEditScreen from './src/screens/ecommerce/AddressEditScreen';
 
 // Dashboard Screen
 import DashboardScreen from './src/screens/dashboard/DashboardScreen';
@@ -39,6 +43,8 @@ import DashboardScreen from './src/screens/dashboard/DashboardScreen';
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import wifiConnection from './src/services/esp8266/wifiConnection';
+import orderService from './src/services/ecommerce/orderService';
+import cartService from './src/services/ecommerce/cartService';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -79,8 +85,10 @@ const EcommerceStack = () => (
     <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
     <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-    <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+    <Stack.Screen name="Checkout" component={CheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
+    <Stack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
+    <Stack.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
   </Stack.Navigator>
 );
 
@@ -95,13 +103,15 @@ const ESP8266Stack = () => (
 const AppDrawer = () => (
   <Drawer.Navigator initialRouteName="Dashboard">
     <Drawer.Screen name="Dashboard" component={DashboardScreen} />
-    <Drawer.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ headerShown: false }} />
+    <Drawer.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ headerShown: true }} />
     <Drawer.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
     <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
     <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
     <Drawer.Screen name="Rooms" component={RoomsStack} />
     <Drawer.Screen name="Devices" component={ESP8266Stack} />
     <Drawer.Screen name="Shop" component={EcommerceStack} />
+    <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
+    <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
     <Drawer.Screen name="Profile" component={ProfileScreen} />
     <Drawer.Screen name="Chat" component={ChatStack} />
   </Drawer.Navigator>
@@ -112,6 +122,7 @@ const RootStack = createStackNavigator();
 const AppNavigator = () => {
   const { user, isLoading } = useAuth();
   const [showSplash, setShowSplash] = React.useState(true);
+  // Deep link subscription stored locally for cleanup
   
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -119,6 +130,34 @@ const AppNavigator = () => {
     }, 3000);
     
     return () => clearTimeout(timer);
+  }, []);
+
+  // Handle deep link callbacks for payments (e.g., PhonePe)
+  React.useEffect(() => {
+    const handler = async (event: { url: string }) => {
+      try {
+        const url = event.url;
+        // Expecting scheme like: voodoohomeS2://payment/phonepe?status=success&txnId=...
+        if (url && url.includes('://payment/phonepe')) {
+          const query = url.split('?')[1] || '';
+          const params = new URLSearchParams(query);
+          const status = params.get('status');
+          const txnId = params.get('txnId') || params.get('transactionId') || '';
+          if (status === 'success' && txnId) {
+            await AsyncStorage.setItem('last_phonepe_txn_id', txnId);
+            Toast.show({ type: 'success', text1: 'Payment Success', text2: 'PhonePe payment verified. Please confirm order in app.', position: 'bottom' });
+          } else {
+            Toast.show({ type: 'error', text1: 'Payment Failed', text2: 'Could not verify payment', position: 'bottom' });
+          }
+        }
+      } catch (err) {
+        Toast.show({ type: 'error', text1: 'Payment Error', text2: 'Callback handling failed', position: 'bottom' });
+      }
+    };
+    const subscription = Linking.addEventListener('url', handler);
+    return () => {
+      subscription.remove();
+    };
   }, []);
   
   if (showSplash) {

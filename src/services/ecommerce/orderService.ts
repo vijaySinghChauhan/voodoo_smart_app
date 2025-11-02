@@ -25,10 +25,14 @@ export interface Order {
 
 class OrderService {
   private baseUrl: string = constantsV.BASE_URL + '/orders';
-  // Create a new order (for Razorpay integration)
-  async createOrder(orderData: { amount: number, currency: string, receipt: string }): Promise<{ id: string }> {
+  ORDERS_STORAGE_KEY!: string;
+  // Create a new order after successful payment
+  async createOrder(orderData: { paymentId: string, amount: number, shippingAddress: ShippingAddress, items: CartItem[] }): Promise<Order> {
     try {
-      const response = await axios.post<{ id: string }>(`${this.baseUrl}/`, orderData);
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.post<Order>(`${this.baseUrl}/`, orderData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       return response.data;
     } catch (error) {
       console.error('Failed to create order:', error);
@@ -36,21 +40,15 @@ class OrderService {
     }
   }
 
-  // Complete an order after successful payment
-  async completeOrder(orderData: { paymentId: string, amount: number, shippingAddress: ShippingAddress, items: CartItem[] }): Promise<Order> {
-    try {
-      const response = await axios.post<Order>(`${this.baseUrl}/complete`, orderData);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to complete order:', error);
-      throw error;
-    }
-  }
+  // Legacy completeOrder removed: use createOrder above
 
   // Get all orders for the current user
   async getOrders(): Promise<Order[]> {
     try {
-      const response = await axios.get<Order[]>(this.baseUrl);
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.get<Order[]>(this.baseUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       return response.data;
     } catch (error) {
       console.error('Failed to get orders:', error);

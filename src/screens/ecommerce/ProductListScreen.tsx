@@ -25,7 +25,8 @@ interface Product {
 }
 
 const ProductListScreen = () => {
-  const navigation = useNavigation();
+  // Relax navigation typing to avoid TS 'never' errors on navigate arguments
+  const navigation = useNavigation<any>();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,6 +34,7 @@ const ProductListScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -57,6 +59,15 @@ const ProductListScreen = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadProducts();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -191,8 +202,12 @@ const ProductListScreen = () => {
         <FlatList
           data={filteredProducts}
           renderItem={renderProductItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.productsList}
+          numColumns={2}
+          columnWrapperStyle={styles.productsRow}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       ) : (
         <View style={styles.emptyContainer}>
@@ -277,20 +292,29 @@ const styles = StyleSheet.create({
   productsList: {
     padding: 16,
   },
+  productsRow: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   productItem: {
+    height: 300,
+    width: 200,
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    marginBottom: 16,
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,
+    flex: 1,
+    marginHorizontal: 8,
   },
   productImage: {
+    borderRadius: 8,
+    marginTop: 8,
     width: '100%',
-    height: 200,
+    height: 150,
     resizeMode: 'cover',
   },
   productInfo: {
@@ -300,6 +324,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
+    height: 20,
   },
   productPrice: {
     fontSize: 16,

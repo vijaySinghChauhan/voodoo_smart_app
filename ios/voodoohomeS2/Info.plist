@@ -47,7 +47,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <false/>
+  <!-- Deep link scheme for payment callbacks -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>voodoohomeS2</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

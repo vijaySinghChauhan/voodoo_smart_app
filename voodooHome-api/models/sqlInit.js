@@ -90,6 +90,22 @@ async function initSqlSchema() {
       quantity INT NOT NULL DEFAULT 1,
       FOREIGN KEY (order_id) REFERENCES orders(id),
       FOREIGN KEY (product_id) REFERENCES products(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS addresses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      phone VARCHAR(30) NOT NULL,
+      address_line1 VARCHAR(255) NOT NULL,
+      address_line2 VARCHAR(255),
+      city VARCHAR(100) NOT NULL,
+      state VARCHAR(100) NOT NULL,
+      zip_code VARCHAR(20) NOT NULL,
+      country VARCHAR(100) NOT NULL,
+      is_default TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )`
   ];
 

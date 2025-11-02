@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
+import * as constantsV from '../../constants/constatantsV';
 
 const wifiConnection = () => {
   const [ssid, setSsid] = useState('');
@@ -13,7 +14,7 @@ const wifiConnection = () => {
       await WifiManager.connectToProtectedSSID('voodootech_setup', 'voodootech123', false, false);
       
       // Send credentials to ESP
-      const response = await fetch('http://192.168.4.1/connect', {
+      const response = await fetch(constantsV.BASE_URL + 'connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -23,7 +24,7 @@ const wifiConnection = () => {
       
       // Check connection status
       setTimeout(async () => {
-        const statusRes = await fetch('http://192.168.4.1/status');
+        const statusRes = await fetch(constantsV.BASE_URL + '/status');
         const statusText = await statusRes.text();
         setStatus(statusText);
         
