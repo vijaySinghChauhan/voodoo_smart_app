@@ -5,6 +5,7 @@ const { initSqlSchema } = require('./models/sqlInit');
 const errorHandler = require('./middleware/errorHandler');
 const socketio = require('socket.io');
 const http = require('http');
+const axios = require('axios');
 
 // Load environment variables
 require('dotenv').config();
@@ -50,6 +51,8 @@ app.use(errorHandler);
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log('New client connected');
+  // Track polling timers per socket
+  const timers = new Map();
   
   socket.on('joinRoom', (room) => {
     socket.join(room);
@@ -59,9 +62,56 @@ io.on('connection', (socket) => {
   socket.on('sendMessage', ({ room, message }) => {
     io.to(room).emit('message', message);
   });
+
+  // Brightness subscription: client provides deviceId and ip (SoftAP or LAN)
+  socket.on('brightness:subscribe', ({ deviceId, ip }) => {
+    if (!ip) {
+      socket.emit('brightness:error', { deviceId, error: 'Missing device IP' });
+      return;
+    }
+    // Clear any existing timer for this deviceId on this socket
+    const key = `b:${deviceId}`;
+    if (timers.has(key)) {
+      clearInterval(timers.get(key));
+      timers.delete(key);
+    }
+    // Poll device every 2s for brightness-like data (e.g., /getdata)
+    const baseUrl = `http://${ip}`;
+    const interval = setInterval(async () => {
+      try {
+        const resp = await axios.get(`${baseUrl}/getdata`, { timeout: 4000 });
+        let value = resp.data;
+        // Normalize numeric brightness 0-100
+        if (typeof value === 'string') {
+          const num = parseFloat(value);
+          if (!isNaN(num)) value = num;
+        }
+        if (typeof value === 'number') {
+          value = Math.max(0, Math.min(100, value));
+        }
+        socket.emit('brightness:update', { deviceId, value });
+      } catch (err) {
+        socket.emit('brightness:error', { deviceId, error: err.message });
+      }
+    }, 2000);
+    timers.set(key, interval);
+    socket.emit('brightness:subscribed', { deviceId });
+  });
+
+  socket.on('brightness:unsubscribe', ({ deviceId }) => {
+    const key = `b:${deviceId}`;
+    if (timers.has(key)) {
+      clearInterval(timers.get(key));
+      timers.delete(key);
+      socket.emit('brightness:unsubscribed', { deviceId });
+    }
+  });
   
   socket.on('disconnect', () => {
     console.log('Client disconnected');
+    // Clear all timers for this socket
+    for (const [, t] of timers) clearInterval(t);
+    timers.clear();
   });
 });
 

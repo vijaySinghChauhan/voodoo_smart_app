@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import WaterTank from './WaterTank';
 import axios from 'axios';
+import { io, Socket } from 'socket.io-client';
+import constantsV from '../../../voodooHome-api/Static/constants';
 
 interface DeviceStatus {
   connected: boolean;
@@ -33,10 +35,42 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const fullTankHeight = 150;
   const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
+  const [brightness, setBrightness] = useState<number | undefined>(undefined);
+  const [socketRef, setSocketRef] = useState<Socket | null>(null);
   
 
   useEffect(() => {
     loadDeviceInfo();
+    // Initialize socket for brightness updates
+    (async () => {
+      try {
+        const ip = await esp8266Service.getDeviceIP();
+        if (!ip) return;
+        const socket = io(constantsV.BASE_URL, { transports: ['websocket'], reconnection: true });
+        setSocketRef(socket);
+        socket.on('connect', () => {
+          socket.emit('brightness:subscribe', { deviceId: 'esp8266', ip });
+        });
+        socket.on('brightness:update', ({ value }) => {
+          // Expect 0-100 numeric
+          if (typeof value === 'number') {
+            setBrightness(value);
+            setWaterLevel(Math.max(0, Math.min(100, value)));
+          }
+        });
+        socket.on('brightness:error', ({ error }) => {
+          console.warn('Brightness socket error:', error);
+        });
+      } catch (err) {
+        console.warn('Socket init failed:', err);
+      }
+    })();
+    return () => {
+      if (socketRef) {
+        socketRef.emit('brightness:unsubscribe', { deviceId: 'esp8266' });
+        socketRef.disconnect();
+      }
+    };
   }, []);
 
   const loadDeviceInfo = async () => {
@@ -68,17 +102,17 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     try {
       const state = value ? 'on' : 'off';
 
-      const response1 = await axios.get(`http://192.168.4.1/switch?state=on`, {
+      const response1 = await axios.get(`${constantsV.BASE_URL}/switch?state=${state}`, {
         timeout: 5000, // 5 second timeout
       });
-      const response = await axios.get(`http://192.168.4.1/getdata`, {
+      const response = await axios.get(`${constantsV.BASE_URL}/getdata`, {
      
         timeout: 5000, // 5 second timeout
       });
       console.log(JSON.stringify(response.data));
      setWaterLevel( (response.data / fullTankHeight) * 100);
      
-     const response2 = await axios.get(`http://192.168.4.1/switch?state=off`, {
+     const response2 = await axios.get(`${constantsV.BASE_URL}/switch?state=off`, {
       timeout: 5000, // 5 second timeout
     });
       if (response.status === 200) {
@@ -107,7 +141,7 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   };
   const handleGetData = async () => {
 
-    const response = await axios.get(`http://192.168.4.1/getData`, {
+    const response = await axios.get(`${constantsV.BASE_URL}/getData`, {
      
       timeout: 5000, // 5 second timeout
     });
@@ -196,6 +230,9 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           </View>
         </View>
         <WaterTank percentage={waterLevel} />
+        <View style={{ marginTop: 10 }}>
+          <Text style={{ color: '#666' }}>Brightness: {brightness ?? '—'}%</Text>
+        </View>
         <View style={styles.controlSection}>
           <Text style={styles.sectionTitle}>Power Control</Text>
           <View style={styles.powerControl}>

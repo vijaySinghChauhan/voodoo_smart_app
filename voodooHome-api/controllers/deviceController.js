@@ -173,7 +173,11 @@ exports.checkDeviceStatus = async (req, res) => {
       data: {
         isConnected: device.isConnected,
         lastSeen: device.lastSeen,
-        ipAddress: device.ipAddress
+        ipAddress: device.ipAddress,
+        room: device.room_id,
+        isOn: device.isOn,
+        brightness: device.brightness,
+        
       }
     });
   } catch (error) {

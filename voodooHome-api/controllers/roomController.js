@@ -7,16 +7,20 @@ const Device = require('../models/Device');
 exports.getRooms = async (req, res) => {
   try {
     const rooms = await Room.find({ user: req.user.id });
-    // Compute deviceCount for each room via SQL
+    // Compute deviceCount for each room via SQL, but don't fail if DB is down
     const { pool } = require('../config/db');
     const roomIds = rooms.map(r => r.id);
     let counts = {};
     if (roomIds.length) {
-      const [rows] = await pool.query(
-        `SELECT room_id AS roomId, COUNT(*) AS cnt FROM devices WHERE room_id IN (${roomIds.map(()=>'?' ).join(',')}) GROUP BY room_id`,
-        roomIds
-      );
-      for (const r of rows) counts[r.roomId] = r.cnt;
+      try {
+        const [rows] = await pool.query(
+          `SELECT room_id AS roomId, COUNT(*) AS cnt FROM devices WHERE room_id IN (${roomIds.map(()=>'?' ).join(',')}) GROUP BY room_id`,
+          roomIds
+        );
+        for (const r of rows) counts[r.roomId] = r.cnt;
+      } catch (err) {
+        console.warn('Room deviceCount query failed:', err.message);
+      }
     }
     const payload = rooms.map(r => ({ id: r.id, _id: r._id, name: r.name, type: r.type, user: r.user, createdAt: r.createdAt, deviceCount: counts[r.id] || 0 }));
     res.json(payload);
@@ -44,8 +48,13 @@ exports.getRoom = async (req, res) => {
 
     // Attach deviceCount for detail view
     const { pool } = require('../config/db');
-    const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM devices WHERE room_id=?', [room.id]);
-    const deviceCount = rows[0]?.cnt || 0;
+    let deviceCount = 0;
+    try {
+      const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM devices WHERE room_id=?', [room.id]);
+      deviceCount = rows[0]?.cnt || 0;
+    } catch (err) {
+      console.warn('Room deviceCount query failed:', err.message);
+    }
     res.json({ id: room.id, _id: room._id, name: room.name, type: room.type, user: room.user, createdAt: room.createdAt, deviceCount });
   } catch (error) {
     console.error(error);
