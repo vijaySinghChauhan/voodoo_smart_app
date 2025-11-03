@@ -7,6 +7,7 @@ import addressApi, { AddressDTO } from '../../services/ecommerce/addressApi';
 type Address = {
   id: string;
   name: string;
+  email?: string;
   phone: string;
   addressLine1: string;
   addressLine2?: string;
@@ -25,6 +26,7 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
   const addressId = route?.params?.addressId;
   const [form, setForm] = useState<Omit<Address, 'id'>>({
     name: '',
+    email: '',
     phone: '',
     addressLine1: '',
     addressLine2: '',
@@ -43,6 +45,7 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
       const normalized: Address[] = list.map((a: any) => ({
         id: String(a.id ?? a._id ?? ''),
         name: a.name,
+        email: a.email || '',
         phone: a.phone,
         addressLine1: a.addressLine1,
         addressLine2: a.addressLine2 || '',
@@ -57,6 +60,7 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
       if (found) {
         setForm({
           name: found.name,
+          email: found.email || '',
           phone: found.phone,
           addressLine1: found.addressLine1,
           addressLine2: found.addressLine2 || '',
@@ -86,7 +90,7 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
 
   const handleSave = async () => {
     // Basic validation
-    if (!form.name || !form.phone || !form.addressLine1 || !form.city || !form.state || !form.zipCode || !form.country) {
+    if (!form.name || !form.email || !form.phone || !form.addressLine1 || !form.city || !form.state || !form.zipCode || !form.country) {
       Toast.show({ type: 'error', text1: 'Please fill all required fields', position: 'bottom' });
       return;
     }
@@ -139,6 +143,9 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
 
         <Text style={styles.label}>Name</Text>
         <TextInput style={styles.input} value={form.name} onChangeText={(t) => updateField('name', t)} placeholder="Full Name" />
+
+        <Text style={styles.label}>Email</Text>
+        <TextInput style={styles.input} value={form.email as string} onChangeText={(t) => updateField('email', t)} placeholder="Email" keyboardType="email-address" autoCapitalize="none" />
 
         <Text style={styles.label}>Phone</Text>
         <TextInput style={styles.input} value={form.phone} onChangeText={(t) => updateField('phone', t)} placeholder="Phone Number" keyboardType="phone-pad" />

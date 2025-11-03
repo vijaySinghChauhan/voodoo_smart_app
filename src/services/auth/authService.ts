@@ -48,14 +48,14 @@ class AuthService {
         email,
         password
       });
-      Alert.alert(JSON.stringify(response.data))
+   //   Alert.alert(JSON.stringify(response.data))
       
       await this.saveToken(response.data.token);
       await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
       
       return response.data.user;
     } catch (error) {
-      Alert.alert(JSON.stringify(error))
+   //   Alert.alert(JSON.stringify(error))
 
       console.error('Login failed:', error);
       throw error;

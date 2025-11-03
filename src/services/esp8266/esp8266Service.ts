@@ -34,8 +34,8 @@ class ESP8266Service {
   
   // Retrieve the last known IP
   async getDeviceIP(): Promise<string | null> {
-   // const ip = await AsyncStorage.getItem('ESP8266_IP');
-    const ip = '192.168.4.1';
+    const ip = await AsyncStorage.getItem('ESP8266_IP');
+    //const ip = '192.168.4.1';
 
     if (ip) {
       this.baseUrl = `http://${ip}`;

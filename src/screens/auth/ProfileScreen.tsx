@@ -82,10 +82,16 @@ const ProfileScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.profileContainer}>
           <View style={styles.avatarContainer}>
-            <Image
-              source={user.profilePicture ? { uri: user.profilePicture } : require('../../assets/images/default-avatar.png')}
-              style={styles.avatar}
-            />
+            {user.profilePicture ? (
+              <Image
+                source={{ uri: user.profilePicture }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarFallbackText}>👤</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.infoContainer}>
@@ -175,6 +181,18 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: '#ddd',
+  },
+  avatarFallback: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#ddd',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 54,
+    color: '#666',
   },
   infoContainer: {
     marginBottom: 20,

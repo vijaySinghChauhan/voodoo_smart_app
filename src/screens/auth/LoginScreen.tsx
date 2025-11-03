@@ -15,8 +15,8 @@ import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 
 const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const [email, setEmail] = useState('v@v.com');
-  const [password, setPassword] = useState('123456789');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const { login, isLoading } = useAuth();
 
   const handleLogin = async () => {

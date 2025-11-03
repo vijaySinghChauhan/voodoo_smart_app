@@ -5,6 +5,7 @@ import * as constantsV from '../../constants/constatantsV';
 export interface AddressDTO {
   id?: string;
   name: string;
+  email?: string;
   phone: string;
   addressLine1: string;
   addressLine2?: string;
@@ -30,6 +31,7 @@ class AddressApi {
     return items.map((a: any) => ({
       id: String(a.id ?? a._id),
       name: a.name,
+      email: a.email ?? a.email_address ?? '',
       phone: a.phone,
       addressLine1: a.addressLine1 ?? a.address_line1,
       addressLine2: a.addressLine2 ?? a.address_line2,
@@ -48,6 +50,7 @@ class AddressApi {
     return {
       id: String(a.id ?? a._id),
       name: a.name,
+      email: a.email ?? a.email_address ?? '',
       phone: a.phone,
       addressLine1: a.addressLine1 ?? a.address_line1,
       addressLine2: a.addressLine2 ?? a.address_line2,
@@ -66,6 +69,7 @@ class AddressApi {
     return {
       id: String(a.id ?? a._id),
       name: a.name,
+      email: a.email ?? a.email_address ?? '',
       phone: a.phone,
       addressLine1: a.addressLine1 ?? a.address_line1,
       addressLine2: a.addressLine2 ?? a.address_line2,

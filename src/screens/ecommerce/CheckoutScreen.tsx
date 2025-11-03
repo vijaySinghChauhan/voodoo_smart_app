@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import cartService from '../../services/ecommerce/cartService';
 import RazorpayCheckout from 'react-native-razorpay';
 import paymentService from '../../services/ecommerce/paymentService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import addressApi, { AddressDTO } from '../../services/ecommerce/addressApi';
 
 interface CheckoutProps {
   route: { params: { totalAmount: number } };
@@ -26,14 +27,42 @@ interface CheckoutProps {
 
 const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
   const { totalAmount } = route.params;
-  const [name, setName] = useState('Vijay Singh Chauhan');
-  const [email, setEmail] = useState('vijaychaauhan0056@gmail.com');
-  const [phone, setPhone] = useState('9891234473');
-  const [address, setAddress] = useState('F-113, rajnagar 2');
-  const [city, setCity] = useState('New Delhi');
-  const [state, setState] = useState('Delhi');
-  const [zipCode, setZipCode] = useState('110077');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zipCode, setZipCode] = useState('');
+  const [country, setCountry] = useState('');
+  const [selectedAddress, setSelectedAddress] = useState<AddressDTO | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const loadDefaultAddress = async () => {
+    try {
+      const list = await addressApi.list();
+      const def = list.find(a => a.isDefault) || null;
+      if (def) {
+        setSelectedAddress(def);
+        setName(def.name || '');
+        setEmail(def.email || '');
+        setPhone(def.phone || '');
+        setAddress(def.addressLine1 || '');
+        setCity(def.city || '');
+        setState(def.state || '');
+        setZipCode(def.zipCode || '');
+        setCountry(def.country || '');
+      }
+    } catch (e) {
+      // Ignore address load errors
+    }
+  };
+
+  useEffect(() => {
+    loadDefaultAddress();
+    const unsubscribe = navigation.addListener('focus', loadDefaultAddress);
+    return unsubscribe;
+  }, [navigation]);
 
   const validateForm = () => {
     if (!name || !email || !phone || !address || !city || !state || !zipCode) {
@@ -193,6 +222,25 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Checkout</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          {selectedAddress ? (
+            <View>
+              <Text style={styles.summaryLabel}>{selectedAddress.name}</Text>
+              <Text style={styles.summaryLabel}>{selectedAddress.phone}</Text>
+              <Text style={styles.summaryLabel}>{selectedAddress.addressLine1}</Text>
+              {selectedAddress.addressLine2 ? <Text style={styles.summaryLabel}>{selectedAddress.addressLine2}</Text> : null}
+              <Text style={styles.summaryLabel}>{selectedAddress.city}, {selectedAddress.state} {selectedAddress.zipCode}</Text>
+              <Text style={styles.summaryLabel}>{selectedAddress.country}</Text>
+            </View>
+          ) : (
+            <Text style={styles.summaryLabel}>No default address set</Text>
+          )}
+          <TouchableOpacity style={[styles.payButton, { marginTop: 12 }]} onPress={() => navigation.navigate('AddressList')}>
+            <Text style={styles.payButtonText}>Change Address</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
