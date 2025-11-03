@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import * as constantsV from '../../constants/constatantsV';
 
 interface ESP8266Config {
   ssid: string;
@@ -22,13 +23,13 @@ interface DeviceStatus {
 
 class ESP8266Service {
 
-  private baseUrl: string = '192.168.4.1';
+  private baseUrl: string = constantsV.BASE_URL;
   private isConnected: boolean = false;
   private deviceName: string = '';
   
   // Store the last known IP of the ESP8266 device
   async setDeviceIP(ip: string): Promise<void> {
-    this.baseUrl = `http://${ip}`;
+    this.baseUrl = `${ip}`;
     await AsyncStorage.setItem('ESP8266_IP', ip);
   }
   
@@ -37,11 +38,8 @@ class ESP8266Service {
     const ip = await AsyncStorage.getItem('ESP8266_IP');
     //const ip = '192.168.4.1';
 
-    if (ip) {
-      this.baseUrl = `http://${ip}`;
-      return ip;
-    }
-    return null;
+  
+    return ip;
   }
 
   // Set device name
@@ -154,15 +152,12 @@ class ESP8266Service {
   // Turn the device on
   async turnOn(): Promise<boolean> {
     try {
-      // if (!this.baseUrl) {
-      //   const ip = await this.getDeviceIP();
-      //   if (!ip) return false;
-      // }
-      
-      // const response = await axios.post(`${this.baseUrl}/power`, { state: 'on' }, { timeout: 5000 });
-      const response = await axios.post(`http://192.168.4.1/switch?state=on`,{ timeout: 5000 });
-
-      return response.status === 200;
+      if (!this.baseUrl) {
+        const ip = await this.getDeviceIP();
+        if (!ip) return false;
+      }
+      const response = await axios.get(`${this.baseUrl}/switch?state=on`, { timeout: 5000 });
+      return response.status === 200 || response.status === 204;
     } catch (error) {
       console.error('Failed to turn on ESP8266:', error);
       return false;
@@ -172,19 +167,52 @@ class ESP8266Service {
   // Turn the device off
   async turnOff(): Promise<boolean> {
     try {
-      // if (!this.baseUrl) {
-      //   const ip = await this.getDeviceIP();
-      //   if (!ip) return false;
-      // }
-        
-      // const response = await axios.post(`${this.baseUrl}/power`, { state: 'off' }, { timeout: 5000 });
-      const response = await axios.post(`${this.baseUrl}/switch?state=off`, { state: 'off' }, { timeout: 5000 });
-
-      return response.status === 200;
+      if (!this.baseUrl) {
+        const ip = await this.getDeviceIP();
+        if (!ip) return false;
+      }
+      const response = await axios.get(`${this.baseUrl}/switch?state=off`, { timeout: 5000 });
+      return response.status === 200 || response.status === 204;
     } catch (error) {
       console.error('Failed to turn off ESP8266:', error);
       return false;
     }
+  }
+
+  // Generic switch API
+  async switchState(state: 'on' | 'off'): Promise<boolean> {
+    try {
+      if (!this.baseUrl) {
+        const ip = await this.getDeviceIP();
+        if (!ip) return false;
+      }
+      const response = await axios.get(`${this.baseUrl}/switch?state=${state}`, { timeout: 5000 });
+      return response.status === 200 || response.status === 204;
+    } catch (error) {
+      console.error(`Failed to switch state to ${state}:`, error);
+      return false;
+    }
+  }
+
+  // Explicit wrappers for requested APIs
+  async status(): Promise<DeviceStatus> {
+    return this.getDeviceStatus();
+  }
+
+  async configure(payload: ESP8266Config): Promise<boolean> {
+    return this.configureWiFi(payload);
+  }
+
+  async reset(): Promise<boolean> {
+    return this.resetDevice();
+  }
+
+  async disable(): Promise<boolean> {
+    return this.disableDevice();
+  }
+
+  async energy(): Promise<{daily: number, weekly: number, monthly: number}> {
+    return this.getEnergyUsage();
   }
 
   // Discover ESP8266 devices on the network

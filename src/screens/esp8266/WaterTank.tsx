@@ -8,6 +8,7 @@ type WaterTankProps = {
 
 const WaterTank = ({ percentage }: WaterTankProps) => {
   const pourAnim = useRef(new Animated.Value(0)).current;
+  const waveAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.loop(
@@ -25,12 +26,35 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
         })
       ])
     ).start();
-  }, [pourAnim]);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(waveAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(waveAnim, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        })
+      ])
+    ).start();
+  }, [pourAnim, waveAnim]);
 
   // Pouring water drop animation
   const dropTranslateY = pourAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 60]
+  });
+
+  const clamped = Math.max(0, Math.min(100, percentage));
+
+  const waveTranslateY = waveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-2, 2]
   });
 
   return (
@@ -54,10 +78,10 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
         </Animated.View>
       </View>
       <View style={styles.tank}>
-        {/* Fill from top downward */}
-        <View style={[styles.water, { height: `${percentage}%`, position: 'absolute', bottom: undefined, top: 0 }]} />
+        {/* Fill from bottom upward (correct direction) */}
+        <Animated.View style={[styles.water, { height: `${clamped}%`, position: 'absolute', bottom: 0, transform: [{ translateY: waveTranslateY }] }]} />
       </View>
-      <Text style={styles.percentageText}>{percentage}%</Text>
+      <Text style={styles.percentageText}>{clamped}%</Text>
     </View>
   );
 };

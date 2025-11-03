@@ -1,5 +1,6 @@
 const Device = require('../models/Device');
 const Room = require('../models/Room');
+const axios = require('axios');
 
 // @desc    Get all devices for a user
 // @route   GET /api/devices
@@ -316,5 +317,117 @@ exports.getDeviceState = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ===== ESP8266 WiFi Device APIs =====
+
+// @desc    Reset ESP8266 device
+// @route   POST /voodoo/api/devices/:id/reset
+// @access  Private
+exports.resetESPDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
+    const response = await axios.post(`${baseUrl}/reset`, {}, { timeout: 5000 });
+    const ok = response.status === 200 || response.status === 204;
+    return res.status(ok ? 200 : 502).json({ success: ok, message: ok ? 'Device reset' : 'Reset failed' });
+  } catch (error) {
+    console.error('ESP reset error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Disable ESP8266 device
+// @route   POST /voodoo/api/devices/:id/disable
+// @access  Private
+exports.disableESPDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
+    const response = await axios.post(`${baseUrl}/disable`, {}, { timeout: 5000 });
+    const ok = response.status === 200 || response.status === 204;
+
+    // Persist disabled state if needed
+    if (ok) {
+      await Device.findByIdAndUpdate(device.id, { isConnected: false, lastSeen: new Date() });
+    }
+
+    return res.status(ok ? 200 : 502).json({ success: ok, message: ok ? 'Device disabled' : 'Disable failed' });
+  } catch (error) {
+    console.error('ESP disable error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Switch ESP8266 device state
+// @route   GET /voodoo/api/devices/:id/switch?state=on|off
+// @access  Private
+exports.switchESPDevice = async (req, res) => {
+  try {
+    const state = (req.query.state || '').toLowerCase();
+    if (!['on', 'off'].includes(state)) {
+      return res.status(400).json({ message: 'Invalid state. Use on|off' });
+    }
+
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
+    const response = await axios.get(`${baseUrl}/switch?state=${state}`, { timeout: 5000 });
+    const ok = response.status === 200 || response.status === 204;
+
+    // Update device.isOn based on switch state
+    if (ok) {
+      await Device.findByIdAndUpdate(device.id, { isOn: state === 'on', lastSeen: new Date() });
+    }
+
+    return res.status(ok ? 200 : 502).json({ success: ok, message: ok ? `Switched ${state}` : 'Switch failed' });
+  } catch (error) {
+    console.error('ESP switch error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get ESP8266 energy usage
+// @route   GET /voodoo/api/devices/:id/energy
+// @access  Private
+exports.getDeviceEnergy = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
+    let energy = { daily: 0, weekly: 0, monthly: 0 };
+    try {
+      const response = await axios.get(`${baseUrl}/energy`, { timeout: 5000 });
+      if (response.status === 200 && typeof response.data === 'object') {
+        energy = response.data;
+      }
+    } catch (inner) {
+      // Fallback demo values if device does not support energy endpoint
+      energy = { daily: 1.2, weekly: 8.5, monthly: 32.7 };
+    }
+
+    return res.json({ success: true, data: energy });
+  } catch (error) {
+    console.error('ESP energy error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

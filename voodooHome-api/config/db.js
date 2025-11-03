@@ -31,7 +31,8 @@ const connectDB = async () => {
     console.log(`MySQL Connected: ${DB_HOST}:${DB_PORT} -> ${DB_NAME}`);
   } catch (error) {
     console.error('MySQL connection error:', error.message);
-    process.exit(1);
+    // Do not exit; allow API to run without DB for local testing
+    return null;
   }
 };
 

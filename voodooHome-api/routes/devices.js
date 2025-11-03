@@ -9,7 +9,11 @@ const {
   checkDeviceStatus,
   configureDeviceWifi,
   controlDevice,
-  getDeviceState
+  getDeviceState,
+  resetESPDevice,
+  disableESPDevice,
+  switchESPDevice,
+  getDeviceEnergy
 } = require('../controllers/deviceController');
 const { protect } = require('../middleware/auth');
 
@@ -26,5 +30,11 @@ router.get('/:id/status', protect, checkDeviceStatus);
 router.post('/:id/configure', protect, configureDeviceWifi);
 router.post('/:id/control', protect, controlDevice);
 router.get('/:id/state', protect, getDeviceState);
+
+// ESP8266 WiFi endpoints
+router.post('/:id/reset', protect, resetESPDevice);
+router.post('/:id/disable', protect, disableESPDevice);
+router.get('/:id/switch', protect, switchESPDevice);
+router.get('/:id/energy', protect, getDeviceEnergy);
 
 module.exports = router;
