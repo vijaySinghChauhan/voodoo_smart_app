@@ -12,9 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import WaterTank from './WaterTank';
-import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
-import constantsV from '../../../voodooHome-api/Static/constants';
+import * as appConstants from '../../constants/constatantsV';
 
 interface DeviceStatus {
   connected: boolean;
@@ -27,11 +26,13 @@ interface DeviceStatus {
   energyUsage?: number;
 }
 
-const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
+const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string } } }> = ({ navigation, route }) => {
   const [deviceName, setDeviceName] = useState('');
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPowerOn, setIsPowerOn] = useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
 
   const fullTankHeight = 150;
   const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
@@ -40,19 +41,33 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   
 
   useEffect(() => {
-    loadDeviceInfo();
-    // Initialize socket for brightness updates
+    // Determine deviceId from route params if available
+    const initialDeviceId = route?.params?.deviceId || null;
+    if (initialDeviceId) {
+      setSelectedDeviceId(initialDeviceId);
+    }
+    loadDeviceInfo(initialDeviceId);
+
+    // Initialize socket for brightness updates using API socket host
     (async () => {
       try {
-        const ip = await esp8266Service.getDeviceIP();
-        if (!ip) return;
-        const socket = io(constantsV.BASE_URL, { transports: ['websocket'], reconnection: true });
+        const socket = io(appConstants.CHAT_BASE_URL, { transports: ['websocket'], reconnection: true });
         setSocketRef(socket);
-        socket.on('connect', () => {
-          socket.emit('brightness:subscribe', { deviceId: 'esp8266', ip });
+        socket.on('connect', async () => {
+          try {
+            const did = initialDeviceId || selectedDeviceId;
+            if (!did) return;
+            const dev = await esp8266Service.getDeviceFromServer(did);
+            const ip = dev?.ipAddress || dev?.ip || null;
+            setSelectedDeviceIp(ip);
+            if (ip) {
+              socket.emit('brightness:subscribe', { deviceId: did, ip });
+            }
+          } catch (e) {
+            console.warn('Failed to subscribe brightness:', e);
+          }
         });
         socket.on('brightness:update', ({ value }) => {
-          // Expect 0-100 numeric
           if (typeof value === 'number') {
             setBrightness(value);
             setWaterLevel(Math.max(0, Math.min(100, value)));
@@ -65,25 +80,54 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         console.warn('Socket init failed:', err);
       }
     })();
+
     return () => {
       if (socketRef) {
-        socketRef.emit('brightness:unsubscribe', { deviceId: 'esp8266' });
+        const did = route?.params?.deviceId || selectedDeviceId || 'unknown';
+        socketRef.emit('brightness:unsubscribe', { deviceId: did });
         socketRef.disconnect();
       }
     };
   }, []);
 
-  const loadDeviceInfo = async () => {
+  const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
     try {
-      const name = await esp8266Service.getDeviceName();
-      if (name) {
-        setDeviceName(name);
+      let useDeviceId = preferredDeviceId || selectedDeviceId;
+      if (!useDeviceId) {
+        // fallback: fetch devices and use the first
+        const devices = await esp8266Service.getDevicesFromServer();
+        if (!devices || devices.length === 0) {
+          Toast.show({ type: 'info', text1: 'No Devices', text2: 'Add a device first', position: 'bottom' });
+          setIsLoading(false);
+          return;
+        }
+        const dev = devices[0];
+        useDeviceId = dev._id || dev.id;
+        setSelectedDeviceId(useDeviceId);
+        setDeviceName(dev.name || 'Device');
+        setSelectedDeviceIp(dev.ipAddress || dev.ip || null);
+      } else {
+        // fetch device info for name and ip
+        const dev = await esp8266Service.getDeviceFromServer(useDeviceId);
+        if (dev) {
+          setDeviceName(dev.name || 'Device');
+          setSelectedDeviceIp(dev.ipAddress || dev.ip || null);
+        }
       }
 
-      const status = await esp8266Service.getDeviceStatus();
-      setDeviceStatus(status);
-      setIsPowerOn(status.powerState === 'on');
+      const serverState = useDeviceId ? await esp8266Service.getDeviceStateFromServer(useDeviceId) : null;
+      if (serverState) {
+        const mapped: DeviceStatus = {
+          connected: !!serverState.isConnected,
+          powerState: serverState.isOn ? 'on' : 'off',
+          lastUpdated: serverState.lastSeen || undefined,
+          energyUsage: undefined,
+        };
+        setDeviceStatus(mapped);
+        setIsPowerOn(serverState.isOn);
+        // Do not set brightness here; rely solely on socket updates
+      }
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -101,29 +145,23 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     
     try {
       const state = value ? 'on' : 'off';
-
-      const response1 = await axios.get(`${constantsV.BASE_URL}/switch?state=${state}`, {
-        timeout: 5000, // 5 second timeout
-      });
-      const response = await axios.get(`${constantsV.BASE_URL}/getdata`, {
-     
-        timeout: 5000, // 5 second timeout
-      });
-      console.log(JSON.stringify(response.data));
-     setWaterLevel( (response.data / fullTankHeight) * 100);
-     
-     const response2 = await axios.get(`${constantsV.BASE_URL}/switch?state=off`, {
-      timeout: 5000, // 5 second timeout
-    });
-      if (response.status === 200) {
+      if (!selectedDeviceId) {
+        throw new Error('No device selected');
+      }
+      const ok = await esp8266Service.controlDeviceOnServer(selectedDeviceId, state);
+      if (ok) {
         Toast.show({
           type: 'success',
           text1: 'Success',
           text2: `Device turned ${state} successfully`,
           position: 'bottom'
         });
-        // Refresh device status
-        loadDeviceInfo();
+        // Refresh device state from server and update UI
+        const serverState = await esp8266Service.getDeviceStateFromServer(selectedDeviceId);
+        if (serverState) {
+          setIsPowerOn(!!serverState.isOn);
+          // Keep brightness coming from socket updates only
+        }
       } else {
         throw new Error('Invalid response from device');
       }
@@ -139,15 +177,18 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       console.error('Device control error:', error);
     }
   };
-  const handleGetData = async () => {
-
-    const response = await axios.get(`${constantsV.BASE_URL}/getData`, {
-     
-      timeout: 5000, // 5 second timeout
-    });
-
-    if (response.status === 200) {
-    //  waterLevel = response.data;
+  const handleRefresh = async () => {
+    try {
+      await loadDeviceInfo(selectedDeviceId);
+      Toast.show({ type: 'success', text1: 'Refreshed', text2: 'Device state updated', position: 'bottom' });
+      // Re-subscribe brightness if we have ip and socket
+      if (socketRef && selectedDeviceId && selectedDeviceIp) {
+        socketRef.emit('brightness:unsubscribe', { deviceId: selectedDeviceId });
+        socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId, ip: selectedDeviceIp });
+      }
+    } catch (e) {
+      console.warn('Refresh failed:', e);
+      Toast.show({ type: 'error', text1: 'Refresh Failed', text2: 'Could not refresh device', position: 'bottom' });
     }
   }
   const handleReset = async () => {
@@ -228,6 +269,9 @@ const DeviceControlScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? '#4CAF50' : '#ff6b6b' }]} />
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
           </View>
+          <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 8 }}>
+            <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
+          </TouchableOpacity>
         </View>
         <WaterTank percentage={waterLevel} />
         <View style={{ marginTop: 10 }}>

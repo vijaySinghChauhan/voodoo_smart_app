@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 interface Room {
   id: string;
@@ -19,7 +20,19 @@ interface Room {
   deviceCount: number;
 }
 
-const RoomsScreen = ({ navigation }) => {
+type RoomsStackParamList = {
+  RoomsList: undefined;
+  RoomDetail: { roomId: string };
+  AddEditRoom: { room?: any };
+};
+
+type RoomsScreenNavigationProp = StackNavigationProp<RoomsStackParamList, 'RoomsList'>;
+
+interface RoomsScreenProps {
+  navigation: RoomsScreenNavigationProp;
+}
+
+const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [roomName, setRoomName] = useState('');
@@ -184,6 +197,61 @@ const RoomsScreen = ({ navigation }) => {
     </TouchableOpacity>
   )
 
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={{ fontSize: 22, fontWeight: '700' }}>Rooms</Text>
+        <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={openAddModal}>
+          <Text style={styles.actionButtonText}>Add Room</Text>
+        </TouchableOpacity>
+      </View>
+
+      {rooms.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#777' }}>No rooms found</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={rooms}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderRoomItem}
+          contentContainerStyle={{ paddingVertical: 8 }}
+        />
+      )}
+
+      <Modal
+        visible={isModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modal}>
+          <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, width: '85%' }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
+              {editingRoom ? 'Edit Room' : 'Add Room'}
+            </Text>
+            <TextInput
+              placeholder="Room name"
+              value={roomName}
+              onChangeText={setRoomName}
+              style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10 }}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#9E9E9E', marginRight: 8 }]}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Text style={styles.actionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={handleSaveRoom}>
+                <Text style={styles.actionButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
 };
 export default RoomsScreen;
 

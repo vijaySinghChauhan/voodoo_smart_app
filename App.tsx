@@ -19,6 +19,7 @@ import ProfileScreen from './src/screens/auth/ProfileScreen';
 import WiFiConfigScreen from './src/screens/WiFiConfigScreen';
 import DeviceDiscoveryScreen from './src/screens/esp8266/DeviceDiscoveryScreen';
 import DeviceControlScreen from './src/screens/esp8266/DeviceControlScreen';
+import DevicesListScreen from './src/screens/esp8266/DevicesListScreen';
 
 // Chat Screen
 import ChatScreen from './src/screens/chat/ChatScreen';
@@ -27,6 +28,7 @@ import ChatScreen from './src/screens/chat/ChatScreen';
 import RoomsScreen from './src/screens/rooms/RoomsScreen';
 import RoomDetailScreen from './src/screens/rooms/RoomDetailScreen';
 import AddEditRoomScreen from './src/screens/rooms/AddEditRoomScreen';
+import AddDeviceToRoomScreen from './src/screens/rooms/AddDeviceToRoomScreen';
 
 // E-commerce Screens
 import ProductListScreen from './src/screens/ecommerce/ProductListScreen';
@@ -77,6 +79,7 @@ const RoomsStack = () => (
     <Stack.Screen name="AddEditRoom" component={AddEditRoomScreen} options={({ route }) => ({ 
       title: (route.params as { room?: any })?.room ? 'Edit Room' : 'Add Room'
     })} />
+    <Stack.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
   </Stack.Navigator>
 );
 
@@ -93,8 +96,9 @@ const EcommerceStack = () => (
 );
 
 const ESP8266Stack = () => (
-  <Stack.Navigator>
-    <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ headerShown: false }} />
+  <Stack.Navigator initialRouteName="DevicesList">
+    <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices' }} />
+    <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ title: 'Discover Devices' }} />
     <Stack.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
     <Stack.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
   </Stack.Navigator>
@@ -103,8 +107,6 @@ const ESP8266Stack = () => (
 const AppDrawer = () => (
   <Drawer.Navigator initialRouteName="Dashboard">
     <Drawer.Screen name="Dashboard" component={DashboardScreen} />
-    <Drawer.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ headerShown: true }} />
-    <Drawer.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
     <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
     <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
     <Drawer.Screen name="Rooms" component={RoomsStack} />

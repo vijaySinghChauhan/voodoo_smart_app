@@ -23,13 +23,17 @@ interface DeviceStatus {
 
 class ESP8266Service {
 
-  private baseUrl: string = constantsV.BASE_URL;
+  // Separate bases for server API and device HTTP
+  private apiBaseUrl: string = constantsV.BASE_URL;
+  private deviceHttpBaseUrl: string | null = null;
   private isConnected: boolean = false;
   private deviceName: string = '';
   
   // Store the last known IP of the ESP8266 device
   async setDeviceIP(ip: string): Promise<void> {
-    this.baseUrl = `${ip}`;
+    // Ensure protocol for device direct calls
+    const withProto = ip.startsWith('http') ? ip : `http://${ip}`;
+    this.deviceHttpBaseUrl = withProto;
     await AsyncStorage.setItem('ESP8266_IP', ip);
   }
   
@@ -61,13 +65,14 @@ class ESP8266Service {
   // Check if the ESP8266 is reachable
   async checkConnection(): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
       
       // Increase timeout from 5000 to 10000 (10 seconds)
-      const response = await axios.get(`${this.baseUrl}/status`, { timeout: 10000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/status`, { timeout: 10000 });
       this.isConnected = response.status === 200;
       return this.isConnected;
     } catch (error) {
@@ -81,7 +86,7 @@ class ESP8266Service {
   async configureWiFi(config: ESP8266Config): Promise<boolean> {
     try {
  
-      if (!this.baseUrl && !config.deviceIP) {
+      if (!this.deviceHttpBaseUrl && !config.deviceIP) {
         throw new Error('Device IP not set');
       }
       
@@ -89,7 +94,7 @@ class ESP8266Service {
         await this.setDeviceIP(config.deviceIP);
       }
       
-      const response = await axios.post(`${this.baseUrl}/configure`, {
+      const response = await axios.post(`${this.deviceHttpBaseUrl}/configure`, {
         ssid: config.ssid,
         password: config.password
       }, { timeout: 30000 }); // Increased timeout to 30 seconds
@@ -104,12 +109,13 @@ class ESP8266Service {
   // Reset the ESP8266 device
   async resetDevice(): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
       
-      const response = await axios.post(`${this.baseUrl}/reset`, {}, { timeout: 5000 });
+      const response = await axios.post(`${this.deviceHttpBaseUrl}/reset`, {}, { timeout: 5000 });
       return response.status === 200;
     } catch (error) {
       console.error('Failed to reset ESP8266:', error);
@@ -120,12 +126,13 @@ class ESP8266Service {
   // Get the status of the ESP8266
   async getDeviceStatus(): Promise<DeviceStatus> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) throw new Error('Device IP not set');
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
       
-      const response = await axios.get(`${this.baseUrl}/status`, { timeout: 5000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/status`, { timeout: 5000 });
       return response.data;
     } catch (error) {
       console.error('Failed to get ESP8266 status:', error);
@@ -136,12 +143,13 @@ class ESP8266Service {
   // Disable the ESP8266 device
   async disableDevice(): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
       
-      const response = await axios.post(`${this.baseUrl}/disable`, {}, { timeout: 5000 });
+      const response = await axios.post(`${this.deviceHttpBaseUrl}/disable`, {}, { timeout: 5000 });
       return response.status === 200;
     } catch (error) {
       console.error('Failed to disable ESP8266:', error);
@@ -152,11 +160,12 @@ class ESP8266Service {
   // Turn the device on
   async turnOn(): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
-      const response = await axios.get(`${this.baseUrl}/switch?state=on`, { timeout: 5000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=on`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
     } catch (error) {
       console.error('Failed to turn on ESP8266:', error);
@@ -167,11 +176,12 @@ class ESP8266Service {
   // Turn the device off
   async turnOff(): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
-      const response = await axios.get(`${this.baseUrl}/switch?state=off`, { timeout: 5000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=off`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
     } catch (error) {
       console.error('Failed to turn off ESP8266:', error);
@@ -182,11 +192,12 @@ class ESP8266Service {
   // Generic switch API
   async switchState(state: 'on' | 'off'): Promise<boolean> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
-      const response = await axios.get(`${this.baseUrl}/switch?state=${state}`, { timeout: 5000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=${state}`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
     } catch (error) {
       console.error(`Failed to switch state to ${state}:`, error);
@@ -232,12 +243,13 @@ class ESP8266Service {
   // Get energy usage data
   async getEnergyUsage(): Promise<{daily: number, weekly: number, monthly: number}> {
     try {
-      if (!this.baseUrl) {
+      if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) throw new Error('Device IP not set');
+        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
       }
       
-      const response = await axios.get(`${this.baseUrl}/energy`, { timeout: 5000 });
+      const response = await axios.get(`${this.deviceHttpBaseUrl}/energy`, { timeout: 5000 });
       return response.data;
     } catch (error) {
       console.error('Failed to get energy usage data:', error);
@@ -254,16 +266,14 @@ class ESP8266Service {
   async getAllDevices(): Promise<Array<{
     id: string;
     name: string;
-    type: string;
-    status: 'on' | 'off';
-    roomId: string | null;
+    deviceType?: string;
+    isOn?: boolean;
+    room?: string | null;
   }>> {
     try {
-      // In a real implementation, you would fetch this data from your backend or local storage
-      // For demo purposes, we'll return mock data
-      return [
-        { id: '1', name: 'Living Room Light', type: 'Light', status: 'on', roomId: 'room1' },
-    ];
+      // Fetch devices from backend API
+      const devices = await this.getDevicesFromServer();
+      return devices;
     } catch (error) {
       console.error('Failed to get all devices:', error);
       return [];
@@ -274,13 +284,13 @@ class ESP8266Service {
   async getUnassignedDevices(): Promise<Array<{
     id: string;
     name: string;
-    type: string;
-    status: 'on' | 'off';
-    roomId: string | null;
+    deviceType?: string;
+    isOn?: boolean;
+    room?: string | null;
   }>> {
     try {
-      const allDevices = await this.getAllDevices();
-      return allDevices.filter(device => device.roomId === null);
+      const allDevices = await this.getDevicesFromServer();
+      return allDevices.filter((device: any) => !device.room);
     } catch (error) {
       console.error('Failed to get unassigned devices:', error);
       return [];
@@ -296,6 +306,104 @@ class ESP8266Service {
       return true;
     } catch (error) {
       console.error(`Failed to set device ${deviceId} power state:`, error);
+      return false;
+    }
+  }
+
+  // ===== Backend API helpers =====
+  async getDevicesFromServer(): Promise<any[]> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.get(`${this.apiBaseUrl}/devices`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Failed to get devices from server:', error);
+      return [];
+    }
+  }
+
+  async getDeviceStateFromServer(deviceId: string): Promise<any | null> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.get(`${this.apiBaseUrl}/devices/${deviceId}/state`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.data?.data || null;
+    } catch (error) {
+      console.error('Failed to get device state from server:', error);
+      return null;
+    }
+  }
+
+  async controlDeviceOnServer(deviceId: string, action: 'on' | 'off' | 'toggle', brightness?: number): Promise<boolean> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.post(`${this.apiBaseUrl}/devices/${deviceId}/control`, {
+        action,
+        brightness,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to control device on server:', error);
+      return false;
+    }
+  }
+
+  async getDeviceFromServer(deviceId: string): Promise<any | null> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.get(`${this.apiBaseUrl}/devices/${deviceId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.data?.data || null;
+    } catch (error) {
+      console.error('Failed to get device from server:', error);
+      return null;
+    }
+  }
+
+  async getDevicesByRoom(roomId: string): Promise<any[]> {
+    try {
+      const devices = await this.getDevicesFromServer();
+      return devices.filter((d: any) => String(d.room) === String(roomId));
+    } catch (error) {
+      console.error('Failed to get devices by room from server:', error);
+      return [];
+    }
+  }
+
+  async assignDeviceToRoom(deviceId: string, roomId: string): Promise<boolean> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.put(`${this.apiBaseUrl}/devices/${deviceId}`, { room: roomId }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to assign device to room:', error);
+      return false;
+    }
+  }
+
+  async unassignDeviceFromRoom(deviceId: string): Promise<boolean> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.put(`${this.apiBaseUrl}/devices/${deviceId}`, { room: null }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to unassign device from room:', error);
       return false;
     }
   }

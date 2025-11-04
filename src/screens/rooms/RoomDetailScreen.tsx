@@ -10,39 +10,79 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 
 interface Device {
   id: string;
   name: string;
-  type: string;
-  status: 'on' | 'off';
-  roomId: string | null;
+  deviceType?: string;
+  isOn?: boolean;
+  brightness?: number;
+  ipAddress?: string | null;
+  room?: string | null;
 }
 
-interface Room {
+// Local room model used in this screen (matches server payload without devices array)
+interface RoomDetailModel {
   id: string;
   name: string;
-  devices: Device[];
+  deviceCount?: number;
+  type?: string;
+  user?: any;
+  createdAt?: string;
 }
 
-const RoomDetailScreen = ({ route, navigation }) => {
+type RoomsStackParamList = {
+  RoomsList: undefined;
+  RoomDetail: { roomId: string };
+  AddEditRoom: { room?: any } | undefined;
+  AddDeviceToRoom: { roomId: string };
+};
+
+type RoomDetailRouteProp = RouteProp<RoomsStackParamList, 'RoomDetail'>;
+type RoomDetailNavigationProp = StackNavigationProp<RoomsStackParamList, 'RoomDetail'>;
+
+interface RoomDetailScreenProps {
+  route: RoomDetailRouteProp;
+  navigation: RoomDetailNavigationProp;
+}
+
+const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }) => {
   const { roomId } = route.params;
-  const [room, setRoom] = useState<Room | null>(null);
+  const [room, setRoom] = useState<RoomDetailModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
+  const [roomDevices, setRoomDevices] = useState<Device[]>([]);
 
   useEffect(() => {
     loadRoomDetails();
-    loadAvailableDevices();
-  }, []);
+    loadRoomDevices();
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Refresh when coming back from add device screen
+      loadRoomDevices();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadRoomDetails = async () => {
     setIsLoading(true);
     try {
       const roomData = await roomService.getRoomById(roomId);
-      setRoom(roomData);
+      if (roomData) {
+        // Map server room response to local model to avoid type mismatches
+        setRoom({
+          id: (roomData as any).id,
+          name: (roomData as any).name,
+          deviceCount: (roomData as any).deviceCount,
+          type: (roomData as any).type,
+          user: (roomData as any).user,
+          createdAt: (roomData as any).createdAt,
+        });
+      } else {
+        setRoom(null);
+      }
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -55,35 +95,31 @@ const RoomDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const loadAvailableDevices = async () => {
+  const loadRoomDevices = async () => {
     try {
-      const devices = await esp8266Service.getUnassignedDevices();
-      setAvailableDevices(devices);
+      const devices = await esp8266Service.getDevicesByRoom(roomId);
+      setRoomDevices(devices);
     } catch (error) {
-      console.error('Failed to load available devices:', error);
+      console.error('Failed to load room devices:', error);
+      setRoomDevices([]);
     }
   };
 
   const handleAddDevice = () => {
-    if (availableDevices.length === 0) {
-      Alert.alert('No Devices Available', 'There are no unassigned devices available to add to this room.');
-      return;
-    }
-
-    navigation.navigate('DeviceDiscovery', { roomId });
+    navigation.navigate('AddDeviceToRoom', { roomId });
   };
 
   const handleRemoveDevice = async (deviceId: string) => {
     try {
-      await roomService.removeDeviceFromRoom(roomId, deviceId);
+      const ok = await esp8266Service.unassignDeviceFromRoom(deviceId);
+      if (!ok) throw new Error('Unassign failed');
       Toast.show({
         type: 'success',
         text1: 'Success',
         text2: 'Device removed from room',
         position: 'bottom'
       });
-      loadRoomDetails();
-      loadAvailableDevices();
+      loadRoomDevices();
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -96,16 +132,15 @@ const RoomDetailScreen = ({ route, navigation }) => {
 
   const toggleDeviceStatus = async (device: Device) => {
     try {
-      const newStatus = device.status === 'on' ? 'off' : 'on';
-      await esp8266Service.setDevicePowerState(device.id, newStatus);
+      const newStatus: 'on' | 'off' = device.isOn ? 'off' : 'on';
+      const ok = await esp8266Service.controlDeviceOnServer(device.id, newStatus);
+      if (!ok) throw new Error('Control failed');
       
       // Update local state
-      if (room) {
-        const updatedDevices = room.devices.map(d => 
-          d.id === device.id ? { ...d, status: newStatus } : d
-        );
-        setRoom({ ...room, devices: updatedDevices });
-      }
+      const updatedDevices = roomDevices.map(d => 
+        d.id === device.id ? { ...d, isOn: newStatus === 'on' } : d
+      );
+      setRoomDevices(updatedDevices);
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -120,11 +155,11 @@ const RoomDetailScreen = ({ route, navigation }) => {
     <View style={styles.deviceItem}>
       <View style={styles.deviceInfo}>
         <Text style={styles.deviceName}>{item.name}</Text>
-        <Text style={styles.deviceType}>{item.type}</Text>
+        <Text style={styles.deviceType}>{item.deviceType || 'Device'}</Text>
       </View>
       <View style={styles.deviceControls}>
         <Switch
-          value={item.status === 'on'}
+          value={!!item.isOn}
           onValueChange={() => toggleDeviceStatus(item)}
         />
         <TouchableOpacity
@@ -167,11 +202,11 @@ const RoomDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {room?.devices && room.devices.length > 0 ? (
+        {roomDevices && roomDevices.length > 0 ? (
           <FlatList
-            data={room.devices}
+            data={roomDevices}
             renderItem={renderDeviceItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
           />
         ) : (
           <View style={styles.emptyContainer}>
