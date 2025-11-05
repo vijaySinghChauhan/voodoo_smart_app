@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import esp8266Service from '../../services/esp8266/esp8266Service';
+import roomService from '../../services/rooms/roomService';
 
 interface Device {
   id: string;
@@ -21,7 +21,8 @@ const AddDeviceToRoomScreen = ({ route, navigation }: any) => {
   const loadUnassignedDevices = async () => {
     setLoading(true);
     try {
-      const list = await esp8266Service.getUnassignedDevices();
+      // Reuse device service to fetch unassigned, or call backend and filter
+      const list = await (await import('../../services/esp8266/esp8266Service')).default.getUnassignedDevices();
       setDevices(list as any);
     } catch (err) {
       Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to load devices', position: 'bottom' });
@@ -37,7 +38,7 @@ const AddDeviceToRoomScreen = ({ route, navigation }: any) => {
 
   const handleAssign = async (deviceId: string) => {
     try {
-      const ok = await esp8266Service.assignDeviceToRoom(deviceId, roomId);
+      const ok = await roomService.addDeviceToRoom(roomId, { id: deviceId } as any);
       if (!ok) throw new Error('Assign failed');
       Toast.show({ type: 'success', text1: 'Device Added', text2: 'Assigned to room', position: 'bottom' });
       navigation.goBack();

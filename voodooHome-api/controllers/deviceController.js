@@ -435,3 +435,37 @@ exports.getDeviceEnergy = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+// @desc    Get device brightness (0-100)
+// @route   GET /voodoo/api/devices/:id/brightness
+// @access  Private
+exports.getDeviceBrightness = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this device' });
+    }
+
+    const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
+    let brightness = typeof device.brightness === 'number' ? device.brightness : 100;
+    try {
+      const response = await axios.get(`${baseUrl}/getdata`, { timeout: 5000 });
+      let value = response.data;
+      if (typeof value === 'string') {
+        const num = parseFloat(value);
+        if (!isNaN(num)) value = num;
+      }
+      if (typeof value === 'number') {
+        brightness = Math.max(0, Math.min(100, value));
+      }
+    } catch (inner) {
+      // keep existing brightness from DB as fallback
+    }
+
+    return res.json({ success: true, data: { brightness } });
+  } catch (error) {
+    console.error('ESP brightness error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};

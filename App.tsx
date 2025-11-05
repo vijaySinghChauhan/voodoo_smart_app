@@ -84,7 +84,7 @@ const RoomsStack = () => (
 );
 
 const EcommerceStack = () => (
-  <Stack.Navigator>
+  <Stack.Navigator initialRouteName="ProductList">
     <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
     <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />

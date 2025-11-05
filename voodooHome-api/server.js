@@ -5,6 +5,8 @@ const { initSqlSchema } = require('./models/sqlInit');
 const errorHandler = require('./middleware/errorHandler');
 const socketio = require('socket.io');
 const http = require('http');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('./Static/constants');
 const axios = require('axios');
 
 // Load environment variables
@@ -24,7 +26,9 @@ const io = socketio(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  // Align with frontend CHAT_BASE_URL "https://<host>/voodoo" so client hits /voodoo/socket.io
+  path: '/voodoo/socket.io'
 });
 
 // Body parser
@@ -48,6 +52,24 @@ app.use('/voodoo/api/phonepe', require('./routes/phonepe'));
 // Error handler middleware
 app.use(errorHandler);
 
+// Authenticate socket connections using JWT from handshake
+io.use((socket, next) => {
+  try {
+    const bearer = socket.handshake.headers && socket.handshake.headers['authorization'];
+    const tokenFromHeader = bearer && bearer.startsWith('Bearer ') ? bearer.substring(7) : undefined;
+    const token = socket.handshake.auth && socket.handshake.auth.token ? socket.handshake.auth.token : tokenFromHeader;
+    if (!token) {
+      return next(new Error('Unauthorized'));
+    }
+    const secret = process.env.JWT_SECRET || JWT_SECRET || 'fallback_secret';
+    const payload = jwt.verify(token, secret);
+    socket.user = { id: payload.id };
+    return next();
+  } catch (err) {
+    return next(new Error('Unauthorized'));
+  }
+});
+
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log('New client connected');
@@ -60,7 +82,13 @@ io.on('connection', (socket) => {
   });
   
   socket.on('sendMessage', ({ room, message }) => {
-    io.to(room).emit('message', message);
+    // Optionally enrich with server-side timestamp/user id
+    const enriched = {
+      ...message,
+      timestamp: message.timestamp || new Date(),
+      senderId: socket.user?.id
+    };
+    io.to(room).emit('message', enriched);
   });
 
   // Brightness subscription: client provides deviceId and ip (SoftAP or LAN)

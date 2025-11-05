@@ -339,6 +339,21 @@ class ESP8266Service {
     }
   }
 
+  async getDeviceBrightnessFromServer(deviceId: string): Promise<number | null> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.get(`${this.apiBaseUrl}/devices/${deviceId}/brightness`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      const data = response.data?.data;
+      return typeof data?.brightness === 'number' ? data.brightness : null;
+    } catch (error) {
+      console.error('Failed to get device brightness from server:', error);
+      return null;
+    }
+  }
+
   async controlDeviceOnServer(deviceId: string, action: 'on' | 'off' | 'toggle', brightness?: number): Promise<boolean> {
     try {
       const token = await AsyncStorage.getItem('auth_token');

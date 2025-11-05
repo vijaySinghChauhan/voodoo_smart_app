@@ -34,6 +34,7 @@ const ChatScreen = () => {
     // Connect to Socket.io server
     socketRef.current = io(constantsV.CHAT_BASE_URL, {
       transports: ['websocket'],
+      path: '/voodoo/socket.io',
       auth: {
         token: user?.token || '',
       },

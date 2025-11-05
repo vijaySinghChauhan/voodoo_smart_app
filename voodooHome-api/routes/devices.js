@@ -15,6 +15,7 @@ const {
   switchESPDevice,
   getDeviceEnergy
 } = require('../controllers/deviceController');
+const { getDeviceBrightness } = require('../controllers/deviceController');
 const { protect } = require('../middleware/auth');
 
 router.route('/')
@@ -36,5 +37,6 @@ router.post('/:id/reset', protect, resetESPDevice);
 router.post('/:id/disable', protect, disableESPDevice);
 router.get('/:id/switch', protect, switchESPDevice);
 router.get('/:id/energy', protect, getDeviceEnergy);
+router.get('/:id/brightness', protect, getDeviceBrightness);
 
 module.exports = router;

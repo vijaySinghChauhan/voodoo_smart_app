@@ -62,6 +62,133 @@ exports.getRoom = async (req, res) => {
   }
 };
 
+// @desc    List devices for a room
+// @route   GET /api/rooms/:id/devices
+// @access  Private
+exports.getRoomDevices = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+    if (String(room.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to access this room' });
+    }
+    const devices = await Device.find({ user: req.user.id, room: room.id });
+    res.json({ success: true, count: devices.length, data: devices });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Add (assign or create) device to a room
+// @route   POST /api/rooms/:id/devices
+// @access  Private
+exports.addDeviceToRoom = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+    if (String(room.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to modify this room' });
+    }
+
+    const { deviceId } = req.body;
+    let device;
+    if (deviceId) {
+      device = await Device.findById(deviceId);
+      if (!device) {
+        return res.status(404).json({ message: 'Device not found' });
+      }
+      if (String(device.user) !== String(req.user.id)) {
+        return res.status(401).json({ message: 'Not authorized to use this device' });
+      }
+      device = await Device.findByIdAndUpdate(device.id, { room: room.id });
+    } else {
+      // Create a new device and assign to room
+      const payload = {
+        user: req.user.id,
+        room: room.id,
+        name: req.body.name,
+        deviceType: req.body.deviceType,
+        macAddress: req.body.macAddress,
+        ipAddress: req.body.ipAddress,
+        ssid: req.body.ssid,
+        isConnected: !!req.body.isConnected,
+        isOn: !!req.body.isOn,
+        brightness: typeof req.body.brightness === 'number' ? req.body.brightness : 100,
+        firmwareVersion: req.body.firmwareVersion,
+      };
+      device = await Device.create(payload);
+    }
+
+    res.status(201).json({ success: true, data: device });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Remove device from a room (unassign)
+// @route   DELETE /api/rooms/:id/devices/:deviceId
+// @access  Private
+exports.removeDeviceFromRoom = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+    if (String(room.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to modify this room' });
+    }
+
+    const device = await Device.findById(req.params.deviceId);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to use this device' });
+    }
+    await Device.findByIdAndUpdate(device.id, { room: null });
+    res.json({ success: true, data: {} });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update device status within a room
+// @route   PATCH /api/rooms/:id/devices/:deviceId/status
+// @access  Private
+exports.updateRoomDeviceStatus = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+    if (String(room.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to modify this room' });
+    }
+    const { status } = req.body;
+    if (!status || !['on', 'off'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+    const device = await Device.findById(req.params.deviceId);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+    if (String(device.user) !== String(req.user.id)) {
+      return res.status(401).json({ message: 'Not authorized to use this device' });
+    }
+    const updated = await Device.findByIdAndUpdate(device.id, { isOn: status === 'on' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 // @desc    Create new room
 // @route   POST /api/rooms
 // @access  Private

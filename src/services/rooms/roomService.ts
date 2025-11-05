@@ -109,7 +109,16 @@ class RoomService {
   async addDeviceToRoom(roomId: string, device: Device): Promise<boolean> {
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await axios.post(`${this.baseUrl}/${roomId}/devices`, device, {
+      // If device has only id, send as deviceId to assign; otherwise create with provided details
+      const payload: any = device?.id && (!device.name || !device.type)
+        ? { deviceId: device.id }
+        : {
+            deviceId: device.id, // allow backend to prefer id if provided
+            name: device.name,
+            deviceType: (device as any).type,
+            isOn: device.status === 'on',
+          };
+      await axios.post(`${this.baseUrl}/${roomId}/devices`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return true;
