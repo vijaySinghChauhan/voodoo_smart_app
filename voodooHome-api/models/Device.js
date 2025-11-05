@@ -18,6 +18,11 @@ class Device {
     this.createdAt = row.created_at;
   }
 
+  static async findByMacAddress(mac){
+    const [rows] = await pool.query('SELECT * FROM devices WHERE mac_address=? LIMIT 1',[mac]);
+    return rows[0]? new Device(rows[0]) : null;
+  }
+
   static async find(filter={}){
     const where=[]; const params=[];
     if (filter.user){ where.push('user_id=?'); params.push(filter.user); }
@@ -50,6 +55,7 @@ class Device {
       is_on: typeof data.isOn==='boolean' ? (data.isOn?1:0) : undefined,
       brightness: data.brightness,
       firmware_version: data.firmwareVersion,
+      user_id: data.user,
       room_id: data.room,
       last_seen: data.lastSeen
     };

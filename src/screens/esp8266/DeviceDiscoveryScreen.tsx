@@ -66,7 +66,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           text2: `Connected to ${device.name}`,
           position: 'bottom'
         });
-        navigation.navigate('DeviceControl');
+        navigation.navigate('DeviceControl', { fromDiscovery: true });
       } else {
         Toast.show({
           type: 'error',
@@ -118,7 +118,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           text2: `Connected to ${deviceName}`,
           position: 'bottom'
         });
-        navigation.navigate('DeviceControl');
+        navigation.navigate('DeviceControl', { fromDiscovery: true });
       } else {
         Toast.show({
           type: 'error',

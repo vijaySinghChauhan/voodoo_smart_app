@@ -21,7 +21,7 @@ async function initSqlSchema() {
     )`,
     `CREATE TABLE IF NOT EXISTS devices (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
+      user_id INT NULL,
       room_id INT NULL,
       name VARCHAR(100) NOT NULL,
       device_type VARCHAR(50) NOT NULL,
@@ -111,6 +111,12 @@ async function initSqlSchema() {
 
   for (const sql of queries) {
     await pool.query(sql);
+  }
+  // Attempt to relax existing schema if already created with NOT NULL
+  try {
+    await pool.query('ALTER TABLE devices MODIFY COLUMN user_id INT NULL');
+  } catch (e) {
+    // ignore if already NULL or lacks permissions
   }
   console.log('✅ SQL tables initialized');
 }

@@ -152,7 +152,20 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
   };
 
   const renderDeviceItem = ({ item }: { item: Device }) => (
-    <View style={styles.deviceItem}>
+    <TouchableOpacity
+      style={styles.deviceItem}
+      onPress={() => {
+        // Navigate to Devices stack control screen
+        const parent = navigation.getParent?.();
+        if (parent) {
+          parent.navigate('Devices', { screen: 'DeviceControl', params: { deviceId: item.id } });
+        } else {
+          // Fallback if parent not available
+          // @ts-ignore
+          navigation.navigate('Devices', { screen: 'DeviceControl', params: { deviceId: item.id } });
+        }
+      }}
+    >
       <View style={styles.deviceInfo}>
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceType}>{item.deviceType || 'Device'}</Text>
@@ -169,7 +182,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
           <Text style={styles.removeButtonText}>Remove</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (isLoading) {

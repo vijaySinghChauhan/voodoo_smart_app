@@ -28,7 +28,7 @@ interface DeviceStatus {
   energyUsage?: number;
 }
 
-const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string } } }> = ({ navigation, route }) => {
+const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string, fromDiscovery?: boolean } } }> = ({ navigation, route }) => {
   const [deviceName, setDeviceName] = useState('');
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,10 +46,18 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   useEffect(() => {
     // Determine deviceId from route params if available
     const initialDeviceId = route?.params?.deviceId || null;
+    const fromDiscovery = !!route?.params?.fromDiscovery;
     if (initialDeviceId) {
       setSelectedDeviceId(initialDeviceId);
+      loadDeviceInfo(initialDeviceId);
+    } else if (fromDiscovery) {
+      // Allow discovery flow to proceed without deviceId (IP-based control)
+      loadDeviceInfo(null);
+    } else {
+      // No deviceId and not from discovery: redirect to list first
+      navigation.navigate('DevicesList');
+      return;
     }
-    loadDeviceInfo(initialDeviceId);
 
     // Initialize socket for brightness updates using API socket host
     (async () => {
@@ -78,7 +86,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             setSelectedDeviceIp(ip);
             // Force DB-based updates by not passing IP (avoids device polling timeouts on server)
             socket.emit('brightness:subscribe', { deviceId: did });
-            Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to brightness updates for ${did}`, position: 'bottom' });
+            Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to Data updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
           }
@@ -89,7 +97,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         socket.on('brightness:update', ({ value }) => {
           if (typeof value === 'number') {
             setBrightness(value);
-            Toast.show({ type: 'info', text1: 'Brightness Update', text2: `Received: ${value}`, position: 'bottom' });
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${value}`, position: 'bottom' });
             setWaterLevel(Math.max(0, Math.min(100, value)));
           }
         });
@@ -117,26 +125,18 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
     setIsLoading(true);
     try {
       let useDeviceId = preferredDeviceId || selectedDeviceId;
-      if (!useDeviceId) {
-        // fallback: fetch devices and use the first
-        const devices = await esp8266Service.getDevicesFromServer();
-        if (!devices || devices.length === 0) {
-          Toast.show({ type: 'info', text1: 'No Devices', text2: 'Add a device first', position: 'bottom' });
-          setIsLoading(false);
-          return;
-        }
-        const dev = devices[0];
-        useDeviceId = dev._id || dev.id;
-        setSelectedDeviceId(useDeviceId);
-        setDeviceName(dev.name || 'Device');
-        setSelectedDeviceIp(dev.ipAddress || dev.ip || null);
-      } else {
+      let devDetail: any | null = null;
+      if (useDeviceId) {
         // fetch device info for name and ip
         const dev = await esp8266Service.getDeviceFromServer(useDeviceId);
-        if (dev) {
-          setDeviceName(dev.name || 'Device');
-          setSelectedDeviceIp(dev.ipAddress || dev.ip || null);
+        devDetail = dev || null;
+        if (devDetail) {
+          setDeviceName(devDetail.name || 'Device');
+          setSelectedDeviceIp(devDetail.ipAddress || devDetail.ip || null);
         }
+      } else {
+        // No deviceId context: keep minimal UI; details may be IP-based
+        devDetail = null;
       }
 
       const serverState = useDeviceId ? await esp8266Service.getDeviceStateFromServer(useDeviceId) : null;
@@ -146,6 +146,11 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           powerState: serverState.isOn ? 'on' : 'off',
           lastUpdated: serverState.lastSeen || undefined,
           energyUsage: undefined,
+          // Prefer device detail fields, fallback to server state
+          ip: (devDetail?.ipAddress || devDetail?.ip || serverState.ipAddress) || undefined,
+          macAddress: (devDetail?.macAddress || serverState.macAddress) || undefined,
+          ssid: (devDetail?.ssid || serverState.ssid) || undefined,
+          firmwareVersion: (devDetail?.firmwareVersion || serverState.firmwareVersion) || undefined,
         };
         setDeviceStatus(mapped);
         setIsPowerOn(serverState.isOn);
@@ -303,7 +308,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         </View>
         <WaterTank percentage={waterLevel} />
         <View style={{ marginTop: 10 }}>
-          <Text style={{ color: '#666' }}>Brightness: {brightness ?? '—'}%</Text>
+          <Text style={{ color: '#666' }}>Data: {brightness ?? '—'}%</Text>
         </View>
         <View style={styles.controlSection}>
           <Text style={styles.sectionTitle}>Power Control</Text>

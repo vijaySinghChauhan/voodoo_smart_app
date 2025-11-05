@@ -187,10 +187,12 @@ exports.checkDeviceStatus = async (req, res) => {
         isConnected: device.isConnected,
         lastSeen: device.lastSeen,
         ipAddress: device.ipAddress,
-        room: device.room_id,
+        macAddress: device.macAddress,
+        ssid: device.ssid,
+        firmwareVersion: device.firmwareVersion,
+        room: device.room,
         isOn: device.isOn,
-        brightness: device.brightness,
-        
+        brightness: device.brightness
       }
     });
   } catch (error) {
@@ -338,9 +340,86 @@ exports.getDeviceState = async (req, res) => {
         isOn: device.isOn,
         brightness: device.brightness,
         isConnected: device.isConnected,
-        lastSeen: device.lastSeen
+        lastSeen: device.lastSeen,
+        ipAddress: device.ipAddress,
+        macAddress: device.macAddress,
+        ssid: device.ssid,
+        firmwareVersion: device.firmwareVersion
       }
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Public registration endpoint for ESP modules (no auth)
+// @route   POST /voodoo/api/devices/register-esp
+// @access  Public
+exports.registerESPDevicePublic = async (req, res) => {
+  try {
+    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, isOn, brightness } = req.body || {};
+    if (!macAddress) {
+      return res.status(400).json({ message: 'macAddress is required' });
+    }
+
+    const existing = await Device.findByMacAddress(macAddress);
+    if (existing) {
+      const updated = await Device.findByIdAndUpdate(existing.id, {
+        name: name !== undefined ? name : existing.name,
+        deviceType: deviceType !== undefined ? deviceType : existing.deviceType,
+        ipAddress: ipAddress !== undefined ? ipAddress : existing.ipAddress,
+        ssid: ssid !== undefined ? ssid : existing.ssid,
+        isConnected: true,
+        isOn: typeof isOn === 'boolean' ? isOn : existing.isOn,
+        brightness: typeof brightness === 'number' ? brightness : existing.brightness,
+        firmwareVersion: firmwareVersion !== undefined ? firmwareVersion : existing.firmwareVersion,
+        lastSeen: new Date()
+      });
+      return res.json({ success: true, data: updated, updated: true });
+    }
+
+    const created = await Device.create({
+      user: null,
+      room: null,
+      name: name || 'ESP8266 Device',
+      deviceType: deviceType || 'ESP8266',
+      macAddress,
+      ipAddress: ipAddress || null,
+      ssid: ssid || null,
+      isConnected: true,
+      isOn: typeof isOn === 'boolean' ? isOn : false,
+      brightness: typeof brightness === 'number' ? brightness : 100,
+      firmwareVersion: firmwareVersion || null,
+      lastSeen: new Date()
+    });
+    return res.status(201).json({ success: true, data: created, created: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Claim an unassigned device to current user
+// @route   PATCH /voodoo/api/devices/:id/claim
+// @access  Private
+exports.claimDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
+    if (device.user && String(device.user) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Device is owned by another user' });
+    }
+    const { name, room, deviceType } = req.body || {};
+    const updated = await Device.findByIdAndUpdate(device.id, {
+      user: req.user.id,
+      name: name !== undefined ? name : device.name,
+      deviceType: deviceType !== undefined ? deviceType : device.deviceType,
+      room: room !== undefined ? room : device.room
+    });
+    return res.json({ success: true, data: updated });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
