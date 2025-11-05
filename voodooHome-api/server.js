@@ -60,7 +60,9 @@ io.use((socket, next) => {
   try {
     const bearer = socket.handshake.headers && socket.handshake.headers['authorization'];
     const tokenFromHeader = bearer && bearer.startsWith('Bearer ') ? bearer.substring(7) : undefined;
-    const token = socket.handshake.auth && socket.handshake.auth.token ? socket.handshake.auth.token : tokenFromHeader;
+    const tokenFromAuth = socket.handshake.auth && socket.handshake.auth.token ? socket.handshake.auth.token : undefined;
+    const tokenFromQuery = socket.handshake.query && socket.handshake.query.token ? socket.handshake.query.token : undefined;
+    const token = tokenFromAuth || tokenFromHeader || tokenFromQuery;
     if (!token) {
       return next(new Error('Unauthorized'));
     }

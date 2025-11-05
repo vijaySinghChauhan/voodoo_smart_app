@@ -56,13 +56,16 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       try {
         const token = (await authService.getToken()) || '';
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: ['websocket', 'polling'],
+          transports: ['polling'],
+          upgrade: false,
           path: '/voodoo/socket.io',
           reconnection: true,
-          timeout: 10000,
+          timeout: 15000,
+          forceNew: true,
           reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
+          reconnectionDelay: 1200,
           auth: { token },
+          query: { token },
           extraHeaders: { Authorization: `Bearer ${token}` },
         });
         setSocketRef(socket);
@@ -73,8 +76,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             const dev = await esp8266Service.getDeviceFromServer(did);
             const ip = dev?.ipAddress || dev?.ip || null;
             setSelectedDeviceIp(ip);
-            // Subscribe even if IP is missing; server will provide DB-based updates
-            socket.emit('brightness:subscribe', { deviceId: did, ip });
+            // Force DB-based updates by not passing IP (avoids device polling timeouts on server)
+            socket.emit('brightness:subscribe', { deviceId: did });
             Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to brightness updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
@@ -91,7 +94,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           }
         });
         socket.on('brightness:error', ({ error }) => {
-          console.warn('Brightness socket error:', error);
+          // Suppress noisy device polling timeouts and missing IP warnings
+          const msg = String(error || '');
+          if (/timeout/i.test(msg) || /Missing device IP/i.test(msg)) return;
+          console.warn('Brightness socket error:', msg);
         });
       } catch (err) {
         console.warn('Socket init failed:', err);
