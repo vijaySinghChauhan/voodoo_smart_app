@@ -130,6 +130,19 @@ class AuthService {
   isAuthenticated(): boolean {
     return !!this.token;
   }
+
+  // Expose current JWT for non-HTTP clients (e.g., Socket.IO)
+  async getToken(): Promise<string | null> {
+    if (this.token) return this.token;
+    try {
+      const t = await AsyncStorage.getItem('auth_token');
+      this.token = t;
+      return t;
+    } catch (err) {
+      console.error('Failed to read auth token:', err);
+      return null;
+    }
+  }
 }
 
 export default new AuthService();

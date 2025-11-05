@@ -15,6 +15,7 @@ import WaterTank from './WaterTank';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../../context/AuthContext';
 import * as appConstants from '../../constants/constatantsV';
+import authService from '../../services/auth/authService';
 
 interface DeviceStatus {
   connected: boolean;
@@ -53,11 +54,16 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
     // Initialize socket for brightness updates using API socket host
     (async () => {
       try {
+        const token = (await authService.getToken()) || '';
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: ['websocket'],
+          transports: ['websocket', 'polling'],
           path: '/voodoo/socket.io',
           reconnection: true,
-          auth: { token: user?.token || '' },
+          timeout: 10000,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          auth: { token },
+          extraHeaders: { Authorization: `Bearer ${token}` },
         });
         setSocketRef(socket);
         socket.on('connect', async () => {
@@ -67,10 +73,9 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             const dev = await esp8266Service.getDeviceFromServer(did);
             const ip = dev?.ipAddress || dev?.ip || null;
             setSelectedDeviceIp(ip);
-            if (ip) {
-              socket.emit('brightness:subscribe', { deviceId: did, ip });
-              Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to brightness updates for ${did}`, position: 'bottom' });
-            }
+            // Subscribe even if IP is missing; server will provide DB-based updates
+            socket.emit('brightness:subscribe', { deviceId: did, ip });
+            Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to brightness updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
           }
@@ -81,6 +86,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         socket.on('brightness:update', ({ value }) => {
           if (typeof value === 'number') {
             setBrightness(value);
+            Toast.show({ type: 'info', text1: 'Brightness Update', text2: `Received: ${value}`, position: 'bottom' });
             setWaterLevel(Math.max(0, Math.min(100, value)));
           }
         });

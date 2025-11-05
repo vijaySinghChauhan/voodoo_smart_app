@@ -108,12 +108,25 @@ exports.updateDevice = async (req, res) => {
       }
     }
 
+    const prevBrightness = device && typeof device.brightness === 'number' ? device.brightness : undefined;
     device = await Device.findByIdAndUpdate(req.params.id, req.body);
 
     res.json({
       success: true,
       data: device
     });
+
+    // Emit brightness change to socket clients if updated via PUT
+    try {
+      const io = req.app && req.app.get && req.app.get('io');
+      const changed = req.body && req.body.brightness !== undefined && req.body.brightness !== prevBrightness;
+      if (io && changed) {
+        const idForRoom = device._id || device.id;
+        io.to(`device:${idForRoom}`).emit('brightness:update', { deviceId: idForRoom, value: device.brightness });
+      }
+    } catch (e) {
+      // ignore socket errors
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -285,6 +298,16 @@ exports.controlDevice = async (req, res) => {
         lastSeen: updated.lastSeen
       }
     });
+    // Emit brightness change to socket clients if brightness was included
+    try {
+      const io = req.app && req.app.get && req.app.get('io');
+      const idForRoom = updated._id || updated.id;
+      if (io && req.body && req.body.brightness !== undefined) {
+        io.to(`device:${idForRoom}`).emit('brightness:update', { deviceId: idForRoom, value: updated.brightness });
+      }
+    } catch (e) {
+      // ignore socket errors
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

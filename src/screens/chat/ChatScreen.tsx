@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import * as constantsV from '../../constants/constatantsV';
+import authService from '../../services/auth/authService';
 
 type Message = {
   id: string;
@@ -31,28 +32,27 @@ const ChatScreen = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Connect to Socket.io server
-    socketRef.current = io(constantsV.CHAT_BASE_URL, {
-      transports: ['websocket'],
-      path: '/voodoo/socket.io',
-      auth: {
-        token: user?.token || '',
-      },
-    });
-    //     socketRef.current = io('http://localhost:3001', {
-    //   transports: ['websocket'],
-    //   auth: {
-    //     token: user?.token || '',
-    //   },
-    // });
+    (async () => {
+      // Connect to Socket.io server with JWT from storage
+      const token = (await authService.getToken()) || '';
+      socketRef.current = io(constantsV.CHAT_BASE_URL, {
+        transports: ['websocket', 'polling'],
+        path: '/voodoo/socket.io',
+        timeout: 10000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        auth: { token },
+        extraHeaders: { Authorization: `Bearer ${token}` },
+      });
 
-    // Join room
-    socketRef.current.emit('joinRoom', room);
+      // Join room
+      socketRef.current.emit('joinRoom', room);
 
-    // Listen for messages
-    socketRef.current.on('message', (msg) => {
-      setMessages(prev => [...prev, msg]);
-    });
+      // Listen for messages
+      socketRef.current.on('message', (msg) => {
+        setMessages(prev => [...prev, msg]);
+      });
+    })();
 
     return () => {
       // Clean up on unmount
@@ -60,7 +60,7 @@ const ChatScreen = () => {
         socketRef.current.disconnect();
       }
     };
-  }, [room, user?.token]);
+  }, [room]);
 
   const handleSend = () => {
     if (message.trim() && socketRef.current) {

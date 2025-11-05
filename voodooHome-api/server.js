@@ -8,6 +8,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('./Static/constants');
 const axios = require('axios');
+const Device = require('./models/Device');
 
 // Load environment variables
 require('dotenv').config();
@@ -30,6 +31,8 @@ const io = socketio(server, {
   // Align with frontend CHAT_BASE_URL "https://<host>/voodoo" so client hits /voodoo/socket.io
   path: '/voodoo/socket.io'
 });
+// Expose io to controllers via Express app
+app.set('io', io);
 
 // Body parser
 app.use(express.json());
@@ -75,6 +78,7 @@ io.on('connection', (socket) => {
   console.log('New client connected');
   // Track polling timers per socket
   const timers = new Map();
+  const lastValues = new Map();
   
   socket.on('joinRoom', (room) => {
     socket.join(room);
@@ -95,7 +99,7 @@ io.on('connection', (socket) => {
   socket.on('brightness:subscribe', ({ deviceId, ip }) => {
     if (!ip) {
       socket.emit('brightness:error', { deviceId, error: 'Missing device IP' });
-      return;
+      // Continue with DB-based updates even without device IP
     }
     // Clear any existing timer for this deviceId on this socket
     const key = `b:${deviceId}`;
@@ -103,27 +107,58 @@ io.on('connection', (socket) => {
       clearInterval(timers.get(key));
       timers.delete(key);
     }
-    // Poll device every 2s for brightness-like data (e.g., /getdata)
-    const baseUrl = `http://${ip}`;
-    const interval = setInterval(async () => {
+    // Join device-specific room
+    socket.join(`device:${deviceId}`);
+    // If IP is provided, poll device for brightness
+    if (ip) {
+      const baseUrl = `http://${ip}`;
+      const interval = setInterval(async () => {
+        try {
+          const resp = await axios.get(`${baseUrl}/getdata`, { timeout: 4000 });
+          let value = resp.data;
+          // Normalize numeric brightness 0-100
+          if (typeof value === 'string') {
+            const num = parseFloat(value);
+            if (!isNaN(num)) value = num;
+          }
+          if (typeof value === 'number') {
+            value = Math.max(0, Math.min(100, value));
+          }
+          const last = lastValues.get(key);
+          if (last !== value) {
+            lastValues.set(key, value);
+            io.to(`device:${deviceId}`).emit('brightness:update', { deviceId, value });
+          }
+        } catch (err) {
+          socket.emit('brightness:error', { deviceId, error: err.message });
+        }
+      }, 2000);
+      timers.set(key, interval);
+    }
+    socket.emit('brightness:subscribed', { deviceId });
+
+    // Poll DB for changes to brightness and broadcast updates
+    const dbKey = `bd:${deviceId}`;
+    if (timers.has(dbKey)) {
+      clearInterval(timers.get(dbKey));
+      timers.delete(dbKey);
+    }
+    const dbInterval = setInterval(async () => {
       try {
-        const resp = await axios.get(`${baseUrl}/getdata`, { timeout: 4000 });
-        let value = resp.data;
-        // Normalize numeric brightness 0-100
-        if (typeof value === 'string') {
-          const num = parseFloat(value);
-          if (!isNaN(num)) value = num;
+        const dev = await Device.findById(deviceId);
+        if (dev && typeof dev.brightness === 'number') {
+          const dbValue = Math.max(0, Math.min(100, dev.brightness));
+          const lastDb = lastValues.get(dbKey);
+          if (lastDb !== dbValue) {
+            lastValues.set(dbKey, dbValue);
+            io.to(`device:${deviceId}`).emit('brightness:update', { deviceId, value: dbValue });
+          }
         }
-        if (typeof value === 'number') {
-          value = Math.max(0, Math.min(100, value));
-        }
-        socket.emit('brightness:update', { deviceId, value });
-      } catch (err) {
-        socket.emit('brightness:error', { deviceId, error: err.message });
+      } catch (e) {
+        // ignore
       }
     }, 2000);
-    timers.set(key, interval);
-    socket.emit('brightness:subscribed', { deviceId });
+    timers.set(dbKey, dbInterval);
   });
 
   socket.on('brightness:unsubscribe', ({ deviceId }) => {
@@ -132,6 +167,11 @@ io.on('connection', (socket) => {
       clearInterval(timers.get(key));
       timers.delete(key);
       socket.emit('brightness:unsubscribed', { deviceId });
+    }
+    const dbKey = `bd:${deviceId}`;
+    if (timers.has(dbKey)) {
+      clearInterval(timers.get(dbKey));
+      timers.delete(dbKey);
     }
   });
   
