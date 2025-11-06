@@ -11,14 +11,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../services/esp8266/esp8266Service';
+import { NetworkInfo } from 'react-native-network-info';
 
 const WiFiConfigScreen: React.FC = () => {
   const [ssid, setSSID] = useState('Airtel_vija_6651');
   const [password, setPassword] = useState('air00336');
-  const [deviceIP, setDeviceIP] = useState('192.168.4.1');
+  const [deviceIP, setDeviceIP] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
+// Get local IP address
+NetworkInfo.getIPV4Address().then(ipAddress => {
+  console.log('📡 Device IP Address:', ipAddress);
+  setDeviceIP(ipAddress || '');
+});
+
+// Get WiFi SSID
+NetworkInfo.getSSID().then(ssid => {
+  console.log('📶 Connected SSID:', ssid);
+});
+
 
   useEffect(() => {
     checkConnectionStatus();

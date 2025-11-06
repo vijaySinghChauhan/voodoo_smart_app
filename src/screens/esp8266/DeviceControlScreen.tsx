@@ -52,7 +52,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
     })();
     const val = typeof b === 'number' ? b : 0;
     const pct = Math.round(Math.max(0, Math.min(100, (val / t) * 100)));
-    return pct;
+    const pctRemaining = 100-pct;
+    return pctRemaining;
   };
   
 
