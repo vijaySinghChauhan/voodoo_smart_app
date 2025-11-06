@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import authService from '../auth/authService';
 import * as constantsV from '../../constants/constatantsV';
 
 interface ESP8266Config {
@@ -356,17 +357,21 @@ class ESP8266Service {
 
   async controlDeviceOnServer(deviceId: string, action: 'on' | 'off' | 'toggle', brightness?: number): Promise<boolean> {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const response = await axios.post(`${this.apiBaseUrl}/devices/${deviceId}/control`, {
-        action,
-        brightness,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      const token = (await authService.getToken()) || (await AsyncStorage.getItem('auth_token')) || undefined;
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const payload: any = { action };
+      if (typeof brightness === 'number' && isFinite(brightness)) {
+        payload.brightness = Math.max(0, Math.min(100, brightness));
+      }
+      const url = `${this.apiBaseUrl}/devices/${deviceId}/control`;
+      const response = await axios.post(url, payload, {
+        headers,
         timeout: 10000,
       });
       return response.status === 200;
-    } catch (error) {
-      console.error('Failed to control device on server:', error);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || String(error);
+      console.error('Failed to control device on server:', msg);
       return false;
     }
   }

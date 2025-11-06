@@ -44,6 +44,17 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
   const { user } = useAuth();
   
+  // Helper: map raw brightness to water tank percent using target as 100%
+  const brightnessToPercent = (b?: number | null, targetStr?: string) => {
+    const t = (() => {
+      const n = Number((targetStr || '').trim());
+      return !isNaN(n) && isFinite(n) && n > 0 ? n : 100;
+    })();
+    const val = typeof b === 'number' ? b : 0;
+    const pct = Math.round(Math.max(0, Math.min(100, (val / t) * 100)));
+    return pct;
+  };
+  
 
   useEffect(() => {
     // Determine deviceId from route params if available
@@ -66,14 +77,15 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       try {
         const token = (await authService.getToken()) || '';
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: ['polling'],
-          upgrade: false,
+          transports: ['websocket', 'polling'],
+          upgrade: true,
           path: '/voodoo/socket.io',
           reconnection: true,
           timeout: 15000,
           forceNew: true,
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 999999, // keep trying forever
           reconnectionDelay: 1200,
+          reconnectionDelayMax: 5000,
           auth: { token },
           query: { token },
           extraHeaders: { Authorization: `Bearer ${token}` },
@@ -86,8 +98,12 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             const dev = await esp8266Service.getDeviceFromServer(did);
             const ip = dev?.ipAddress || dev?.ip || null;
             setSelectedDeviceIp(ip);
-            // Force DB-based updates by not passing IP (avoids device polling timeouts on server)
-            socket.emit('brightness:subscribe', { deviceId: did });
+            // Subscribe to brightness updates; include IP when available to enable device polling
+            if (ip) {
+              socket.emit('brightness:subscribe', { deviceId: did, ip });
+            } else {
+              socket.emit('brightness:subscribe', { deviceId: did });
+            }
             Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to Data updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
@@ -96,11 +112,29 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         socket.on('connect_error', (err) => {
           console.warn('Socket connect error:', err?.message || err);
         });
-        socket.on('brightness:update', ({ value }) => {
-          if (typeof value === 'number') {
-            setBrightness(value);
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${value}`, position: 'bottom' });
-            setWaterLevel(Math.max(0, Math.min(100, value)));
+        socket.on('reconnect', () => {
+          try {
+            const did = route?.params?.deviceId || selectedDeviceId;
+            if (!did) return;
+            if (selectedDeviceIp) {
+              socket.emit('brightness:subscribe', { deviceId: did, ip: selectedDeviceIp });
+            } else {
+              socket.emit('brightness:subscribe', { deviceId: did });
+            }
+          } catch (e) {}
+        });
+        socket.on('brightness:update', (payload) => {
+          const raw =
+            typeof payload?.brightness === 'number'
+              ? payload.brightness
+              : typeof payload?.value === 'number'
+              ? payload.value
+              : Number(payload);
+          if (!Number.isNaN(raw)) {
+            setBrightness(raw);
+            const pct = brightnessToPercent(raw, targetValue);
+            setWaterLevel(pct);
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${pct}%`, position: 'bottom' });
           }
         });
         socket.on('brightness:error', ({ error }) => {
@@ -122,6 +156,22 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       }
     };
   }, []);
+
+  // Re-subscribe brightness updates when IP becomes available or changes
+  useEffect(() => {
+    if (socketRef && selectedDeviceId) {
+      try {
+        socketRef.emit('brightness:unsubscribe', { deviceId: selectedDeviceId });
+        if (selectedDeviceIp) {
+          socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId, ip: selectedDeviceIp });
+        } else {
+          socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId });
+        }
+      } catch (e) {
+        console.warn('Failed to resubscribe brightness on IP change:', e);
+      }
+    }
+  }, [selectedDeviceIp, selectedDeviceId, socketRef]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
@@ -163,7 +213,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         const b = await esp8266Service.getDeviceBrightnessFromServer(useDeviceId!);
         if (typeof b === 'number') {
           setBrightness(b);
-          setWaterLevel(Math.max(0, Math.min(100, b)));
+          setWaterLevel(brightnessToPercent(b, targetValue));
         }
       }
     } catch (error) {
@@ -192,6 +242,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: parsed });
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
+        // Recalculate local tank percent immediately using current brightness
+        setWaterLevel(brightnessToPercent(brightness, targetValue));
         await loadDeviceInfo(selectedDeviceId);
       } else {
         Toast.show({ type: 'error', text1: 'Save Failed', text2: 'Could not update target', position: 'bottom' });
