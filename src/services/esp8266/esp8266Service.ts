@@ -426,14 +426,31 @@ class ESP8266Service {
 
   async updateDeviceOnServer(deviceId: string, payload: Record<string, any>): Promise<boolean> {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
+      if (!deviceId) {
+        console.error('Failed to update device on server: missing deviceId');
+        return false;
+      }
+      const token = await authService.getToken();
+      if (!token) {
+        console.error('Failed to update device on server: missing auth token');
+        return false;
+      }
       const response = await axios.put(`${this.apiBaseUrl}/devices/${deviceId}`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
       });
-      return response.status === 200;
-    } catch (error) {
-      console.error('Failed to update device on server:', error);
+      return response.status >= 200 && response.status < 300;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      const message = typeof data?.message === 'string' ? data.message : undefined;
+      console.error(
+        `Failed to update device on server: ${status || 'network/error'}${message ? ` - ${message}` : ''}`,
+        data || error
+      );
       return false;
     }
   }

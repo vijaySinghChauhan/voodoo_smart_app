@@ -42,6 +42,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(undefined);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
+  const [device2On, setDevice2On] = useState<boolean>(false);
+  const [device3On, setDevice3On] = useState<boolean>(false);
+  const [device4On, setDevice4On] = useState<boolean>(false);
+  const [device5On, setDevice5On] = useState<boolean>(false);
   const { user } = useAuth();
   
   // Helper: map raw brightness to water tank percent using target as 100%
@@ -189,6 +193,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           if (devDetail.target !== undefined && devDetail.target !== null) {
             setTargetValue(String(devDetail.target));
           }
+          setDevice2On(!!devDetail.device2);
+          setDevice3On(!!devDetail.device3);
+          setDevice4On(!!devDetail.device4);
+          setDevice5On(!!devDetail.device5);
         }
       } else {
         // No deviceId context: keep minimal UI; details may be IP-based
@@ -226,6 +234,17 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const toggleDeviceField = async (field: 'device2'|'device3'|'device4'|'device5', value: boolean) => {
+    try {
+      if (!selectedDeviceId) throw new Error('No device selected');
+      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { [field]: value ? 1 : 0 });
+      if (!ok) throw new Error('Update failed');
+      Toast.show({ type: 'success', text1: 'Updated', text2: `${field} ${value ? 'ON' : 'OFF'}`, position: 'bottom' });
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Error', text2: `Failed to update ${field}`, position: 'bottom' });
     }
   };
 
@@ -400,6 +419,46 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
               onValueChange={handlePowerToggle}
               trackColor={{ false: '#767577', true: '#4CAF50' }}
               thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.controlSection, { marginTop: 10 }] }>
+          <Text style={styles.sectionTitle}>GPIO Controls</Text>
+          <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>Device2</Text>
+            <Switch
+              value={device2On}
+              onValueChange={(val) => { setDevice2On(val); toggleDeviceField('device2', val); }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device2On ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+          <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>Device3</Text>
+            <Switch
+              value={device3On}
+              onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device3On ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+          <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>Device4</Text>
+            <Switch
+              value={device4On}
+              onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device4On ? '#fff' : '#f4f3f4'}
+            />
+          </View>
+          <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>Device5</Text>
+            <Switch
+              value={device5On}
+              onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device5On ? '#fff' : '#f4f3f4'}
             />
           </View>
         </View>

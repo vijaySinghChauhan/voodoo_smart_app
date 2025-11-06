@@ -265,11 +265,11 @@ void sendDataToServer(float brightnessValue) {
         bool isOn = doc["data"]["isOn"];
         const char* firmware = doc["data"]["firmwareVersion"];
         const char* ssidResp = doc["data"]["ssid"];
-        int device1 = doc["data"]["device1"];
-        int device2 = doc["data"]["device2"];
-        int device3 = doc["data"]["device3"];
-        int device4 = doc["data"]["device4"];
-        int device5 = doc["data"]["device5"];
+        bool device1 = doc["data"]["device1"];
+        bool device2 = doc["data"]["device2"];
+        bool device3 = doc["data"]["device3"];
+        bool device4 = doc["data"]["device4"];
+        bool device5 = doc["data"]["device5"];
         // Print extracted values
         Serial.println("----- Parsed Values -----");
         Serial.print("Success: "); Serial.println(success);
@@ -283,6 +283,11 @@ void sendDataToServer(float brightnessValue) {
         Serial.print("Target: "); Serial.println(target);
         Serial.print("Is On: "); Serial.println(isOn ? "true" : "false");
         Serial.print("Firmware: "); Serial.println(firmware);
+         Serial.print("Device1: "); Serial.println(device1);
+         Serial.print("Device2: "); Serial.println(device2);
+         Serial.print("Device3: "); Serial.println(device3);
+         Serial.print("Device4: "); Serial.println(device4);
+         Serial.print("Device5: "); Serial.println(device5);
         Serial.println("--------------------------");
 
         // ✅ You can now store or use them in logic:
@@ -298,10 +303,46 @@ void sendDataToServer(float brightnessValue) {
         if(device2==1)
         {
           digitalWrite(Device2, HIGH);
+                     Serial.println("Lock swithed on");
+
         } else {
           digitalWrite(Device2, LOW);
+                     Serial.println("Lock swithed off");
+
+        }
+         if(device3==1)
+        {
+          digitalWrite(Device3, HIGH);
+                     Serial.println("device3 swithed on");
+
+        } else {
+          digitalWrite(Device3, LOW);
+                     Serial.println("device3 swithed off");
+
+        }
+        
+         if(device4==1)
+        {
+          digitalWrite(Device4, HIGH);
+                     Serial.println("device4 swithed on");
+
+        } else {
+          digitalWrite(Device4, LOW);
+                     Serial.println("device4 swithed off");
+
+        }
+        if(device5==1)
+        {
+          digitalWrite(Device5, HIGH);
+                     Serial.println("device5 swithed on");
+
+        } else {
+          digitalWrite(Device5, LOW);
+                     Serial.println("device5 swithed off");
+
         }
       }
+       
   
     } else {
       Serial.printf("❌ POST failed, error: %s\n", https.errorToString(httpCode).c_str());
