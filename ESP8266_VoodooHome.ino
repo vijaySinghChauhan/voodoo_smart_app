@@ -84,7 +84,7 @@ void loop() {
 
   if (millis() - lastMeasurement > SAMPLE_INTERVAL) {
     float distance = getDistance();
-    if (distance > 2 && distance < 2000) {
+    if (distance > 0 && distance < 9999) {
       lastDistance = distance;
       Serial.printf("📏 Distance: %.2f cm\n", distance);
 

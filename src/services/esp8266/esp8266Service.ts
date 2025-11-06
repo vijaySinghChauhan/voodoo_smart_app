@@ -86,19 +86,29 @@ class ESP8266Service {
   // Configure WiFi on the ESP8266
   async configureWiFi(config: ESP8266Config): Promise<boolean> {
     try {
- 
-      if (!this.deviceHttpBaseUrl && !config.deviceIP) {
-        throw new Error('Device IP not set');
-      }
-      
+      // Prefer provided device IP; otherwise keep existing base or default to SoftAP
       if (config.deviceIP) {
         await this.setDeviceIP(config.deviceIP);
       }
       
-      const response = await axios.post(`${this.deviceHttpBaseUrl}/configure`, {
+      // Default to ESP SoftAP when no explicit IP provided
+      if (!this.deviceHttpBaseUrl) {
+        this.deviceHttpBaseUrl = 'http://'+ config.deviceIP;
+      }
+
+      // ESP8266 sketch expects POST /connect with form fields: ssid and pass
+      const formBody = new URLSearchParams({
         ssid: config.ssid,
-        password: config.password
-      }, { timeout: 30000 }); // Increased timeout to 30 seconds
+        pass: config.password
+      }).toString();
+      const response = await axios.post(
+        `${this.deviceHttpBaseUrl}/connect`,
+        formBody,
+        {
+          timeout: 30000,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        }
+      );
       
       return response.status === 200;
     } catch (error) {
