@@ -11,6 +11,12 @@ class Device {
     this.isConnected = !!row.is_connected;
     this.isOn = !!row.is_on;
     this.brightness = row.brightness;
+    this.target = row.target;
+    this.device1 = row.device1;
+    this.device2 = row.device2;
+    this.device3 = row.device3;
+    this.device4 = row.device4;
+    this.device5 = row.device5;
     this.firmwareVersion = row.firmware_version;
     this.lastSeen = row.last_seen;
     this.room = row.room_id;
@@ -38,8 +44,26 @@ class Device {
 
   static async create(data){
     const [res] = await pool.query(
-      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [data.user, data.room || null, data.name, data.deviceType, data.macAddress, data.ipAddress || null, data.ssid || null, data.isConnected?1:0, data.isOn?1:0, data.brightness || 100, data.firmwareVersion || null]
+      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,target,device1,device2,device3,device4,device5,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [
+        data.user,
+        data.room || null,
+        data.name,
+        data.deviceType,
+        data.macAddress,
+        data.ipAddress || null,
+        data.ssid || null,
+        data.isConnected?1:0,
+        data.isOn?1:0,
+        data.brightness || 100,
+        data.target ?? null,
+        data.device1 ?? null,
+        data.device2 ?? null,
+        data.device3 ?? null,
+        data.device4 ?? null,
+        data.device5 ?? null,
+        data.firmwareVersion || null
+      ]
     );
     return await Device.findById(res.insertId);
   }
@@ -54,6 +78,12 @@ class Device {
       is_connected: typeof data.isConnected==='boolean' ? (data.isConnected?1:0) : undefined,
       is_on: typeof data.isOn==='boolean' ? (data.isOn?1:0) : undefined,
       brightness: data.brightness,
+      target: data.target,
+      device1: data.device1,
+      device2: data.device2,
+      device3: data.device3,
+      device4: data.device4,
+      device5: data.device5,
       firmware_version: data.firmwareVersion,
       user_id: data.user,
       room_id: data.room,

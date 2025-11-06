@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Switch,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -35,6 +36,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
+  const [targetValue, setTargetValue] = useState<string>('');
 
   const fullTankHeight = 150;
   const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
@@ -133,6 +135,9 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         if (devDetail) {
           setDeviceName(devDetail.name || 'Device');
           setSelectedDeviceIp(devDetail.ipAddress || devDetail.ip || null);
+          if (devDetail.target !== undefined && devDetail.target !== null) {
+            setTargetValue(String(devDetail.target));
+          }
         }
       } else {
         // No deviceId context: keep minimal UI; details may be IP-based
@@ -170,6 +175,29 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveTarget = async () => {
+    try {
+      if (!selectedDeviceId) {
+        Toast.show({ type: 'error', text1: 'No Device', text2: 'Select a device first', position: 'bottom' });
+        return;
+      }
+      const parsed = targetValue.trim() === '' ? null : Number(targetValue);
+      if (parsed !== null && (isNaN(parsed) || !isFinite(parsed))) {
+        Toast.show({ type: 'error', text1: 'Invalid Value', text2: 'Enter a numeric target', position: 'bottom' });
+        return;
+      }
+      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: parsed });
+      if (ok) {
+        Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
+        await loadDeviceInfo(selectedDeviceId);
+      } else {
+        Toast.show({ type: 'error', text1: 'Save Failed', text2: 'Could not update target', position: 'bottom' });
+      }
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to save target', position: 'bottom' });
     }
   };
 
@@ -354,6 +382,28 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Energy Usage</Text>
             <Text style={styles.infoValue}>{deviceStatus?.energyUsage ? `${deviceStatus.energyUsage} kWh` : 'Unknown'}</Text>
+          </View>
+
+          <View style={{ marginTop: 15 }}>
+            <Text style={styles.sectionTitle}>Target Depth (100%)</Text>
+            <TextInput
+              style={{
+                backgroundColor: '#fff',
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                color: '#333'
+              }}
+              keyboardType="numeric"
+              placeholder="Enter target depth"
+              value={targetValue}
+              onChangeText={setTargetValue}
+            />
+            <TouchableOpacity style={styles.configButton} onPress={handleSaveTarget}>
+              <Text style={styles.buttonText}>Save Target</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

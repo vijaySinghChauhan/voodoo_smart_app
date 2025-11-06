@@ -31,6 +31,12 @@ async function initSqlSchema() {
       is_connected TINYINT(1) DEFAULT 0,
       is_on TINYINT(1) DEFAULT 0,
       brightness INT DEFAULT 100,
+      target INT NULL,
+      device1 INT NULL,
+      device2 INT NULL,
+      device3 INT NULL,
+      device4 INT NULL,
+      device5 INT NULL,
       firmware_version VARCHAR(50),
       last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -117,6 +123,18 @@ async function initSqlSchema() {
     await pool.query('ALTER TABLE devices MODIFY COLUMN user_id INT NULL');
   } catch (e) {
     // ignore if already NULL or lacks permissions
+  }
+  // Attempt to add calibration/target columns if missing
+  const alterStatements = [
+    'ALTER TABLE devices ADD COLUMN target INT NULL',
+    'ALTER TABLE devices ADD COLUMN device1 INT NULL',
+    'ALTER TABLE devices ADD COLUMN device2 INT NULL',
+    'ALTER TABLE devices ADD COLUMN device3 INT NULL',
+    'ALTER TABLE devices ADD COLUMN device4 INT NULL',
+    'ALTER TABLE devices ADD COLUMN device5 INT NULL',
+  ];
+  for (const stmt of alterStatements) {
+    try { await pool.query(stmt); } catch (e) { /* ignore if column exists */ }
   }
   console.log('✅ SQL tables initialized');
 }

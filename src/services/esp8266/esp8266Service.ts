@@ -409,6 +409,20 @@ class ESP8266Service {
     }
   }
 
+  async updateDeviceOnServer(deviceId: string, payload: Record<string, any>): Promise<boolean> {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await axios.put(`${this.apiBaseUrl}/devices/${deviceId}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to update device on server:', error);
+      return false;
+    }
+  }
+
   async unassignDeviceFromRoom(deviceId: string): Promise<boolean> {
     try {
       const token = await AsyncStorage.getItem('auth_token');

@@ -1,334 +1,236 @@
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
-#include <ArduinoJson.h>
-#include <EEPROM.h>
+#include <WiFiClientSecure.h> // HTTPS support
 
-// Configuration
-const char* AP_SSID = "VoodooTech_Setup";
-const char* AP_PASSWORD = "voodootech123";
-const char* API_BASE_URL = "http://your-nodejs-api.com/api";
+// ------------------ Configuration ------------------
+ESP8266WebServer server(80);
 
-// EEPROM addresses
-const int SSID_ADDR = 0;
-const int PASS_ADDR = 50;
-const int EEPROM_SIZE = 100;
+const char* AP_SSID = "VoodooSmart1";
+const char* AP_PASS = "";
 
-// Global variables
-String wifiSSID = "";
-String wifiPassword = "";
-String deviceId = "";
-String apiToken = "";
-bool isConnected = false;
+// Safe pins for ultrasonic (avoid GPIO0/15/16)
+const int TRIGGER_PIN = 12; // D6
+const int ECHO_PIN = 14;    // D5
+const int RELAY_PIN = 5;    // D1
+const int LED_PIN = 4;      // D2
 
-WiFiServer server(80);
+// API details
+const String API_URL = "https://apnabanda.in/voodoo/api/devices/register-esp";
+const String FIRMWARE_VERSION = "1.2.3";
+
+// WiFi credentials
+String ssid = "";
+String password = "";
+
+// Sensor data
+float lastDistance = -1;
+
+// Timing
+const unsigned long SAMPLE_INTERVAL = 5000; // every 5 sec
+unsigned long lastMeasurement = 0;
+
+// ---------------------------------------------------
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("VoodooHome ESP8266 Device Starting...");
-  
-  // Initialize EEPROM
-  EEPROM.begin(EEPROM_SIZE);
-  
-  // Load saved credentials
-  loadCredentials();
-  
-  // Generate unique device ID if not set
-  if (deviceId == "") {
-    deviceId = WiFi.macAddress();
-    deviceId.replace(":", "");
-  }
-  
-  // Try to connect to WiFi
-  if (wifiSSID.length() > 0) {
-    connectToWiFi();
-  }
-  
-  // Start AP mode if not connected
-  if (!isConnected) {
-    startAPMode();
-  }
-  
-  // Start HTTP server
+  delay(200);
+
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(AP_SSID, AP_PASS);
+
+  Serial.println("\n📶 Access Point Started");
+  Serial.print("SSID: "); Serial.println(AP_SSID);
+  Serial.print("IP: "); Serial.println(WiFi.softAPIP());
+
+  // Server endpoints
+  server.on("/", handleRoot);
+  server.on("/connect", HTTP_POST, handleConnect);
+  server.on("/status", HTTP_GET, handleStatus);
+  server.on("/switch", HTTP_GET, handleSwitch);
+  server.on("/getdata", HTTP_GET, handleGetData);
+
   server.begin();
-  Serial.println("HTTP server started");
+  Serial.println("🌐 HTTP Server started");
 }
 
 void loop() {
-  // Handle client connections
-  WiFiClient client = server.available();
-  if (client) {
-    handleClientRequest(client);
-  }
-  
-  // If connected, periodically report status to backend
-  if (isConnected && millis() % 30000 == 0) {
-    reportDeviceStatus();
+  server.handleClient();
+
+  if (millis() - lastMeasurement > SAMPLE_INTERVAL) {
+    float distance = getDistance();
+    if (distance > 2 && distance < 400) {
+      lastDistance = distance;
+      Serial.printf("📏 Distance: %.2f cm\n", distance);
+
+      if (WiFi.status() == WL_CONNECTED) {
+        sendDataToServer(distance);
+      }
+    } else {
+      Serial.println("⚠️ Invalid ultrasonic reading");
+    }
+    lastMeasurement = millis();
   }
 }
 
-void loadCredentials() {
-  wifiSSID = "";
-  wifiPassword = "";
-  
-  // Read SSID from EEPROM
-  for (int i = SSID_ADDR; i < SSID_ADDR + 32; i++) {
-    char c = EEPROM.read(i);
-    if (c == 0) break;
-    wifiSSID += c;
-  }
-  
-  // Read password from EEPROM
-  for (int i = PASS_ADDR; i < PASS_ADDR + 32; i++) {
-    char c = EEPROM.read(i);
-    if (c == 0) break;
-    wifiPassword += c;
-  }
-  
-  Serial.print("Loaded SSID: ");
-  Serial.println(wifiSSID);
+// ------------------ Web Handlers ------------------
+
+void handleRoot() {
+  String html = R"rawliteral(
+  <!DOCTYPE html>
+  <html>
+  <body>
+    <h1>ESP8266 Smart Device</h1>
+    <form action="/connect" method="POST">
+      SSID: <input type="text" name="ssid"><br>
+      Password: <input type="password" name="pass"><br>
+      <input type="submit" value="Connect">
+    </form>
+    <p>Status: <span id="status">Loading...</span></p>
+    <script>
+      function updateStatus() {
+        fetch('/status')
+          .then(r => r.text())
+          .then(t => document.getElementById('status').innerText = t);
+      }
+      updateStatus();
+      setInterval(updateStatus, 2000);
+    </script>
+  </body>
+  </html>
+  )rawliteral";
+  server.send(200, "text/html", html);
 }
 
-void saveCredentials() {
-  // Clear EEPROM
-  for (int i = SSID_ADDR; i < SSID_ADDR + 32; i++) {
-    EEPROM.write(i, 0);
-  }
-  for (int i = PASS_ADDR; i < PASS_ADDR + 32; i++) {
-    EEPROM.write(i, 0);
-  }
-  
-  // Write new credentials
-  for (unsigned int i = 0; i < wifiSSID.length(); i++) {
-    EEPROM.write(SSID_ADDR + i, wifiSSID[i]);
-  }
-  for (unsigned int i = 0; i < wifiPassword.length(); i++) {
-    EEPROM.write(PASS_ADDR + i, wifiPassword[i]);
-  }
-  
-  EEPROM.commit();
-  Serial.println("Credentials saved to EEPROM");
+void handleConnect() {
+  ssid = server.arg("ssid");
+  password = server.arg("pass");
+  server.send(200, "text/plain", "Connecting to WiFi...");
+  delay(500);
+  connectToWiFi();
 }
+
+void handleStatus() {
+  String msg = (WiFi.status() == WL_CONNECTED)
+                 ? "CONNECTED to " + WiFi.SSID()
+                 : "DISCONNECTED";
+  server.send(200, "text/plain", msg);
+}
+
+void handleSwitch() {
+  if (!server.hasArg("state")) {
+    server.send(400, "text/plain", "Missing state parameter");
+    return;
+  }
+
+  String state = server.arg("state");
+  if (state == "on") {
+    digitalWrite(RELAY_PIN, HIGH);
+    server.send(200, "text/plain", "Device ON");
+  } else if (state == "off") {
+    digitalWrite(RELAY_PIN, LOW);
+    server.send(200, "text/plain", "Device OFF");
+  } else {
+    server.send(400, "text/plain", "Invalid state");
+  }
+}
+
+void handleGetData() {
+  String json = "{\"distance_cm\": " + String(lastDistance, 2) + "}";
+  server.send(200, "application/json", json);
+}
+
+// ------------------ WiFi ------------------
 
 void connectToWiFi() {
-  Serial.println("Connecting to WiFi...");
+  if (ssid == "" || password == "") {
+    Serial.println("❌ Missing SSID or Password");
+    return;
+  }
+
+  WiFi.disconnect(true);
+  delay(1000);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
-  
-  int timeout = 20; // 20 seconds timeout
-  while (WiFi.status() != WL_CONNECTED && timeout > 0) {
-    delay(1000);
+
+  Serial.print("\n🔗 Connecting to WiFi: ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid.c_str(), password.c_str());
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+    delay(500);
     Serial.print(".");
-    timeout--;
+    attempts++;
   }
-  
+
   if (WiFi.status() == WL_CONNECTED) {
-    isConnected = true;
-    Serial.println("");
-    Serial.print("Connected to WiFi. IP address: ");
+    Serial.println("\n✅ WiFi Connected!");
+    Serial.print("IP: ");
     Serial.println(WiFi.localIP());
-    
-    // Register device with backend
-    registerDevice();
   } else {
-    isConnected = false;
-    Serial.println("");
-    Serial.println("Failed to connect to WiFi");
+    Serial.println("\n❌ WiFi Connection Failed!");
   }
 }
 
-void startAPMode() {
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
-  
-  Serial.println("");
-  Serial.print("AP Mode. IP address: ");
-  Serial.println(WiFi.softAPIP());
+// ------------------ Ultrasonic ------------------
+
+float getDistance() {
+  digitalWrite(TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout
+
+  if (duration == 0) {
+    Serial.println("⚠️ No Echo received!");
+    return -1;
+  }
+
+  float distance = duration * 0.0343 / 2.0; // in cm
+  return distance;
 }
 
-void handleClientRequest(WiFiClient &client) {
-  Serial.println("New client");
-  
-  // Wait for data from client
-  while (!client.available()) {
-    delay(1);
-  }
-  
-  // Read first line of request
-  String request = client.readStringUntil('\r');
-  client.flush();
-  
-  // Handle different request types
-  if (request.indexOf("/status") != -1) {
-    handleStatusRequest(client);
-  } else if (request.indexOf("/configure") != -1) {
-    handleConfigureRequest(client);
-  } else {
-    client.println("HTTP/1.1 404 Not Found");
-    client.println("Content-Type: text/plain");
-    client.println("");
-    client.println("404 Not Found");
-  }
-  
-  delay(1);
-  Serial.println("Client disconnected");
-}
+// ------------------ API Communication ------------------
 
-void handleStatusRequest(WiFiClient &client) {
-  DynamicJsonDocument doc(1024);
-  
-  doc["deviceId"] = deviceId;
-  doc["connected"] = isConnected;
-  
-  if (isConnected) {
-    doc["ssid"] = wifiSSID;
-    doc["ip"] = WiFi.localIP().toString();
-    doc["signal"] = WiFi.RSSI();
-    doc["macAddress"] = WiFi.macAddress();
-  } else {
-    doc["apIp"] = WiFi.softAPIP().toString();
-  }
-  
-  String response;
-  serializeJson(doc, response);
-  
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: application/json");
-  client.println("");
-  client.println(response);
-}
+void sendDataToServer(float brightnessValue) {
+  WiFiClientSecure client;
+  HTTPClient https;
 
-void handleConfigureRequest(WiFiClient &client) {
-  // Read the request headers first
-  String headers;
-  while (client.available()) {
-    String line = client.readStringUntil('\n');
-    if (line == "\r") break; // End of headers
-    headers += line;
-  }
+  client.setInsecure(); // Skip SSL certificate validation
 
-  // Check for Content-Type header
-  bool isJson = headers.indexOf("Content-Type: application/json") != -1;
+  if (https.begin(client, API_URL)) {
+    https.addHeader("Content-Type", "application/json");
 
-  // Read the request body
-  String body;
-  while (client.available()) {
-    body += (char)client.read();
-  }
-  
-  DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, body);
-  
-  if (!error) {
-    // Get credentials from either JSON or form data
-    if (isJson) {
-      wifiSSID = doc["ssid"].as<String>();
-      wifiPassword = doc["password"].as<String>();
+    String payload = "{";
+    payload += "\"macAddress\": \"" + WiFi.macAddress() + "\",";
+    payload += "\"ipAddress\": \"" + WiFi.localIP().toString() + "\",";
+    payload += "\"ssid\": \"" + WiFi.SSID() + "\",";
+    payload += "\"firmwareVersion\": \"" + FIRMWARE_VERSION + "\",";
+    payload += "\"brightness\": " + String(brightnessValue, 2);
+    payload += "}";
+
+    Serial.println("\n📤 Sending JSON payload:");
+    Serial.println(payload);
+
+    int httpCode = https.POST(payload);
+    if (httpCode > 0) {
+      Serial.printf("✅ Response Code: %d\n", httpCode);
+      String response = https.getString();
+      Serial.println("📥 Server Response: " + response);
     } else {
-      // Handle form data (from mobile app)
-      int ssidStart = body.indexOf("ssid=") + 5;
-      int ssidEnd = body.indexOf("&", ssidStart);
-      int passStart = body.indexOf("pass=") + 5;
-      int passEnd = body.indexOf("&", passStart);
-      
-      if (ssidStart >= 5 && passStart >= 5) {
-        wifiSSID = body.substring(ssidStart, ssidEnd != -1 ? ssidEnd : body.length());
-        wifiPassword = body.substring(passStart, passEnd != -1 ? passEnd : body.length());
-        
-        // URL decode the values
-        wifiSSID.replace("+", " ");
-        wifiPassword.replace("+", " ");
-      }
+      Serial.printf("❌ POST failed, error: %s\n", https.errorToString(httpCode).c_str());
     }
-    
-    // Save credentials to EEPROM
-    saveCredentials();
-    
-    // Try to connect to WiFi
-    connectToWiFi();
-    
-    // Send response
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: application/json");
-    client.println("");
-    
-    if (WiFi.status() == WL_CONNECTED) {
-      client.println("{\"status\":\"success\",\"message\":\"WiFi configuration saved and connected\",\"ip\":\"" + WiFi.localIP().toString() + "\"}");
-    } else {
-      client.println("{\"status\":\"success\",\"message\":\"WiFi configuration saved but connection failed\"}");
-    }
-  } else {
-    client.println("HTTP/1.1 400 Bad Request");
-    client.println("Content-Type: application/json");
-    client.println("");
-    client.println("{\"status\":\"error\",\"message\":\"Invalid configuration data\"}");
-  }
-}
 
-void registerDevice() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  
-  WiFiClient client;
-  HTTPClient http;
-  
-  String url = String(API_BASE_URL) + "/devices/register";
-  http.begin(client, url);
-  http.addHeader("Content-Type", "application/json");
-  
-  DynamicJsonDocument doc(1024);
-  doc["deviceId"] = deviceId;
-  doc["macAddress"] = WiFi.macAddress();
-  doc["ipAddress"] = WiFi.localIP().toString();
-  doc["ssid"] = wifiSSID;
-  
-  String payload;
-  serializeJson(doc, payload);
-  
-  int httpCode = http.POST(payload);
-  
-  if (httpCode == HTTP_CODE_OK) {
-    String response = http.getString();
-    DynamicJsonDocument resDoc(1024);
-    deserializeJson(resDoc, response);
-    
-    apiToken = resDoc["token"].as<String>();
-    Serial.println("Device registered successfully");
+    https.end();
   } else {
-    Serial.println("Failed to register device");
+    Serial.println("❌ HTTPS Connection failed");
   }
-  
-  http.end();
-}
-
-void reportDeviceStatus() {
-  if (WiFi.status() != WL_CONNECTED || apiToken == "") return;
-  
-  WiFiClient client;
-  HTTPClient http;
-  
-  String url = String(API_BASE_URL) + "/devices/" + deviceId + "/status";
-  http.begin(client, url);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Authorization", "Bearer " + apiToken);
-  
-  DynamicJsonDocument doc(1024);
-  doc["connected"] = true;
-  doc["ssid"] = wifiSSID;
-  doc["ip"] = WiFi.localIP().toString();
-  doc["signal"] = WiFi.RSSI();
-  doc["uptime"] = millis() / 1000;
-  
-  String payload;
-  serializeJson(doc, payload);
-  
-  int httpCode = http.POST(payload);
-  
-  if (httpCode == HTTP_CODE_OK) {
-    Serial.println("Status reported successfully");
-  } else {
-    Serial.println("Failed to report status");
-  }
-  
-  http.end();
 }
