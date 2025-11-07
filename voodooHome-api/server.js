@@ -195,6 +195,20 @@ io.on('connection', (socket) => {
       timers.delete(key);
     }
     socket.join(`device:${deviceId}`);
+    // Emit current DB flow values immediately to prime UI
+    (async () => {
+      try {
+        const dev = await Device.findById(deviceId);
+        if (dev) {
+          const flowRate = typeof dev.flowRate === 'number' ? dev.flowRate : Number(dev.flowRate);
+          const totalLiters = typeof dev.totalLiters === 'number' ? dev.totalLiters : Number(dev.totalLiters);
+          const fr = !isNaN(flowRate) && isFinite(flowRate) ? flowRate : 0;
+          const tl = !isNaN(totalLiters) && isFinite(totalLiters) ? totalLiters : 0;
+          io.to(`device:${deviceId}`).emit('flow:update', { deviceId, flowRate: fr, totalLiters: tl });
+          lastValues.set(key, `${fr}:${tl}`);
+        }
+      } catch (e) { /* ignore */ }
+    })();
     const interval = setInterval(async () => {
       try {
         const dev = await Device.findById(deviceId);

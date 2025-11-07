@@ -151,10 +151,12 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           }
         });
         socket.on('flow:update', (payload) => {
-          const fr = typeof payload?.flowRate === 'number' ? payload.flowRate : undefined;
-          const tl = typeof payload?.totalLiters === 'number' ? payload.totalLiters : undefined;
-          if (typeof fr === 'number') setFlowRate(fr);
-          if (typeof tl === 'number') setTotalLiters(tl);
+          const frRaw = payload?.flowRate;
+          const tlRaw = payload?.totalLiters;
+          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+          if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+          if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
         });
         socket.on('brightness:error', ({ error }) => {
           // Suppress noisy device polling timeouts and missing IP warnings
@@ -236,10 +238,12 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         setDeviceStatus(mapped);
         setIsPowerOn(serverState.isOn);
         // Flow data
-        const fr = devDetail?.flowRate ?? serverState.flowRate;
-        const tl = devDetail?.totalLiters ?? serverState.totalLiters;
-        if (typeof fr === 'number') setFlowRate(fr);
-        if (typeof tl === 'number') setTotalLiters(tl);
+        const frRaw = devDetail?.flowRate ?? serverState.flowRate;
+        const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters;
+        const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+        const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+        if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+        if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
         // Fetch initial brightness via server API for immediate UI feedback
         const b = await esp8266Service.getDeviceBrightnessFromServer(useDeviceId!);
         if (typeof b === 'number') {
