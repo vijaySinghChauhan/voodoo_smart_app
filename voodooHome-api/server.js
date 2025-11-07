@@ -111,16 +111,16 @@ io.on('connection', (socket) => {
     }
     // Join device-specific room
     socket.join(`device:${deviceId}`);
-    // Emit current DB brightness immediately to prime UI
-    try {
+       try {
       const dev = await Device.findById(deviceId);
       if (dev && typeof dev.brightness === 'number') {
-        const dbValue = Math.max(0, Math.min(100, dev.brightness));
+        const dbValue = Math.max(0, dev.brightness);
         io.to(`device:${deviceId}`).emit('brightness:update', { deviceId, value: dbValue });
       }
     } catch (e) {
       // ignore
     }
+    
     // If IP is provided, poll device for brightness
     if (ip) {
       const baseUrl = `http://${ip}`;
@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
             if (!isNaN(num)) value = num;
           }
           if (typeof value === 'number') {
-            value = Math.max(0, Math.min(100, value));
+             value = Math.max(0,  value);
           }
           const last = lastValues.get(key);
           if (last !== value) {
@@ -159,7 +159,7 @@ io.on('connection', (socket) => {
       try {
         const dev = await Device.findById(deviceId);
         if (dev && typeof dev.brightness === 'number') {
-          const dbValue = Math.max(0, Math.min(100, dev.brightness));
+          const dbValue = Math.max(0, dev.brightness);
           const lastDb = lastValues.get(dbKey);
           if (lastDb !== dbValue) {
             lastValues.set(dbKey, dbValue);

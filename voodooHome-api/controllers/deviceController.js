@@ -273,7 +273,7 @@ exports.controlDevice = async (req, res) => {
     }
 
     // Update brightness if provided
-    if (brightness !== undefined && brightness >= 0 && brightness <= 100) {
+    if (brightness !== undefined && brightness >= 0 ) {
       device.brightness = brightness;
     }
 
@@ -574,7 +574,7 @@ exports.getDeviceBrightness = async (req, res) => {
     }
 
     const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
-    let brightness = typeof device.brightness === 'number' ? device.brightness : 1;
+    let brightness = typeof device.brightness === 'number' ? device.brightness : 0;
     try {
       const response = await axios.get(`${baseUrl}/getdata`, { timeout: 5000 });
       let value = response.data;
@@ -583,7 +583,7 @@ exports.getDeviceBrightness = async (req, res) => {
         if (!isNaN(num)) value = num;
       }
       if (typeof value === 'number') {
-        brightness = Math.max(0, Math.min(100, value));
+        brightness = Math.max(0,  value);
       }
     } catch (inner) {
       // keep existing brightness from DB as fallback
