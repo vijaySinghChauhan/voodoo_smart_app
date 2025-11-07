@@ -30,9 +30,26 @@ const int RELAY_PIN = 5;    // D1
 const int Device1 = 4;      // D2
 
 const int Device2 = 0;      // D3
-const int Device3 = 2;      // D4
+//const int Device3 = 2;      // D4
 const int Device4 = 16;      // D0
 const int Device5 = 13;      // D7
+
+
+// Water flow sensor
+const int FLOW_SENSOR_PIN = 2;  // D4 / GPIO2
+volatile unsigned long pulseCount = 0;  // Count pulses
+float calibrationFactor = 7.5;  // YF-S201 typical value
+unsigned long lastFlowSample = 0;
+float flowRate = 0.0;
+float totalLiters = 0.0;
+
+// -----------------------------------------------------------------------------
+// Flow-sensor interrupt
+// -----------------------------------------------------------------------------
+void IRAM_ATTR pulseCounter() {
+  pulseCount++;
+}
+
 
 
 // API details
@@ -61,6 +78,16 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
 
+  pinMode(Device1, OUTPUT);
+  pinMode(Device2, OUTPUT);
+  //pinMode(Device3, OUTPUT);
+  pinMode(Device4, OUTPUT);
+  pinMode(Device5, OUTPUT);
+
+  pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
+  Serial.println("💧 Flow sensor initialized on D4");
+
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
 
@@ -82,9 +109,22 @@ void setup() {
 void loop() {
   server.handleClient();
 
+
+  // 1-second flow calculations
+  if (millis() - lastFlowSample >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
+    float freq = pulseCount;     // pulses per second
+    pulseCount = 0;
+    flowRate = freq / calibrationFactor;      // L/min
+    totalLiters += (flowRate / 60.0);         // add per second
+    Serial.printf("💧 Flow: %.2f L/min | Total: %.3f L\n", flowRate, totalLiters);
+    attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
+    lastFlowSample = millis();
+  }
+
   if (millis() - lastMeasurement > SAMPLE_INTERVAL) {
     float distance = getDistance();
-    if (distance > 0 && distance < 9999) {
+    if (distance > 0 && distance < 99999) {
       lastDistance = distance;
       Serial.printf("📏 Distance: %.2f cm\n", distance);
 
@@ -149,6 +189,7 @@ void handleSwitch() {
   }
 
   String state = server.arg("state");
+
   if (state == "on") {
     digitalWrite(RELAY_PIN, HIGH);
     server.send(200, "text/plain", "Device ON");
@@ -161,8 +202,10 @@ void handleSwitch() {
 }
 
 void handleGetData() {
-  String json = "{\"distance_cm\": " + String(lastDistance, 2) + "}";
-  server.send(200, "application/json", json);
+  String json = "{\"distance\":" + String(lastDistance, 2) +
+                ",\"flowRate\":" + String(flowRate, 2) +
+                ",\"totalLiters\":" + String(totalLiters, 3) + "}";
+                  server.send(200, "application/json", json);
 }
 
 // ------------------ WiFi ------------------
@@ -209,7 +252,7 @@ float getDistance() {
 
   long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout
 
-  if (duration == 0) {
+  if (duration < 0) {
     Serial.println("⚠️ No Echo received!");
     return -1;
   }
@@ -235,6 +278,8 @@ void sendDataToServer(float brightnessValue) {
     payload += "\"ssid\": \"" + WiFi.SSID() + "\",";
     payload += "\"firmwareVersion\": \"" + FIRMWARE_VERSION + "\",";
     payload += "\"brightness\": " + String(brightnessValue, 2);
+    payload += "\"flowRate\":" + String(flowRate, 3) + ",";
+    payload += "\"totalLiters\":" + String(totalLiters, 4);
     payload += "}";
 
     Serial.println("\n📤 Sending JSON payload:");
@@ -304,7 +349,9 @@ void sendDataToServer(float brightnessValue) {
         {
           digitalWrite(Device2, HIGH);
                      Serial.println("Lock swithed on");
-
+          delay(1000);
+          digitalWrite(Device2, LOW);
+                     Serial.println("Lock swithed off");
         } else {
           digitalWrite(Device2, LOW);
                      Serial.println("Lock swithed off");
@@ -312,12 +359,12 @@ void sendDataToServer(float brightnessValue) {
         }
          if(device3==1)
         {
-          digitalWrite(Device3, HIGH);
-                     Serial.println("device3 swithed on");
+          digitalWrite(FLOW_SENSOR_PIN, HIGH);
+                     Serial.println("FLOW_SENSOR_PIN swithed on");
 
         } else {
-          digitalWrite(Device3, LOW);
-                     Serial.println("device3 swithed off");
+          digitalWrite(FLOW_SENSOR_PIN, LOW);
+                     Serial.println("FLOW_SENSOR_PIN swithed off");
 
         }
         

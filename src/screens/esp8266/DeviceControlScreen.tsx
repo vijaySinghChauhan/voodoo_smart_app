@@ -38,7 +38,6 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<string>('');
 
-  const fullTankHeight = 150;
   const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(undefined);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
@@ -46,13 +45,15 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [device3On, setDevice3On] = useState<boolean>(false);
   const [device4On, setDevice4On] = useState<boolean>(false);
   const [device5On, setDevice5On] = useState<boolean>(false);
+  const [flowRate, setFlowRate] = useState<number | undefined>(undefined);
+  const [totalLiters, setTotalLiters] = useState<number | undefined>(undefined);
   const { user } = useAuth();
   
   // Helper: map raw brightness to water tank percent using target as 100%
   const brightnessToPercent = (b?: number | null, targetStr?: string) => {
     const t = (() => {
       const n = Number((targetStr || '').trim());
-      return !isNaN(n) && isFinite(n) && n > 0 ? n : 100;
+      return n;
     })();
     const val = typeof b === 'number' ? b : 0;
     const pct = Math.round(Math.max(0, Math.min(100, (val / t) * 100)));
@@ -109,6 +110,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             } else {
               socket.emit('brightness:subscribe', { deviceId: did });
             }
+            // Subscribe to flow updates (DB-based)
+            socket.emit('flow:subscribe', { deviceId: did });
             Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to Data updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
@@ -129,18 +132,29 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           } catch (e) {}
         });
         socket.on('brightness:update', (payload) => {
-          const raw =
-            typeof payload?.brightness === 'number'
-              ? payload.brightness
-              : typeof payload?.value === 'number'
-              ? payload.value
-              : Number(payload);
-          if (!Number.isNaN(raw)) {
-            setBrightness(raw);
-            const pct = brightnessToPercent(raw, targetValue);
-            setWaterLevel(pct);
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${pct}%`, position: 'bottom' });
+          let raw: number | undefined;
+          if (typeof payload?.brightness === 'number') {
+            raw = payload.brightness;
+          } else if (typeof payload?.value === 'number') {
+            raw = payload.value;
+          } else if (typeof payload === 'string') {
+            const parsed = parseFloat(payload);
+            raw = isNaN(parsed) ? undefined : parsed;
+          } else if (typeof payload === 'number') {
+            raw = payload;
           }
+          if (typeof raw === 'number' && isFinite(raw)) {
+            const clamped = Math.max(0, Math.min(100, raw));
+            setBrightness(clamped);
+            setWaterLevel(brightnessToPercent(clamped, targetValue));
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${brightnessToPercent(clamped, targetValue)}% (Target: ${targetValue})`, position: 'bottom' });
+          }
+        });
+        socket.on('flow:update', (payload) => {
+          const fr = typeof payload?.flowRate === 'number' ? payload.flowRate : undefined;
+          const tl = typeof payload?.totalLiters === 'number' ? payload.totalLiters : undefined;
+          if (typeof fr === 'number') setFlowRate(fr);
+          if (typeof tl === 'number') setTotalLiters(tl);
         });
         socket.on('brightness:error', ({ error }) => {
           // Suppress noisy device polling timeouts and missing IP warnings
@@ -157,6 +171,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       if (socketRef) {
         const did = route?.params?.deviceId || selectedDeviceId || 'unknown';
         socketRef.emit('brightness:unsubscribe', { deviceId: did });
+        socketRef.emit('flow:unsubscribe', { deviceId: did });
         socketRef.disconnect();
       }
     };
@@ -172,6 +187,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         } else {
           socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId });
         }
+        socketRef.emit('flow:unsubscribe', { deviceId: selectedDeviceId });
+        socketRef.emit('flow:subscribe', { deviceId: selectedDeviceId });
       } catch (e) {
         console.warn('Failed to resubscribe brightness on IP change:', e);
       }
@@ -218,6 +235,11 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         };
         setDeviceStatus(mapped);
         setIsPowerOn(serverState.isOn);
+        // Flow data
+        const fr = devDetail?.flowRate ?? serverState.flowRate;
+        const tl = devDetail?.totalLiters ?? serverState.totalLiters;
+        if (typeof fr === 'number') setFlowRate(fr);
+        if (typeof tl === 'number') setTotalLiters(tl);
         // Fetch initial brightness via server API for immediate UI feedback
         const b = await esp8266Service.getDeviceBrightnessFromServer(useDeviceId!);
         if (typeof b === 'number') {
@@ -408,7 +430,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         </View>
         <WaterTank percentage={waterLevel} />
         <View style={{ marginTop: 10 }}>
-          <Text style={{ color: '#666' }}>Data: {brightness ?? '—'}%</Text>
+          <Text style={{ color: '#666' }}>Exact Data: {brightness ?? '—'}</Text>
         </View>
         <View style={styles.controlSection}>
           <Text style={styles.sectionTitle}>Power Control</Text>
@@ -426,22 +448,43 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         <View style={[styles.controlSection, { marginTop: 10 }] }>
           <Text style={styles.sectionTitle}>GPIO Controls</Text>
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>Device2</Text>
-            <Switch
-              value={device2On}
-              onValueChange={(val) => { setDevice2On(val); toggleDeviceField('device2', val); }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device2On ? '#fff' : '#f4f3f4'}
-            />
-          </View>
-          <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>Device3</Text>
-            <Switch
-              value={device3On}
-              onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device3On ? '#fff' : '#f4f3f4'}
-            />
+          <Text style={styles.powerLabel}>Device2</Text>
+          <Switch
+            value={device2On}
+            onValueChange={(val) => {
+              setDevice2On(val);
+              toggleDeviceField('device2', val);
+              if (val) {
+                setTimeout(() => {
+                  setDevice2On(false);
+                  toggleDeviceField('device2', false);
+                }, 1000);
+              }
+            }}
+            trackColor={{ false: '#767577', true: '#4CAF50' }}
+            thumbColor={device2On ? '#fff' : '#f4f3f4'}
+          />
+        </View>
+        <View style={styles.powerControl}>
+          <Text style={styles.powerLabel}>Device3</Text>
+          <Switch
+            value={device3On}
+            onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
+            trackColor={{ false: '#767577', true: '#4CAF50' }}
+            thumbColor={device3On ? '#fff' : '#f4f3f4'}
+          />
+        </View>
+       
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.sectionTitle}>Flow Data (Device3)</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Flow Rate</Text>
+              <Text style={styles.infoValue}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '—'}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Total Liters</Text>
+              <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
+            </View>
           </View>
           <View style={styles.powerControl}>
             <Text style={styles.powerLabel}>Device4</Text>
@@ -658,6 +701,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   powerLabel: {
+    fontWeight: 'bold',
     fontSize: 16,
     color: '#333',
   },

@@ -176,6 +176,44 @@ io.on('connection', (socket) => {
       timers.delete(dbKey);
     }
   });
+
+  // Flow subscription: broadcast flowRate and totalLiters from DB
+  socket.on('flow:subscribe', ({ deviceId }) => {
+    const key = `f:${deviceId}`;
+    if (timers.has(key)) {
+      clearInterval(timers.get(key));
+      timers.delete(key);
+    }
+    socket.join(`device:${deviceId}`);
+    const interval = setInterval(async () => {
+      try {
+        const dev = await Device.findById(deviceId);
+        if (dev) {
+          const flowRate = typeof dev.flowRate === 'number' ? dev.flowRate : 0;
+          const totalLiters = typeof dev.totalLiters === 'number' ? dev.totalLiters : 0;
+          const payload = `${flowRate}:${totalLiters}`;
+          const last = lastValues.get(key);
+          if (last !== payload) {
+            lastValues.set(key, payload);
+            io.to(`device:${deviceId}`).emit('flow:update', { deviceId, flowRate, totalLiters });
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 2000);
+    timers.set(key, interval);
+    socket.emit('flow:subscribed', { deviceId });
+  });
+
+  socket.on('flow:unsubscribe', ({ deviceId }) => {
+    const key = `f:${deviceId}`;
+    if (timers.has(key)) {
+      clearInterval(timers.get(key));
+      timers.delete(key);
+      socket.emit('flow:unsubscribed', { deviceId });
+    }
+  });
   
   socket.on('disconnect', () => {
     console.log('Client disconnected');

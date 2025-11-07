@@ -11,6 +11,8 @@ class Device {
     this.isConnected = !!row.is_connected;
     this.isOn = !!row.is_on;
     this.brightness = row.brightness;
+    this.flowRate = row.flow_rate;
+    this.totalLiters = row.total_liters;
     this.target = row.target;
     this.device1 = row.device1;
     this.device2 = row.device2;
@@ -44,7 +46,7 @@ class Device {
 
   static async create(data){
     const [res] = await pool.query(
-      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,target,device1,device2,device3,device4,device5,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,flow_rate,total_liters,target,device1,device2,device3,device4,device5,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [
         data.user,
         data.room || null,
@@ -56,6 +58,8 @@ class Device {
         data.isConnected?1:0,
         data.isOn?1:0,
         data.brightness || 100,
+        data.flowRate ?? 0,
+        data.totalLiters ?? 0,
         data.target ?? null,
         data.device1 ?? null,
         data.device2 ?? null,
@@ -78,6 +82,8 @@ class Device {
       is_connected: typeof data.isConnected==='boolean' ? (data.isConnected?1:0) : undefined,
       is_on: typeof data.isOn==='boolean' ? (data.isOn?1:0) : undefined,
       brightness: data.brightness,
+      flow_rate: data.flowRate,
+      total_liters: data.totalLiters,
       target: data.target,
       device1: data.device1,
       device2: data.device2,

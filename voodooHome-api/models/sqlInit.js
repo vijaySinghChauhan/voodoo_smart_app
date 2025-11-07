@@ -31,6 +31,8 @@ async function initSqlSchema() {
       is_connected TINYINT(1) DEFAULT 0,
       is_on TINYINT(1) DEFAULT 0,
       brightness INT DEFAULT 100,
+      flow_rate DECIMAL(10,3) DEFAULT 0,
+      total_liters DECIMAL(10,3) DEFAULT 0,
       target INT NULL,
       device1 INT NULL,
       device2 INT NULL,
@@ -132,6 +134,8 @@ async function initSqlSchema() {
     'ALTER TABLE devices ADD COLUMN device3 INT NULL',
     'ALTER TABLE devices ADD COLUMN device4 INT NULL',
     'ALTER TABLE devices ADD COLUMN device5 INT NULL',
+    'ALTER TABLE devices ADD COLUMN flow_rate DECIMAL(10,3) DEFAULT 0',
+    'ALTER TABLE devices ADD COLUMN total_liters DECIMAL(10,3) DEFAULT 0',
   ];
   for (const stmt of alterStatements) {
     try { await pool.query(stmt); } catch (e) { /* ignore if column exists */ }

@@ -339,6 +339,8 @@ exports.getDeviceState = async (req, res) => {
         name: device.name,
         isOn: device.isOn,
         brightness: device.brightness,
+        flowRate: device.flowRate,
+        totalLiters: device.totalLiters,
         isConnected: device.isConnected,
         lastSeen: device.lastSeen,
         ipAddress: device.ipAddress,
@@ -358,7 +360,7 @@ exports.getDeviceState = async (req, res) => {
 // @access  Public
 exports.registerESPDevicePublic = async (req, res) => {
   try {
-    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, isOn, brightness } = req.body || {};
+    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, isOn, brightness, flowRate, totalLiters } = req.body || {};
     if (!macAddress) {
       return res.status(400).json({ message: 'macAddress is required' });
     }
@@ -373,9 +375,20 @@ exports.registerESPDevicePublic = async (req, res) => {
         isConnected: true,
         isOn: typeof isOn === 'boolean' ? isOn : existing.isOn,
         brightness: typeof brightness === 'number' ? brightness : existing.brightness,
+        flowRate: typeof flowRate === 'number' ? flowRate : existing.flowRate,
+        totalLiters: typeof totalLiters === 'number' ? totalLiters : existing.totalLiters,
         firmwareVersion: firmwareVersion !== undefined ? firmwareVersion : existing.firmwareVersion,
         lastSeen: new Date()
       });
+      // Emit socket updates for flow data and brightness
+      try {
+        const io = req.app && req.app.get && req.app.get('io');
+        const idForRoom = updated._id || updated.id;
+        if (io) {
+          io.to(`device:${idForRoom}`).emit('flow:update', { deviceId: idForRoom, flowRate: updated.flowRate, totalLiters: updated.totalLiters });
+          io.to(`device:${idForRoom}`).emit('brightness:update', { deviceId: idForRoom, value: updated.brightness });
+        }
+      } catch (e) { /* ignore */ }
       return res.json({ success: true, data: updated, updated: true });
     }
 
@@ -389,10 +402,21 @@ exports.registerESPDevicePublic = async (req, res) => {
       ssid: ssid || null,
       isConnected: true,
       isOn: typeof isOn === 'boolean' ? isOn : false,
-      brightness: typeof brightness === 'number' ? brightness : 100,
+      brightness: typeof brightness === 'number' ? brightness : 1,
+      flowRate: typeof flowRate === 'number' ? flowRate : 0,
+      totalLiters: typeof totalLiters === 'number' ? totalLiters : 0,
       firmwareVersion: firmwareVersion || null,
       lastSeen: new Date()
     });
+    // Emit initial socket values
+    try {
+      const io = req.app && req.app.get && req.app.get('io');
+      const idForRoom = created._id || created.id;
+      if (io) {
+        io.to(`device:${idForRoom}`).emit('flow:update', { deviceId: idForRoom, flowRate: created.flowRate, totalLiters: created.totalLiters });
+        io.to(`device:${idForRoom}`).emit('brightness:update', { deviceId: idForRoom, value: created.brightness });
+      }
+    } catch (e) { /* ignore */ }
     return res.status(201).json({ success: true, data: created, created: true });
   } catch (error) {
     console.error(error);
@@ -550,7 +574,7 @@ exports.getDeviceBrightness = async (req, res) => {
     }
 
     const baseUrl = device.ipAddress ? `http://${device.ipAddress}` : 'http://192.168.4.1';
-    let brightness = typeof device.brightness === 'number' ? device.brightness : 100;
+    let brightness = typeof device.brightness === 'number' ? device.brightness : 1;
     try {
       const response = await axios.get(`${baseUrl}/getdata`, { timeout: 5000 });
       let value = response.data;

@@ -358,7 +358,11 @@ class ESP8266Service {
         timeout: 10000,
       });
       const data = response.data?.data;
-      return typeof data?.brightness === 'number' ? data.brightness : null;
+      if (typeof data?.brightness === 'number' && isFinite(data.brightness)) {
+        const clamped = Math.max(0, Math.min(100, data.brightness));
+        return clamped;
+      }
+      return null;
     } catch (error) {
       console.error('Failed to get device brightness from server:', error);
       return null;

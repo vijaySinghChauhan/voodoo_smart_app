@@ -23,7 +23,7 @@ const WiFiConfigScreen: React.FC = () => {
 // Get local IP address
 NetworkInfo.getIPV4Address().then(ipAddress => {
   console.log('📡 Device IP Address:', ipAddress);
-  setDeviceIP(ipAddress || '');
+ // setDeviceIP(ipAddress || '');
 });
 
 // Get WiFi SSID
