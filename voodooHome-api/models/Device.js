@@ -57,7 +57,7 @@ class Device {
         data.ssid || null,
         data.isConnected?1:0,
         data.isOn?1:0,
-        data.brightness || 100,
+        data.brightness || 1,
         data.flowRate ?? 0,
         data.totalLiters ?? 0,
         data.target ?? null,

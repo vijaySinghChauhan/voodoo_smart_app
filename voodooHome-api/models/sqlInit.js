@@ -30,7 +30,7 @@ async function initSqlSchema() {
       ssid VARCHAR(100),
       is_connected TINYINT(1) DEFAULT 0,
       is_on TINYINT(1) DEFAULT 0,
-      brightness INT DEFAULT 100,
+      brightness INT DEFAULT 1,
       flow_rate DECIMAL(10,3) DEFAULT 0,
       total_liters DECIMAL(10,3) DEFAULT 0,
       target INT NULL,

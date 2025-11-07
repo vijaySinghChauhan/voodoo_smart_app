@@ -118,7 +118,7 @@ exports.addDeviceToRoom = async (req, res) => {
         ssid: req.body.ssid,
         isConnected: !!req.body.isConnected,
         isOn: !!req.body.isOn,
-        brightness: typeof req.body.brightness === 'number' ? req.body.brightness : 100,
+        brightness: typeof req.body.brightness === 'number' ? req.body.brightness : 1,
         firmwareVersion: req.body.firmwareVersion,
       };
       device = await Device.create(payload);

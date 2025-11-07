@@ -83,8 +83,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       try {
         const token = (await authService.getToken()) || '';
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: ['websocket', 'polling'],
-          upgrade: true,
+          transports: __DEV__ ? ['polling'] : ['websocket', 'polling'],
+          upgrade: __DEV__ ? false : true,
           path: '/voodoo/socket.io',
           reconnection: true,
           timeout: 15000,
@@ -145,9 +145,9 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           }
           if (typeof raw === 'number' && isFinite(raw)) {
             const clamped = Math.max(0, Math.min(100, raw));
-            setBrightness(clamped);
-            setWaterLevel(brightnessToPercent(clamped, targetValue));
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${brightnessToPercent(clamped, targetValue)}% (Target: ${targetValue})`, position: 'bottom' });
+            setBrightness(raw);
+            setWaterLevel(brightnessToPercent(raw, targetValue));
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${brightnessToPercent(raw, targetValue)}% (Target: ${targetValue})`, position: 'bottom' });
           }
         });
         socket.on('flow:update', (payload) => {

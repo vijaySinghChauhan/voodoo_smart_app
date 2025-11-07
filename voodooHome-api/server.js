@@ -98,7 +98,7 @@ io.on('connection', (socket) => {
   });
 
   // Brightness subscription: client provides deviceId and ip (SoftAP or LAN)
-  socket.on('brightness:subscribe', ({ deviceId, ip }) => {
+  socket.on('brightness:subscribe', async ({ deviceId, ip }) => {
     if (!ip) {
       socket.emit('brightness:error', { deviceId, error: 'Missing device IP' });
       // Continue with DB-based updates even without device IP
@@ -111,6 +111,16 @@ io.on('connection', (socket) => {
     }
     // Join device-specific room
     socket.join(`device:${deviceId}`);
+    // Emit current DB brightness immediately to prime UI
+    try {
+      const dev = await Device.findById(deviceId);
+      if (dev && typeof dev.brightness === 'number') {
+        const dbValue = Math.max(0, Math.min(100, dev.brightness));
+        io.to(`device:${deviceId}`).emit('brightness:update', { deviceId, value: dbValue });
+      }
+    } catch (e) {
+      // ignore
+    }
     // If IP is provided, poll device for brightness
     if (ip) {
       const baseUrl = `http://${ip}`;

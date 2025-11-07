@@ -360,7 +360,7 @@ class ESP8266Service {
       const data = response.data?.data;
       if (typeof data?.brightness === 'number' && isFinite(data.brightness)) {
         const clamped = Math.max(0, Math.min(100, data.brightness));
-        return clamped;
+        return data?.brightness;
       }
       return null;
     } catch (error) {
@@ -375,7 +375,7 @@ class ESP8266Service {
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       const payload: any = { action };
       if (typeof brightness === 'number' && isFinite(brightness)) {
-        payload.brightness = Math.max(0, Math.min(100, brightness));
+        payload.brightness =  brightness;
       }
       const url = `${this.apiBaseUrl}/devices/${deviceId}/control`;
       const response = await axios.post(url, payload, {
