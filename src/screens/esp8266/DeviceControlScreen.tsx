@@ -38,7 +38,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<string>('');
 
-  const [waterLevel, setWaterLevel] = useState(5); // Example water level in pixels
+  const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(undefined);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
   const [device2On, setDevice2On] = useState<boolean>(false);
@@ -49,17 +49,25 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [totalLiters, setTotalLiters] = useState<number | undefined>(undefined);
   const { user } = useAuth();
   
-  // Helper: map raw brightness to water tank percent using target as 100%
-  const brightnessToPercent = (b?: number | null, targetStr?: string) => {
-    const t = (() => {
-      const n = Number((targetStr || '').trim());
-      return n;
-    })();
-    const val = typeof b === 'number' ? b : 0;
-    const pct = Math.round(Math.max(0, Math.min(100, (val / t) * 100)));
-    const pctRemaining = 100-pct;
-    return pctRemaining;
-  };
+// Helper: map raw brightness to water tank percent using target as 100%
+const brightnessToPercent = (rawBrightness: number, target: string) => {
+  const t = (() => {
+    const n = Number((target || '').trim());
+    return isNaN(n) || n <= 0 ? 1 : n; // Avoid divide-by-zero
+  })();
+
+  if (typeof rawBrightness !== 'number' || isNaN(rawBrightness)) {
+    setBrightness(0);
+    return 0;
+  }
+
+  const val = Math.max(0, rawBrightness);
+  const pct = Math.round(Math.min(100, (val / t) * 100)); // Clamp between 0–100
+  const pctRemaining = 100 - pct;
+
+  return pctRemaining;
+};
+
   
 
   useEffect(() => {
@@ -143,10 +151,11 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
           } else if (typeof payload === 'number') {
             raw = payload;
           }
+         
           if (typeof raw === 'number' && isFinite(raw)) {
             setBrightness(raw);
             setWaterLevel(brightnessToPercent(raw, targetValue));
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${brightnessToPercent(raw, targetValue)}% (Target: ${targetValue})`, position: 'bottom' });
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetValue})`, position: 'bottom' });
           }
         });
         socket.on('flow:update', (payload) => {
@@ -178,11 +187,18 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
     };
   }, []);
 
+  useEffect(() =>{
+    if(device2On)
+      setTimeout(() => {
+        setDevice2On(false);
+      }, 500);
+  })
+
   // Re-subscribe brightness updates when IP becomes available or changes
   useEffect(() => {
     if (socketRef && selectedDeviceId) {
       try {
-        socketRef.emit('brightness:unsubscribe', { deviceId: selectedDeviceId });
+          socketRef.emit('brightness:unsubscribe', { deviceId: selectedDeviceId });
         if (selectedDeviceIp) {
           socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId, ip: selectedDeviceIp });
         } else {
@@ -199,7 +215,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   // Recalculate water level when brightness or target changes
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
-      setWaterLevel(brightnessToPercent(brightness, targetValue));
+     setWaterLevel(brightnessToPercent(brightness, targetValue));
     }
   }, [brightness, targetValue]);
 
@@ -295,7 +311,9 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Recalculate local tank percent immediately using current brightness
-      //  setWaterLevel(brightnessToPercent(brightness, targetValue));
+         
+              setWaterLevel(brightnessToPercent(brightness ?? 0, targetValue));
+        
         await loadDeviceInfo(selectedDeviceId);
       } else {
         Toast.show({ type: 'error', text1: 'Save Failed', text2: 'Could not update target', position: 'bottom' });
@@ -438,7 +456,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
         </View>
-        <WaterTank percentage={waterLevel} />
+        <WaterTank percentage={waterLevel ?? 0} />
         <View style={{ marginTop: 10 }}>
           <Text style={{ color: '#666' }}>Exact Data: {brightness ?? '—'}</Text>
         </View>
