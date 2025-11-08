@@ -144,7 +144,6 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
             raw = payload;
           }
           if (typeof raw === 'number' && isFinite(raw)) {
-            const clamped = Math.max(0, Math.min(100, raw));
             setBrightness(raw);
             setWaterLevel(brightnessToPercent(raw, targetValue));
             Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${brightnessToPercent(raw, targetValue)}% (Target: ${targetValue})`, position: 'bottom' });
@@ -196,6 +195,13 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       }
     }
   }, [selectedDeviceIp, selectedDeviceId, socketRef]);
+
+  // Recalculate water level when brightness or target changes
+  useEffect(() => {
+    if (typeof brightness === 'number' && isFinite(brightness)) {
+      setWaterLevel(brightnessToPercent(brightness, targetValue));
+    }
+  }, [brightness, targetValue]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
@@ -289,7 +295,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Recalculate local tank percent immediately using current brightness
-        setWaterLevel(brightnessToPercent(brightness, targetValue));
+      //  setWaterLevel(brightnessToPercent(brightness, targetValue));
         await loadDeviceInfo(selectedDeviceId);
       } else {
         Toast.show({ type: 'error', text1: 'Save Failed', text2: 'Could not update target', position: 'bottom' });

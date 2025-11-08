@@ -272,14 +272,14 @@ void sendDataToServer(float brightnessValue) {
   if (https.begin(client, API_URL)) {
     https.addHeader("Content-Type", "application/json");
 
-    String payload = "{";
+      String payload = "{";
     payload += "\"macAddress\": \"" + WiFi.macAddress() + "\",";
     payload += "\"ipAddress\": \"" + WiFi.localIP().toString() + "\",";
     payload += "\"ssid\": \"" + WiFi.SSID() + "\",";
-    payload += "\"firmwareVersion\": \"" + FIRMWARE_VERSION + "\",";
-    payload += "\"brightness\": " + String(brightnessValue, 2);
-    payload += "\"flowRate\":" + String(flowRate, 3) + ",";
-    payload += "\"totalLiters\":" + String(totalLiters, 4);
+    payload += "\"firmwareVersion\": \"" + String(FIRMWARE_VERSION) + "\",";
+    payload += "\"brightness\": " + String(brightnessValue, 2) + ",";
+    payload += "\"flowRate\": " + String(flowRate, 3) + ",";
+    payload += "\"totalLiters\": " + String(totalLiters, 4);
     payload += "}";
 
     Serial.println("\n📤 Sending JSON payload:");
