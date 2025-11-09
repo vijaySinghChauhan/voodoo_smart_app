@@ -23,6 +23,11 @@ import DevicesListScreen from './src/screens/esp8266/DevicesListScreen';
 
 // Chat Screen
 import ChatScreen from './src/screens/chat/ChatScreen';
+import UserListScreen from './src/screens/chat/UserListScreen';
+
+// Audio Streaming Screens
+import UserAudioListScreen from './src/screens/audio/UserAudioListScreen';
+import AudioCallScreen from './src/screens/audio/AudioCallScreen';
 
 // Room Management Screens
 import RoomsScreen from './src/screens/rooms/RoomsScreen';
@@ -58,8 +63,18 @@ const Drawer = createDrawerNavigator();
 
 function ChatStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Chat" component={ChatScreen} />
+    <Stack.Navigator initialRouteName="UserList">
+      <Stack.Screen name="UserList" component={UserListScreen} options={{ title: 'Users' }} />
+      <Stack.Screen name="Chat" component={ChatScreen} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Chat: ${route.params.targetUserName}` : 'Chat' })} />
+    </Stack.Navigator>
+  );
+}
+
+function AudioStack() {
+  return (
+    <Stack.Navigator initialRouteName="UserAudioList">
+      <Stack.Screen name="UserAudioList" component={UserAudioListScreen} options={{ title: 'Users (Audio)' }} />
+      <Stack.Screen name="AudioCall" component={AudioCallScreen} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
     </Stack.Navigator>
   );
 }
@@ -131,6 +146,7 @@ const AppDrawer = () => {
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
       <Drawer.Screen name="Chat" component={ChatStack} />
+      <Drawer.Screen name="Audio" component={AudioStack} options={{ title: 'Audio Calls' }} />
       {user?.role === 'admin' && (
         <>
           <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />

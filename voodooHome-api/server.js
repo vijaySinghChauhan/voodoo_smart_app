@@ -46,6 +46,7 @@ app.use('/voodoo/api/devices', require('./routes/devices'));
 app.use('/voodoo/api/rooms', require('./routes/rooms'));
 app.use('/voodoo/api/products', require('./routes/products'));
 app.use('/voodoo/api/chat', require('./routes/chat'));
+app.use('/voodoo/api/users', require('./routes/users'));
 app.use('/voodoo/api/help', require('./routes/help'));
 app.use('/voodoo/api/health', require('./routes/health'));
 app.use('/voodoo/api/orders', require('./routes/orders'));

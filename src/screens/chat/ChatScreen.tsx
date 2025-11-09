@@ -16,6 +16,7 @@ import Card from '../../components/Card';
 import Button from '../../components/Button';
 import * as constantsV from '../../constants/constatantsV';
 import authService from '../../services/auth/authService';
+import chatService from '../../services/chat/chatService';
 
 type Message = {
   id: string;
@@ -24,12 +25,25 @@ type Message = {
   timestamp: Date;
 };
 
-const ChatScreen = () => {
+const ChatScreen = ({ route }: any) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
-  const [room, setRoom] = useState('general');
+  const { targetUserId, targetUserName } = route?.params || {};
+  const [room, setRoom] = useState<string>('general');
   const socketRef = useRef<Socket | null>(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Compute direct message room if target provided; use sorted ids for deterministic room
+    if (user?.id && targetUserId) {
+      const a = String(user.id);
+      const b = String(targetUserId);
+      const roomId = `dm_${[a, b].sort().join('_')}`;
+      if (room !== roomId) setRoom(roomId);
+    } else {
+      if (room !== 'general') setRoom('general');
+    }
+  }, [user?.id, targetUserId]);
 
   useEffect(() => {
     (async () => {
@@ -52,6 +66,20 @@ const ChatScreen = () => {
       socketRef.current.on('message', (msg) => {
         setMessages(prev => [...prev, msg]);
       });
+
+      // Load message history for this room
+      try {
+        const history = await chatService.getMessages(room);
+        const mapped = (history || []).map((m: any) => ({
+          id: String(m.id),
+          text: String(m.text || ''),
+          sender: m.user?.name || 'Unknown',
+          timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
+        }));
+        setMessages(mapped);
+      } catch (e) {
+        // ignore history load errors to keep chat usable
+      }
     })();
 
     return () => {
@@ -71,6 +99,9 @@ const ChatScreen = () => {
         timestamp: new Date(),
       };
       
+      // Persist to backend
+      try { chatService.sendMessage(room, message).catch(()=>{}); } catch(e) {}
+
       socketRef.current.emit('sendMessage', {
         room,
         message: newMessage
