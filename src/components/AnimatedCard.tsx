@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Animated, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { Animated, TouchableOpacity, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { COLORS, SHADOWS, SIZES } from '../theme/theme';
 
 interface AnimatedCardProps {
@@ -18,7 +18,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
@@ -27,7 +27,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
       toValue: 1,
       friction: 5,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 

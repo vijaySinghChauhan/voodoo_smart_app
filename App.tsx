@@ -1,11 +1,14 @@
 import React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
+import { io, Socket } from 'socket.io-client';
+import * as constantsV from './src/constants/constatantsV';
+import authService from './src/services/auth/authService';
 
 // Splash Screen
 import SplashScreen from './src/screens/SplashScreen';
@@ -74,7 +77,7 @@ function AudioStack() {
   return (
     <Stack.Navigator initialRouteName="UserAudioList">
       <Stack.Screen name="UserAudioList" component={UserAudioListScreen} options={{ title: 'Users (Audio)' }} />
-      <Stack.Screen name="AudioCall" component={AudioCallScreen} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
+      <Stack.Screen name="AudioCall" component={AudioCallScreen as React.ComponentType<any>} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
     </Stack.Navigator>
   );
 }
@@ -95,7 +98,7 @@ const RoomsStack = () => (
       component={RoomsScreen as React.ComponentType<any>} 
       options={{ headerShown: false }} 
     />
-    <Stack.Screen name="RoomDetail" component={RoomDetailScreen} options={{ title: 'Room Details' }} />
+    <Stack.Screen name="RoomDetail" component={RoomDetailScreen as React.ComponentType<any>} options={{ title: 'Room Details' }} />
     <Stack.Screen name="AddEditRoom" component={AddEditRoomScreen} options={({ route }) => ({ 
       title: (route.params as { room?: any })?.room ? 'Edit Room' : 'Add Room'
     })} />
@@ -166,6 +169,7 @@ const AppNavigator = () => {
   const [showSplash, setShowSplash] = React.useState(true);
   const routeNameRef = React.useRef<string | undefined>(undefined);
   const logService = require('./src/services/logging/logService').default;
+  const callSignalSocketRef = React.useRef<Socket | null>(null);
   // Deep link subscription stored locally for cleanup
   
   React.useEffect(() => {
@@ -175,6 +179,38 @@ const AppNavigator = () => {
     
     return () => clearTimeout(timer);
   }, []);
+
+  // Connect to signaling and listen for incoming call invites
+  const pendingIncomingRef = React.useRef<{ targetUserId?: string; targetUserName?: string } | null>(null);
+  const [incomingModalVisible, setIncomingModalVisible] = React.useState(false);
+  const [incomingPayload, setIncomingPayload] = React.useState<{ from?: string; room?: string; name?: string } | null>(null);
+
+  React.useEffect(() => {
+    const connect = async () => {
+      if (!user?.id) return;
+      const token = (await authService.getToken()) || '';
+      callSignalSocketRef.current = io(constantsV.CHAT_BASE_URL, {
+        transports: ['websocket', 'polling'],
+        path: '/voodoo/socket.io',
+        auth: { token },
+        extraHeaders: { Authorization: `Bearer ${token}` },
+      });
+      callSignalSocketRef.current.emit('webrtc:user-join', `user:${user.id}`);
+      callSignalSocketRef.current.on('webrtc:incoming', (payload: { from: string; room?: string; name?: string }) => {
+        try {
+          setIncomingPayload(payload);
+          setIncomingModalVisible(true);
+          const targetUserName = payload?.name;
+          Toast.show({ type: 'info', text1: 'Incoming Call', text2: targetUserName ? `From ${targetUserName}` : 'Incoming call', position: 'bottom' });
+        } catch (e) { /* ignore */ }
+      });
+    };
+    connect();
+    return () => {
+      callSignalSocketRef.current?.disconnect();
+      callSignalSocketRef.current = null;
+    };
+  }, [user?.id]);
 
   // Handle deep link callbacks for payments (e.g., PhonePe)
   React.useEffect(() => {
@@ -228,6 +264,7 @@ const AppNavigator = () => {
           if (current?.name) {
             logService.logScreenView(current.name);
           }
+          // If a modal was queued while not ready, it will still be shown after splash
         } catch (e) { /* ignore */ }
       }}
       onStateChange={() => {
@@ -247,6 +284,56 @@ const AppNavigator = () => {
       ) : (
         <AuthStack />
       )}
+      {/* Incoming Call Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={incomingModalVisible}
+        onRequestClose={() => setIncomingModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Incoming Call</Text>
+            <Text style={styles.modalSubtitle}>
+              {incomingPayload?.name ? `From ${incomingPayload.name}` : 'Do you want to accept?'}
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.acceptButton]}
+                onPress={() => {
+                  const targetUserId = incomingPayload?.from;
+                  const targetUserName = incomingPayload?.name;
+                  setIncomingModalVisible(false);
+                  setIncomingPayload(null);
+                  if (navigationRef.isReady()) {
+                    (navigationRef as any).navigate('Audio', {
+                      screen: 'AudioCall',
+                      params: { targetUserId, targetUserName, incoming: true },
+                    });
+                  } else {
+                    pendingIncomingRef.current = { targetUserId, targetUserName } as any;
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  const room = incomingPayload?.room;
+                  setIncomingModalVisible(false);
+                  setIncomingPayload(null);
+                  if (room && callSignalSocketRef.current) {
+                    callSignalSocketRef.current.emit('webrtc:decline', { room });
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </NavigationContainer>
   );
 };
@@ -263,3 +350,58 @@ function App(): React.JSX.Element {
 }
 
 export default App;
+
+const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCard: {
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#111',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#444',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  acceptButton: {
+    backgroundColor: '#2e7d32',
+  },
+  cancelButton: {
+    backgroundColor: '#c62828',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

@@ -90,6 +90,10 @@ io.on('connection', (socket) => {
   // Track polling timers per socket
   const timers = new Map();
   const lastValues = new Map();
+  // Automatically join user-specific room for direct signaling
+  if (socket.user?.id) {
+    socket.join(`user:${socket.user.id}`);
+  }
   
   socket.on('joinRoom', (room) => {
     socket.join(room);
@@ -113,6 +117,18 @@ io.on('connection', (socket) => {
     io.to(room).emit('webrtc:user-joined', { userId: socket.user?.id });
   });
 
+  // Allow client to explicitly join user room if desired
+  socket.on('webrtc:user-join', (userRoom) => {
+    if (!userRoom) return;
+    socket.join(userRoom);
+  });
+
+  // Invite routing: notify target user's room of incoming call
+  socket.on('webrtc:invite', ({ to, room }) => {
+    if (!to) return;
+    io.to(`user:${to}`).emit('webrtc:incoming', { from: socket.user?.id, room });
+  });
+
   socket.on('webrtc:offer', ({ room, sdp }) => {
     if (!room || !sdp) return;
     io.to(room).emit('webrtc:offer', { from: socket.user?.id, sdp });
@@ -126,6 +142,24 @@ io.on('connection', (socket) => {
   socket.on('webrtc:ice', ({ room, candidate }) => {
     if (!room || !candidate) return;
     io.to(room).emit('webrtc:ice', { from: socket.user?.id, candidate });
+  });
+
+  // Callee declined the incoming call
+  socket.on('webrtc:decline', ({ room }) => {
+    if (!room) return;
+    io.to(room).emit('webrtc:declined', { from: socket.user?.id });
+  });
+
+  // Caller canceled before callee answered
+  socket.on('webrtc:cancel', ({ room }) => {
+    if (!room) return;
+    io.to(room).emit('webrtc:canceled', { from: socket.user?.id });
+  });
+
+  // Callee is ready to receive an offer (e.g., accepted before offer arrived)
+  socket.on('webrtc:ready', ({ room }) => {
+    if (!room) return;
+    io.to(room).emit('webrtc:ready', { from: socket.user?.id });
   });
 
   // Brightness subscription: client provides deviceId and ip (SoftAP or LAN)

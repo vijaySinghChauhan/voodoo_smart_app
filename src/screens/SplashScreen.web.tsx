@@ -1,24 +1,17 @@
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Dimensions,
-  StatusBar,
-} from 'react-native';
-import { Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, StatusBar, Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.3);
+interface WebSplashProps {
+  onDone?: () => void;
+}
+
+const SplashScreen: React.FC<WebSplashProps> = ({ onDone }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -33,16 +26,14 @@ const SplashScreen: React.FC = () => {
       }),
     ]).start();
 
-    // Navigate after 3 seconds
     const timer = setTimeout(() => {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth' as never }],
-      });
+      try {
+        onDone && onDone();
+      } catch (_) {}
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [fadeAnim, scaleAnim, onDone]);
 
   return (
     <View style={styles.container}>
@@ -62,7 +53,7 @@ const SplashScreen: React.FC = () => {
         <Text style={styles.appName}>VoodooHome</Text>
         <Text style={styles.tagline}>Smart Home Control</Text>
       </Animated.View>
-      
+
       <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
         <View style={styles.loadingDots}>
           <View style={[styles.dot, styles.dot1]} />
@@ -94,10 +85,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     shadowColor: '#0f3460',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
@@ -135,14 +123,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   dot1: {
-    animationDelay: '0s',
+    // Visual stagger only; RN Web doesn't support animationDelay here
   },
   dot2: {
-    animationDelay: '0.2s',
+    // Visual stagger only; RN Web doesn't support animationDelay here
   },
   dot3: {
-    animationDelay: '0.4s',
+    // Visual stagger only; RN Web doesn't support animationDelay here
   },
 });
 
 export default SplashScreen;
+

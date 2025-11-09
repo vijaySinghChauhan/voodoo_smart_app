@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import Svg, { Rect, Path } from 'react-native-svg';
 
 type WaterTankProps = {
@@ -17,12 +17,12 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
           toValue: 1,
           duration: 1200,
           easing: Easing.linear,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(pourAnim, {
           toValue: 0,
           duration: 0,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         })
       ])
     ).start();
@@ -32,13 +32,13 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
           toValue: 1,
           duration: 2000,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(waveAnim, {
           toValue: 0,
           duration: 2000,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         })
       ])
     ).start();
