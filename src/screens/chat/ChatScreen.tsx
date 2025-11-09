@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { io, Socket } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
@@ -28,6 +29,7 @@ type Message = {
 const ChatScreen = ({ route }: any) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
+  const [connectionError, setConnectionError] = useState<string>('');
   const { targetUserId, targetUserName } = route?.params || {};
   const [room, setRoom] = useState<string>('general');
   const socketRef = useRef<Socket | null>(null);
@@ -48,6 +50,29 @@ const ChatScreen = ({ route }: any) => {
   useEffect(() => {
     (async () => {
       let active = true;
+      // Load cached messages first for instant UI, scoped by room
+      try {
+        const cacheKey = `chat_cache_${room}`;
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const raw = JSON.parse(cached) as Array<any>;
+          const mapped = (raw || []).map((m: any) => ({
+            id: String(m.id),
+            text: String(m.text || ''),
+            sender: String(m.sender || 'Unknown'),
+            timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+          }));
+          if (active) {
+            setMessages(prev => {
+              const byId = new Map<string, Message>();
+              [...mapped, ...prev].forEach((msg) => { byId.set(String(msg.id), msg); });
+              return Array.from(byId.values()).sort((a,b)=> new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            });
+          }
+        }
+      } catch (e) {
+        // ignore cache load errors
+      }
       // Load message history first to avoid overwriting live messages
       try {
         const history = await chatService.getMessages(room);
@@ -84,11 +109,18 @@ const ChatScreen = ({ route }: any) => {
         extraHeaders: { Authorization: `Bearer ${token}` },
       });
 
+      // Surface connection/auth errors to the UI to guide users
+      socketRef.current.on('connect_error', (err: any) => {
+        setConnectionError('Chat connection failed. Please log in and retry.');
+      });
+
       // Join room on connect/reconnect
       socketRef.current.on('connect', () => {
+        setConnectionError('');
         socketRef.current?.emit('joinRoom', room);
       });
       socketRef.current.on('reconnect', () => {
+        setConnectionError('');
         socketRef.current?.emit('joinRoom', room);
       });
       // Also attempt initial join
@@ -114,17 +146,63 @@ const ChatScreen = ({ route }: any) => {
       // Clean up on unmount
       if (socketRef.current) {
         socketRef.current.off('message');
+        socketRef.current.off('connect_error');
         socketRef.current.disconnect();
       }
     };
   }, [room]);
 
+  // Persist messages to cache so navigating away and back keeps them
+  useEffect(() => {
+    (async () => {
+      try {
+        const cacheKey = `chat_cache_${room}`;
+        const payload = messages.map(m => ({
+          id: m.id,
+          text: m.text,
+          sender: m.sender,
+          timestamp: new Date(m.timestamp).toISOString(),
+        }));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(payload));
+      } catch (e) {
+        // ignore cache save errors
+      }
+    })();
+  }, [messages, room]);
+
   const handleSend = () => {
-    if (message.trim() && socketRef.current) {
-      // Rely on server to persist and broadcast to avoid duplicates
-      socketRef.current.emit('sendMessage', { room, text: message.trim() });
+    const text = message.trim();
+    if (!text) return;
+    // Prefer socket if connected; otherwise fall back to REST API
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('sendMessage', { room, text, sender: user?.name || 'Me' });
       setMessage('');
+      return;
     }
+    // REST fallback when socket is disconnected
+    (async () => {
+      try {
+        const res = await chatService.sendMessage(room, text);
+        const mapped = {
+          id: String(res?.id || Date.now()),
+          text: String(res?.text || text),
+          sender: String(res?.sender || res?.user?.name || user?.name || 'Me'),
+          timestamp: res?.createdAt
+            ? new Date(res.createdAt)
+            : res?.timestamp
+            ? new Date(res.timestamp)
+            : new Date(),
+        } as Message;
+        setMessages(prev => {
+          const byId = new Map<string, Message>();
+          [...prev, mapped].forEach((m) => { byId.set(String(m.id), m); });
+          return Array.from(byId.values()).sort((a,b)=> new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        });
+        setMessage('');
+      } catch (e) {
+        setConnectionError('Unable to send message. Please check connection.');
+      }
+    })();
   };
 
   return (
@@ -134,6 +212,9 @@ const ChatScreen = ({ route }: any) => {
         style={styles.keyboardAvoid}
       >
         <Card elevation="medium" style={styles.chatContainer}>
+          {connectionError ? (
+            <Text style={styles.errorBanner}>{connectionError}</Text>
+          ) : null}
           <FlatList
             data={messages}
             keyExtractor={(item) => item.id}
@@ -216,6 +297,13 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
     textAlign: 'right',
+  },
+  errorBanner: {
+    backgroundColor: '#fdecea',
+    color: '#b71c1c',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',

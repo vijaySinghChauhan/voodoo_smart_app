@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
     console.log(`User joined room: ${room}`);
   });
   
-  socket.on('sendMessage', async ({ room, text }) => {
+  socket.on('sendMessage', async ({ room, text, sender }) => {
     if (!room || !text) return;
     try {
       const Chat = require('./models/Chat');
@@ -114,7 +114,7 @@ io.on('connection', (socket) => {
       const payload = {
         id: String(saved.id),
         text: saved.text,
-        sender: user?.name || 'Unknown',
+        sender: user?.name || sender || 'Unknown',
         timestamp: saved.createdAt || new Date(),
       };
       io.to(room).emit('message', payload);
@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
       const payload = {
         id: String(Date.now()),
         text: String(text),
-        sender: 'Unknown',
+        sender: sender || 'Unknown',
         timestamp: new Date(),
       };
       io.to(room).emit('message', payload);
