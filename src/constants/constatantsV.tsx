@@ -2,7 +2,8 @@
 // export const CHAT_BASE_URL = 'http://192.168.1.6:3001'; 
 // Use local API/server during development to keep JWT and sockets aligned
 export const BASE_URL = 'https://apnabanda.in/voodoo/api';
-export const CHAT_BASE_URL = 'https://apnabanda.in/voodoo/chat';
+// Socket.IO should point to the host only; path is configured separately
+export const CHAT_BASE_URL = 'https://apnabanda.in';
 
 // Default ICE servers; add TURN here for reliable media across carriers/NATs
 export const ICE_SERVERS = [

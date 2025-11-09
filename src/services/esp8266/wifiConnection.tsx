@@ -14,7 +14,7 @@ const wifiConnection = () => {
       await WifiManager.connectToProtectedSSID('voodootech_setup', 'voodootech123', false, false);
       
       // Send credentials to ESP
-      const response = await fetch(constantsV.BASE_URL + 'connect', {
+      const response = await fetch(constantsV.BASE_URL + '/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

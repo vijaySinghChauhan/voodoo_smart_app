@@ -12,7 +12,7 @@ type LogEvent = {
 };
 
 class LogService {
-  private baseUrl: string = `${constantsV.BASE_URL}logs`;
+  private baseUrl: string = `${constantsV.BASE_URL}/logs`;
 
   private async getHeaders() {
     const token = (await authService.getToken()) || (await AsyncStorage.getItem('auth_token'));
