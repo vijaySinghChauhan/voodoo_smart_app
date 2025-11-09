@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   profilePicture?: string;
+  role?: 'user' | 'admin';
 }
 
 interface AuthResponse {
@@ -64,7 +65,7 @@ class AuthService {
   
   async signup(name: string, email: string, password: string): Promise<User> {
     try {
-      const response = await axios.post<AuthResponse>(`${this.baseUrl}/signup`, {
+      const response = await axios.post<AuthResponse>(`${this.baseUrl}/register`, {
         name,
         email,
         password
@@ -110,7 +111,7 @@ class AuthService {
         throw new Error('Not authenticated');
       }
       
-      const response = await axios.put<User>(`${this.baseUrl}/profile`, userData, {
+      const response = await axios.put<User>(`${this.baseUrl}/updatedetails`, userData, {
         headers: {
           Authorization: `Bearer ${this.token}`
         }

@@ -41,6 +41,11 @@ import AddressEditScreen from './src/screens/ecommerce/AddressEditScreen';
 
 // Dashboard Screen
 import DashboardScreen from './src/screens/dashboard/DashboardScreen';
+// Admin & Subscriptions Screens
+import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
+import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
+import AdminUserDetailScreen from './src/screens/admin/AdminUserDetailScreen';
+import SubscriptionListScreen from './src/screens/subscriptions/SubscriptionListScreen';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -104,20 +109,37 @@ const ESP8266Stack = () => (
   </Stack.Navigator>
 );
 
-const AppDrawer = () => (
-  <Drawer.Navigator initialRouteName="Dashboard">
-    <Drawer.Screen name="Dashboard" component={DashboardScreen} />
-    <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
-    <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
-    <Drawer.Screen name="Rooms" component={RoomsStack} />
-    <Drawer.Screen name="Devices" component={ESP8266Stack} />
-    <Drawer.Screen name="Shop" component={EcommerceStack} />
-    <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
-    <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
-    <Drawer.Screen name="Profile" component={ProfileScreen} />
-    <Drawer.Screen name="Chat" component={ChatStack} />
-  </Drawer.Navigator>
+const AdminStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'Admin Users' }} />
+    <Stack.Screen name="AdminUserDetail" component={AdminUserDetailScreen} options={{ title: 'User Detail' }} />
+  </Stack.Navigator>
 );
+
+const AppDrawer = () => {
+  const { user } = useAuth();
+  return (
+    <Drawer.Navigator initialRouteName="Dashboard">
+      <Drawer.Screen name="Dashboard" component={DashboardScreen} />
+      <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
+      <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
+      <Drawer.Screen name="Rooms" component={RoomsStack} />
+      <Drawer.Screen name="Devices" component={ESP8266Stack} />
+      <Drawer.Screen name="Shop" component={EcommerceStack} />
+      <Drawer.Screen name="Subscriptions" component={SubscriptionListScreen} />
+      <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
+      <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
+      <Drawer.Screen name="Profile" component={ProfileScreen} />
+      <Drawer.Screen name="Chat" component={ChatStack} />
+      {user?.role === 'admin' && (
+        <>
+          <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />
+          <Drawer.Screen name="Admin" component={AdminStack} options={{ title: 'Admin Users' }} />
+        </>
+      )}
+    </Drawer.Navigator>
+  );
+};
 
 const RootStack = createStackNavigator();
 

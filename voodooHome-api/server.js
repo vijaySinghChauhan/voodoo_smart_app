@@ -53,6 +53,9 @@ app.use('/voodoo/api/addresses', require('./routes/addresses'));
 app.use('/voodoo/api/payments', require('./routes/payments'));
 app.use('/voodoo/api/phonepe', require('./routes/phonepe'));
 app.use('/voodoo/api/logs', require('./routes/logs'));
+app.use('/voodoo/api/subscriptions', require('./routes/subscriptions'));
+// Admin endpoints
+app.use('/voodoo/api/admin', require('./routes/admin'));
 // Smart Home integrations
 app.use('/voodoo/google', require('./routes/google'));
 app.use('/voodoo/alexa', require('./routes/alexa'));

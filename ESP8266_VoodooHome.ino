@@ -20,7 +20,7 @@
 // ------------------ Configuration ------------------
 ESP8266WebServer server(80);
 
-const char* AP_SSID = "VoodooSmart1";
+const char* AP_SSID = "VoodooTech SmartHome";
 const char* AP_PASS = "";
 
 // Safe pins for ultrasonic (avoid GPIO0/15/16)
@@ -130,6 +130,12 @@ void loop() {
 
       if (WiFi.status() == WL_CONNECTED) {
         sendDataToServer(distance);
+        Serial.println("⚠️ WiFI Connected");
+
+      }
+      else
+      {
+        Serial.println("⚠️ WiFI Disconnected");
       }
     } else {
       Serial.println("⚠️ Invalid ultrasonic reading");

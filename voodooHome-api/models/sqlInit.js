@@ -8,6 +8,8 @@ async function initSqlSchema() {
       email VARCHAR(150) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       avatar VARCHAR(255),
+      phone VARCHAR(30),
+      role VARCHAR(20) NOT NULL DEFAULT 'user',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME NULL
     )`,
@@ -126,11 +128,46 @@ async function initSqlSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_user_time (user_id, created_at),
       FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
+
+    // Subscriptions table
+    `CREATE TABLE IF NOT EXISTS subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      plan VARCHAR(50) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      start_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      end_date DATETIME NULL,
+      auto_renew TINYINT(1) DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )`
   ];
 
   for (const sql of queries) {
     await pool.query(sql);
+  }
+  // Add role column to users if missing
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'");
+  } catch (e) {
+    // ignore if exists
+  }
+  // Add phone column to users if missing
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN phone VARCHAR(30) NULL");
+  } catch (e) {
+    // ignore if exists
+  }
+  // Seed admin role based on env ADMIN_EMAIL
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      await pool.query('UPDATE users SET role=\'admin\' WHERE email = ?', [adminEmail]);
+    }
+  } catch (e) {
+    // ignore
   }
   // Attempt to relax existing schema if already created with NOT NULL
   try {
