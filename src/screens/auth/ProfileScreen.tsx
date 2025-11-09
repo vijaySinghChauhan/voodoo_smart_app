@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
+import logService from '../../services/logging/logService';
 
 const ProfileScreen: React.FC = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
@@ -38,6 +39,7 @@ const ProfileScreen: React.FC = () => {
     }
 
     try {
+      try { await logService.logButtonClick('Update Profile', { name }); } catch (e) {}
       await updateProfile({ name });
       setIsEditing(false);
       Toast.show({
@@ -58,6 +60,7 @@ const ProfileScreen: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      try { await logService.logButtonClick('Logout'); } catch (e) {}
       await logout();
     } catch (error) {
       Toast.show({
@@ -117,6 +120,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={() => {
+                  try { logService.logButtonClick('Cancel Edit Profile'); } catch (e) {}
                   setIsEditing(false);
                   setName(user.name);
                 }}
@@ -138,7 +142,7 @@ const ProfileScreen: React.FC = () => {
           ) : (
             <TouchableOpacity
               style={[styles.button, styles.editButton]}
-              onPress={() => setIsEditing(true)}
+              onPress={async () => { try { await logService.logButtonClick('Edit Profile'); } catch (e) {} ; setIsEditing(true); }}
             >
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>

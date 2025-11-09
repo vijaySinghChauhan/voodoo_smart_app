@@ -17,6 +17,7 @@ import productService, { Product } from '../../services/ecommerce/productService
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../../theme/theme';
+import logService from '../../services/logging/logService';
 
 interface Room {
   id: string;
@@ -82,14 +83,16 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     }
   };
 
-  const navigateToRoom = (roomId: string) => {
+  const navigateToRoom = async (roomId: string) => {
+    try { await logService.logButtonClick('Navigate Room Detail', { roomId }); } catch (e) {}
     navigation.navigate('Rooms', {
       screen: 'RoomDetail',
       params: { roomId }
     });
   };
 
-  const navigateToDevice = (deviceId: string) => {
+  const navigateToDevice = async (deviceId: string) => {
+    try { await logService.logButtonClick('Navigate Device Control', { deviceId }); } catch (e) {}
     navigation.navigate('Devices', {
       screen: 'DeviceControl',
       params: { deviceId }
@@ -154,7 +157,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Rooms</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Rooms')}>
+            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Rooms'); } catch (e) {} ; navigation.navigate('Rooms'); }}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -184,7 +187,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Devices</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Devices')}>
+            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Devices'); } catch (e) {} ; navigation.navigate('Devices'); }}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -213,7 +216,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured Products</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Shop')}>
+            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Products'); } catch (e) {} ; navigation.navigate('Shop'); }}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -223,10 +226,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.productCard}
-                  onPress={() => navigation.navigate('Shop', {
+                  onPress={async () => { try { await logService.logButtonClick('View Product', { productId: item.id, name: item.name }); } catch (e) {} ; navigation.navigate('Shop', {
                     screen: 'ProductDetail',
                     params: { productId: item.id }
-                  })}
+                  }); }}
                 >
                   <Image
                     source={{ uri: item.imageUrl }}

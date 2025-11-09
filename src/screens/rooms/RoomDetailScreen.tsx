@@ -14,6 +14,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
+import logService from '../../services/logging/logService';
 
 interface Device {
   id: string;
@@ -105,12 +106,14 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     }
   };
 
-  const handleAddDevice = () => {
+  const handleAddDevice = async () => {
+    try { await logService.logButtonClick('Add Device To Room', { roomId }); } catch (e) {}
     navigation.navigate('AddDeviceToRoom', { roomId });
   };
 
   const handleRemoveDevice = async (deviceId: string) => {
     try {
+      try { await logService.logButtonClick('Remove Device From Room', { roomId, deviceId }); } catch (e) {}
       const ok = await esp8266Service.unassignDeviceFromRoom(deviceId);
       if (!ok) throw new Error('Unassign failed');
       Toast.show({
@@ -133,6 +136,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
   const toggleDeviceStatus = async (device: Device) => {
     try {
       const newStatus: 'on' | 'off' = device.isOn ? 'off' : 'on';
+      try { await logService.logButtonClick('Toggle Device Status', { deviceId: device.id, to: newStatus }); } catch (e) {}
       const ok = await esp8266Service.controlDeviceOnServer(device.id, newStatus);
       if (!ok) throw new Error('Control failed');
       
@@ -155,6 +159,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     <TouchableOpacity
       style={styles.deviceItem}
       onPress={() => {
+        try { logService.logButtonClick('Open Device From Room', { deviceId: item.id }); } catch (e) {}
         // Navigate to Devices stack control screen
         const parent = navigation.getParent?.();
         if (parent) {
@@ -201,7 +206,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
         <Text style={styles.roomName}>{room?.name}</Text>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => navigation.navigate('AddEditRoom', { room })}
+          onPress={async () => { try { await logService.logButtonClick('Edit Room', { roomId }); } catch (e) {} ; navigation.navigate('AddEditRoom', { room }); }}
         >
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>

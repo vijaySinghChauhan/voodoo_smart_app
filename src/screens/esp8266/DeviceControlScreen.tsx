@@ -17,6 +17,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../../context/AuthContext';
 import * as appConstants from '../../constants/constatantsV';
 import authService from '../../services/auth/authService';
+import logService from '../../services/logging/logService';
 
 interface DeviceStatus {
   connected: boolean;
@@ -287,6 +288,8 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
 
   const toggleDeviceField = async (field: 'device2'|'device3'|'device4'|'device5', value: boolean) => {
     try {
+      // Log toggle intent
+      await logService.logButtonClick(`Toggle ${field}`, { value });
       if (!selectedDeviceId) throw new Error('No device selected');
       const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { [field]: value ? 1 : 0 });
       if (!ok) throw new Error('Update failed');
@@ -298,6 +301,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
 
   const handleSaveTarget = async () => {
     try {
+      await logService.logButtonClick('Save Target', { targetValue });
       if (!selectedDeviceId) {
         Toast.show({ type: 'error', text1: 'No Device', text2: 'Select a device first', position: 'bottom' });
         return;
@@ -324,6 +328,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
   };
 
   const handlePowerToggle = async (value: boolean) => {
+    try { await logService.logButtonClick('Power Toggle', { value }); } catch (e) {}
     setIsPowerOn(value);
     
     try {
@@ -362,6 +367,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
   };
   const handleRefresh = async () => {
     try {
+      await logService.logButtonClick('Refresh Device');
       await loadDeviceInfo(selectedDeviceId);
       Toast.show({ type: 'success', text1: 'Refreshed', text2: 'Device state updated', position: 'bottom' });
       // Re-subscribe brightness if we have ip and socket
@@ -376,6 +382,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
   }
   const handleReset = async () => {
     try {
+      await logService.logButtonClick('Reset Device');
       const success = await esp8266Service.resetDevice();
       if (success) {
         Toast.show({
@@ -406,6 +413,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
 
   const handleDisable = async () => {
     try {
+      await logService.logButtonClick('Disable Device');
       const success = await esp8266Service.disableDevice();
       if (success) {
         Toast.show({

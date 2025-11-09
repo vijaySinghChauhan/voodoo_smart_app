@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
+import logService from '../../services/logging/logService';
 
 const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -20,6 +21,7 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { login, isLoading } = useAuth();
 
   const handleLogin = async () => {
+    try { await logService.logButtonClick('Login Attempt', { email }); } catch (e) {}
     // navigation.reset({
     //   index: 0,
     //   routes: [{ name: 'Auth' as never }],
@@ -102,7 +104,7 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Don't have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('Navigate Signup'); } catch (e) {} ; navigation.navigate('Signup'); }}>
                 <Text style={styles.signupLink}>Sign up</Text>
               </TouchableOpacity>
             </View>

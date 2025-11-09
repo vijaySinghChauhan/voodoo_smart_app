@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
+import logService from '../../services/logging/logService';
 
 interface Device {
   ip: string;
@@ -26,6 +27,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const scanForDevices = async () => {
     setIsScanning(true);
     try {
+      try { await logService.logButtonClick('Scan Devices'); } catch (e) {}
       const discoveredDevices = await esp8266Service.discoverDevices();
       setDevices(discoveredDevices);
       
@@ -55,6 +57,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
   const handleDeviceSelect = async (device: Device) => {
     try {
+      try { await logService.logButtonClick('Select Discovered Device', { ip: device.ip, name: device.name }); } catch (e) {}
       await esp8266Service.setDeviceIP(device.ip);
       await esp8266Service.setDeviceName(device.name);
       
@@ -107,6 +110,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
     }
 
     try {
+      try { await logService.logButtonClick('Manual Connect Device', { ip: manualIP, name: deviceName }); } catch (e) {}
       await esp8266Service.setDeviceIP(manualIP);
       await esp8266Service.setDeviceName(deviceName);
       

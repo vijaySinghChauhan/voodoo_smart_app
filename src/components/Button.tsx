@@ -8,6 +8,7 @@ import {
   TextStyle 
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../theme/theme';
+import logService from '../services/logging/logService';
 
 interface ButtonProps {
   label: string;
@@ -87,10 +88,18 @@ const Button: React.FC<ButtonProps> = ({
     }
   };
   
+  const handlePress = async () => {
+    try {
+      // Log the click with label and variant/size metadata
+      await logService.logButtonClick(label, { variant, size });
+    } catch (e) { /* ignore */ }
+    onPress();
+  };
+
   return (
     <TouchableOpacity
       style={[getButtonStyles(), style]}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       activeOpacity={0.7}
     >

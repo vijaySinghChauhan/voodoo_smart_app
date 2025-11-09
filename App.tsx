@@ -2,7 +2,7 @@ import React from 'react';
 import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
@@ -121,9 +121,13 @@ const AppDrawer = () => (
 
 const RootStack = createStackNavigator();
 
+const navigationRef = createNavigationContainerRef();
+
 const AppNavigator = () => {
   const { user, isLoading } = useAuth();
   const [showSplash, setShowSplash] = React.useState(true);
+  const routeNameRef = React.useRef<string | undefined>(undefined);
+  const logService = require('./src/services/logging/logService').default;
   // Deep link subscription stored locally for cleanup
   
   React.useEffect(() => {
@@ -177,7 +181,29 @@ const AppNavigator = () => {
   }
   
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        try {
+          const current = navigationRef.getCurrentRoute();
+          routeNameRef.current = current?.name;
+          if (current?.name) {
+            logService.logScreenView(current.name);
+          }
+        } catch (e) { /* ignore */ }
+      }}
+      onStateChange={() => {
+        try {
+          const previousRouteName = routeNameRef.current;
+          const currentRoute = navigationRef.getCurrentRoute();
+          const currentRouteName = currentRoute?.name;
+          if (currentRouteName && previousRouteName !== currentRouteName) {
+            routeNameRef.current = currentRouteName;
+            logService.logScreenView(currentRouteName);
+          }
+        } catch (e) { /* ignore */ }
+      }}
+    >
       {user ? (
         <AppDrawer />
       ) : (

@@ -115,6 +115,18 @@ async function initSqlSchema() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`
+    ,
+    `CREATE TABLE IF NOT EXISTS logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NULL,
+      event_type VARCHAR(50) NOT NULL,
+      screen VARCHAR(100) NULL,
+      action VARCHAR(150) NULL,
+      metadata TEXT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_user_time (user_id, created_at),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`
   ];
 
   for (const sql of queries) {
