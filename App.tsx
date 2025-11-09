@@ -9,6 +9,7 @@ import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
 import * as constantsV from './src/constants/constatantsV';
 import authService from './src/services/auth/authService';
+import userService from './src/services/users/userService';
 
 // Splash Screen
 import SplashScreen from './src/screens/SplashScreen';
@@ -184,6 +185,7 @@ const AppNavigator = () => {
   const pendingIncomingRef = React.useRef<{ targetUserId?: string; targetUserName?: string } | null>(null);
   const [incomingModalVisible, setIncomingModalVisible] = React.useState(false);
   const [incomingPayload, setIncomingPayload] = React.useState<{ from?: string; room?: string; name?: string } | null>(null);
+  const [incomingDisplayName, setIncomingDisplayName] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     const connect = async () => {
@@ -211,6 +213,29 @@ const AppNavigator = () => {
       callSignalSocketRef.current = null;
     };
   }, [user?.id]);
+
+  // Resolve caller name when only ID is provided
+  React.useEffect(() => {
+    (async () => {
+      try {
+        if (!incomingPayload) {
+          setIncomingDisplayName(undefined);
+          return;
+        }
+        if (incomingPayload.name) {
+          setIncomingDisplayName(incomingPayload.name);
+          return;
+        }
+        if (incomingPayload.from) {
+          const users = await userService.listUsers();
+          const match = users?.find((u: any) => String(u?.id) === String(incomingPayload.from));
+          setIncomingDisplayName(match?.name);
+        }
+      } catch (_) {
+        setIncomingDisplayName(undefined);
+      }
+    })();
+  }, [incomingPayload?.from, incomingPayload?.name]);
 
   // Handle deep link callbacks for payments (e.g., PhonePe)
   React.useEffect(() => {
@@ -242,11 +267,61 @@ const AppNavigator = () => {
   
   if (showSplash) {
     return (
-      <NavigationContainer>
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Splash" component={SplashScreen} />
-        </RootStack.Navigator>
-      </NavigationContainer>
+      <>
+        <NavigationContainer>
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            <RootStack.Screen name="Splash" component={SplashScreen} />
+          </RootStack.Navigator>
+        </NavigationContainer>
+        {/* Incoming Call Modal during splash */}
+        <Modal
+          transparent
+          animationType="fade"
+          visible={incomingModalVisible}
+          onRequestClose={() => setIncomingModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Incoming Call</Text>
+              <Text style={styles.modalSubtitle}>
+                {incomingDisplayName || incomingPayload?.name
+                  ? `From ${incomingDisplayName || incomingPayload?.name}`
+                  : incomingPayload?.from
+                  ? `From ID ${incomingPayload.from}`
+                  : 'Do you want to accept?'}
+              </Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.acceptButton]}
+                  onPress={() => {
+                    const targetUserId = incomingPayload?.from;
+                    const targetUserName = incomingDisplayName || incomingPayload?.name;
+                    setIncomingModalVisible(false);
+                    setIncomingPayload(null);
+                    pendingIncomingRef.current = { targetUserId, targetUserName } as any;
+                    // When NavigationContainer is ready (after splash), we navigate in onReady
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    const room = incomingPayload?.room;
+                    setIncomingModalVisible(false);
+                    setIncomingPayload(null);
+                    if (room && callSignalSocketRef.current) {
+                      callSignalSocketRef.current.emit('webrtc:decline', { room });
+                    }
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
     );
   }
   
@@ -295,14 +370,18 @@ const AppNavigator = () => {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Incoming Call</Text>
             <Text style={styles.modalSubtitle}>
-              {incomingPayload?.name ? `From ${incomingPayload.name}` : 'Do you want to accept?'}
+              {incomingDisplayName || incomingPayload?.name
+                ? `From ${incomingDisplayName || incomingPayload?.name}`
+                : incomingPayload?.from
+                ? `From ID ${incomingPayload.from}`
+                : 'Do you want to accept?'}
             </Text>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.acceptButton]}
                 onPress={() => {
                   const targetUserId = incomingPayload?.from;
-                  const targetUserName = incomingPayload?.name;
+                  const targetUserName = incomingDisplayName || incomingPayload?.name;
                   setIncomingModalVisible(false);
                   setIncomingPayload(null);
                   if (navigationRef.isReady()) {

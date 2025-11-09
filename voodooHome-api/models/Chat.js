@@ -3,7 +3,7 @@ const { pool } = require('../config/db');
 class Chat {
   constructor(row){
     this._id = row.id; this.id=row.id;
-    this.room = row.room_id;
+    this.room = row.room_key || row.room_id;
     this.user = row.user_id;
     this.text = row.text;
     this.createdAt = row.created_at;
@@ -11,7 +11,7 @@ class Chat {
 
   static async find(filter={}){
     const where=[]; const params=[];
-    if (filter.room){ where.push('c.room_id=?'); params.push(filter.room); }
+    if (filter.room){ where.push('c.room_key=?'); params.push(filter.room); }
     if (filter.user){ where.push('c.user_id=?'); params.push(filter.user); }
     const sql = `SELECT c.*, u.name as user_name, u.email as user_email FROM chats c LEFT JOIN users u ON u.id = c.user_id${where.length? ' WHERE '+where.join(' AND '):''} ORDER BY c.created_at ASC`;
     const [rows] = await pool.query(sql, params);
@@ -23,7 +23,8 @@ class Chat {
   }
 
   static async create(data){
-    const [res] = await pool.query('INSERT INTO chats (room_id,user_id,text) VALUES (?,?,?)',[data.room || null, data.user || null, data.text]);
+    // Prefer room_key to support string identifiers; room_id kept for backward compatibility
+    const [res] = await pool.query('INSERT INTO chats (room_key,user_id,text) VALUES (?,?,?)',[data.room || null, data.user || null, data.text]);
     const [rows] = await pool.query('SELECT * FROM chats WHERE id=?', [res.insertId]);
     return new Chat(rows[0]);
   }

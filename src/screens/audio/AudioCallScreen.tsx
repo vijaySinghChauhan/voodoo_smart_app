@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Vibration, NativeModules, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration, NativeModules, Platform, PermissionsAndroid } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { io, Socket } from 'socket.io-client';
 import * as constantsV from '../../constants/constatantsV';
@@ -7,6 +8,7 @@ import authService from '../../services/auth/authService';
 import { useAuth } from '../../context/AuthContext';
 // WebRTC imports
 import { mediaDevices, RTCPeerConnection, RTCIceCandidate, RTCSessionDescription } from 'react-native-webrtc';
+import userService from '../../services/users/userService';
 
 type AudioStackParamList = {
   UserAudioList: undefined;
@@ -18,6 +20,14 @@ type AudioCallRouteProp = RouteProp<AudioStackParamList, 'AudioCall'>;
 const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => {
   const { targetUserId, targetUserName, incoming } = route.params || {};
   const [callState, setCallState] = useState<'idle' | 'ringing' | 'connecting' | 'in_call' | 'ended'>(incoming ? 'ringing' : 'idle');
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const [partnerName, setPartnerName] = useState<string | undefined>(targetUserName);
+  const [callStartAt, setCallStartAt] = useState<number | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
+  const [iceState, setIceState] = useState<string>('new');
+  const [pcConnState, setPcConnState] = useState<string>('new');
+  const [remoteAudioTracks, setRemoteAudioTracks] = useState<number>(0);
+  const [localAudioTracks, setLocalAudioTracks] = useState<number>(0);
   const socketRef = useRef<Socket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<any>(null);
@@ -26,6 +36,7 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
   const pendingOfferRef = useRef<any>(null);
   const callStateRef = useRef(callState);
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
 
   useEffect(() => { callStateRef.current = callState; }, [callState]);
 
@@ -35,6 +46,26 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     const b = String(targetUserId || 'other');
     roomRef.current = `call_${[a, b].sort().join('_')}`;
   }, [targetUserId, user?.id]);
+
+  // Resolve partner name if not already passed
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!partnerName && targetUserId) {
+          const users = await userService.listUsers();
+          const match = users?.find((u: any) => String(u?.id) === String(targetUserId));
+          if (match?.name) setPartnerName(match.name);
+        }
+      } catch (_) {}
+    })();
+  }, [targetUserId, partnerName]);
+
+  // Update header with name and timer
+  useEffect(() => {
+    const base = partnerName || targetUserName || targetUserId || 'Audio Call';
+    const title = callState === 'in_call' && callStartAt ? `Call: ${base} • ${formatDuration(elapsedSec)}` : `Call: ${base}`;
+    navigation.setOptions({ title });
+  }, [navigation, partnerName, targetUserName, targetUserId, callState, elapsedSec, callStartAt]);
 
   useEffect(() => {
     // Connect socket and join signaling room
@@ -58,20 +89,36 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           }
           // Already connecting: proceed to set remote description
           if (!pcRef.current) {
-            pcRef.current = new RTCPeerConnection({
-              iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-              ]
-            });
+            pcRef.current = new RTCPeerConnection({ iceServers: (constantsV as any).ICE_SERVERS });
             (pcRef.current as any).onicecandidate = (event: any) => {
               const candidate = event?.candidate;
               if (candidate) {
                 socketRef.current?.emit('webrtc:ice', { room: roomRef.current, candidate });
               }
             };
+            (pcRef.current as any).oniceconnectionstatechange = () => {
+              try {
+                const s = (pcRef.current as any)?.iceConnectionState;
+                console.log('ICE state (callee flow):', s);
+              } catch (_) {}
+            };
             (pcRef.current as any).onconnectionstatechange = () => {
               const s = (pcRef.current as any)?.connectionState;
-              if (s === 'connected') setCallState('in_call');
+              setPcConnState(String(s || 'unknown'));
+              if (s === 'connected') {
+                setCallState('in_call');
+                if (!callStartAt) setCallStartAt(Date.now());
+              }
+              if (s === 'failed') {
+                console.warn('ICE connection failed');
+              }
+            };
+            (pcRef.current as any).oniceconnectionstatechange = () => {
+              try {
+                const s = (pcRef.current as any)?.iceConnectionState;
+                setIceState(String(s || 'unknown'));
+                console.log('ICE state (callee flow):', s);
+              } catch (_) {}
             };
             // Capture remote tracks for audio
             (pcRef.current as any).ontrack = (event: any) => {
@@ -80,16 +127,44 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
                 if (stream) {
                   remoteStreamRef.current = stream;
                   // Audio tracks play automatically on native; ensure enabled
-                  stream.getAudioTracks().forEach((t: any) => (t.enabled = true));
+                  const tracks = stream.getAudioTracks();
+                  tracks.forEach((t: any) => (t.enabled = true));
+                  setRemoteAudioTracks(tracks?.length || 0);
+                }
+              } catch (_) {}
+            };
+            // Fallback for older react-native-webrtc versions
+            (pcRef.current as any).onaddstream = (event: any) => {
+              try {
+                const stream = event?.stream;
+                if (stream) {
+                  remoteStreamRef.current = stream;
+                  const tracks = stream.getAudioTracks();
+                  tracks.forEach((t: any) => (t.enabled = true));
+                  setRemoteAudioTracks(tracks?.length || 0);
                 }
               } catch (_) {}
             };
           }
           await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
           if (!localStreamRef.current) {
-            const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+            // Ensure mic permission on Android before acquiring stream
+            if (Platform.OS === 'android') {
+              try {
+                const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                  console.warn('Microphone permission denied');
+                  return;
+                }
+              } catch (e) {
+                console.warn('Mic permission request error', e);
+              }
+            }
+            const stream = await mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false } as any);
             localStreamRef.current = stream;
             stream.getTracks().forEach((t: any) => pcRef.current?.addTrack(t, stream));
+            try { (pcRef.current as any).addStream?.(stream); } catch (_) {}
+            try { setLocalAudioTracks(stream.getAudioTracks()?.length || 0); } catch (_) {}
           }
           const answer = await pcRef.current.createAnswer();
           await pcRef.current.setLocalDescription(answer);
@@ -148,11 +223,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
       socketRef.current?.emit('webrtc:invite', { to: targetUserId, room: roomRef.current });
     }
     // Create peer connection
-    pcRef.current = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ]
-    });
+    pcRef.current = new RTCPeerConnection({ iceServers: (constantsV as any).ICE_SERVERS });
+    try { (pcRef.current as any).addTransceiver?.('audio', { direction: 'sendrecv' }); } catch (_) {}
     // Assign handler properties with safe casts to satisfy TS
     (pcRef.current as any).onicecandidate = (event: any) => {
       try {
@@ -162,26 +234,70 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
         }
       } catch (_) { /* ignore */ }
     };
+    (pcRef.current as any).oniceconnectionstatechange = () => {
+      try {
+        const s = (pcRef.current as any)?.iceConnectionState;
+        console.log('ICE state (caller flow):', s);
+      } catch (_) {}
+    };
     (pcRef.current as any).onconnectionstatechange = () => {
       try {
         const s = (pcRef.current as any)?.connectionState;
-        if (s === 'connected') setCallState('in_call');
+        setPcConnState(String(s || 'unknown'));
+        if (s === 'connected') {
+          setCallState('in_call');
+          if (!callStartAt) setCallStartAt(Date.now());
+        }
+        if (s === 'failed') {
+          console.warn('ICE connection failed');
+        }
       } catch (_) { /* ignore */ }
+    };
+    (pcRef.current as any).oniceconnectionstatechange = () => {
+      try {
+        const s = (pcRef.current as any)?.iceConnectionState;
+        setIceState(String(s || 'unknown'));
+        console.log('ICE state (caller flow):', s);
+      } catch (_) {}
     };
     (pcRef.current as any).ontrack = (event: any) => {
       try {
         const stream = event?.streams?.[0];
         if (stream) {
           remoteStreamRef.current = stream;
-          stream.getAudioTracks().forEach((t: any) => (t.enabled = true));
+          const tracks = stream.getAudioTracks();
+          tracks.forEach((t: any) => (t.enabled = true));
+          setRemoteAudioTracks(tracks?.length || 0);
+          // Reinforce audio routing to speaker when remote audio arrives
+          const InCallManager = NativeModules.InCallManager;
+          try {
+            InCallManager?.setForceSpeakerphoneOn?.(true);
+            InCallManager?.setSpeakerphoneOn?.(true);
+          } catch (_) {}
         }
       } catch (_) { /* ignore */ }
     };
 
     // Acquire audio stream
-    const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('Microphone permission denied');
+          return;
+        }
+      } catch (e) {
+        console.warn('Mic permission request error', e);
+      }
+    }
+    const stream = await mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+      video: false
+    } as any);
     localStreamRef.current = stream;
     stream.getTracks().forEach((t: any) => pcRef.current?.addTrack(t, stream));
+    try { (pcRef.current as any).addStream?.(stream); } catch (_) {}
+    try { setLocalAudioTracks(stream.getAudioTracks()?.length || 0); } catch (_) {}
 
     // Create offer
     const offer = await pcRef.current.createOffer({ offerToReceiveAudio: true });
@@ -191,35 +307,83 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
 
   const acceptCall = async () => {
     setCallState('connecting');
+    // Activate audio session immediately and route to speaker
+    try {
+      const InCallManager = NativeModules.InCallManager;
+      InCallManager?.start?.({ media: 'audio' });
+      InCallManager?.setForceSpeakerphoneOn?.(true);
+      InCallManager?.setSpeakerphoneOn?.(true);
+      setSpeakerOn(true);
+    } catch (_) {}
     if (!pcRef.current) {
-      pcRef.current = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' }
-        ]
-      });
+      pcRef.current = new RTCPeerConnection({ iceServers: (constantsV as any).ICE_SERVERS });
+      try { (pcRef.current as any).addTransceiver?.('audio', { direction: 'sendrecv' }); } catch (_) {}
       (pcRef.current as any).onicecandidate = (event: any) => {
         const candidate = event?.candidate;
         if (candidate) {
           socketRef.current?.emit('webrtc:ice', { room: roomRef.current, candidate });
         }
       };
+      (pcRef.current as any).oniceconnectionstatechange = () => {
+        try {
+          const s = (pcRef.current as any)?.iceConnectionState;
+          console.log('ICE state (callee accepted):', s);
+        } catch (_) {}
+      };
       (pcRef.current as any).onconnectionstatechange = () => {
         const s = (pcRef.current as any)?.connectionState;
-        if (s === 'connected') setCallState('in_call');
+        setPcConnState(String(s || 'unknown'));
+        if (s === 'connected') {
+          setCallState('in_call');
+          if (!callStartAt) setCallStartAt(Date.now());
+        }
+        if (s === 'failed') {
+          console.warn('ICE connection failed');
+        }
+      };
+      (pcRef.current as any).oniceconnectionstatechange = () => {
+        try {
+          const s = (pcRef.current as any)?.iceConnectionState;
+          setIceState(String(s || 'unknown'));
+          console.log('ICE state (callee accepted):', s);
+        } catch (_) {}
       };
       (pcRef.current as any).ontrack = (event: any) => {
         const stream = event?.streams?.[0];
         if (stream) {
           remoteStreamRef.current = stream;
-          stream.getAudioTracks().forEach((t: any) => (t.enabled = true));
+          const tracks = stream.getAudioTracks();
+          tracks.forEach((t: any) => (t.enabled = true));
+          setRemoteAudioTracks(tracks?.length || 0);
+          const InCallManager = NativeModules.InCallManager;
+          try {
+            InCallManager?.setForceSpeakerphoneOn?.(true);
+            InCallManager?.setSpeakerphoneOn?.(true);
+          } catch (_) {}
         }
       };
     }
     // Acquire audio
     if (!localStreamRef.current) {
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.warn('Microphone permission denied');
+            return;
+          }
+        } catch (e) {
+          console.warn('Mic permission request error', e);
+        }
+      }
+      const stream = await mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+        video: false
+      } as any);
       localStreamRef.current = stream;
       stream.getTracks().forEach((t: any) => pcRef.current?.addTrack(t, stream));
+      try { (pcRef.current as any).addStream?.(stream); } catch (_) {}
+      try { setLocalAudioTracks(stream.getAudioTracks()?.length || 0); } catch (_) {}
     }
     // If an offer was buffered, use it and answer
     if (pendingOfferRef.current) {
@@ -231,6 +395,18 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     } else {
       // No buffered offer yet: signal readiness so caller can (re)send offer
       socketRef.current?.emit('webrtc:ready', { room: roomRef.current });
+    }
+  };
+
+  const toggleSpeaker = (next?: boolean) => {
+    const desired = typeof next === 'boolean' ? next : !speakerOn;
+    setSpeakerOn(desired);
+    try {
+      const InCallManager = NativeModules.InCallManager;
+      InCallManager?.setForceSpeakerphoneOn?.(desired);
+      InCallManager?.setSpeakerphoneOn?.(desired);
+    } catch (e) {
+      console.warn('toggleSpeaker error', e);
     }
   };
 
@@ -295,12 +471,43 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     }
   }, [callState]);
 
+  // Track elapsed time while in-call
+  useEffect(() => {
+    if (callStartAt && callState === 'in_call') {
+      const id = setInterval(() => {
+        setElapsedSec(Math.floor((Date.now() - callStartAt) / 1000));
+      }, 1000);
+      return () => clearInterval(id);
+    }
+  }, [callStartAt, callState]);
+
+  // Reset timer when leaving call
+  useEffect(() => {
+    if (callState === 'ended' || callState === 'idle') {
+      setCallStartAt(null);
+      setElapsedSec(0);
+    }
+  }, [callState]);
+
+  const formatDuration = (s: number) => {
+    const mm = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Audio Streaming</Text>
       <Text style={styles.subtitle}>
-        {targetUserName ? `Calling ${targetUserName}` : 'Select a user to start a call'}
+        {callState === 'ringing' && incoming && (partnerName || targetUserName || targetUserId)
+          ? `Incoming call from ${partnerName || targetUserName || targetUserId}`
+          : callState === 'in_call' && (partnerName || targetUserName || targetUserId)
+          ? `In call with ${partnerName || targetUserName || targetUserId} • ${formatDuration(elapsedSec)}`
+          : (partnerName || targetUserName)
+          ? `Calling ${partnerName || targetUserName}`
+          : 'Select a user to start a call'}
       </Text>
+      <Text style={styles.debug}>ICE: {iceState} • PC: {pcConnState} • Local audio: {localAudioTracks} • Remote audio: {remoteAudioTracks}</Text>
 
       <View style={styles.controls}>
         {callState === 'ringing' && (
@@ -327,9 +534,17 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           </>
         )}
         {callState === 'in_call' && (
-          <TouchableOpacity style={styles.dangerBtn} onPress={endCall}>
-            <Text style={styles.btnText}>End Call</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={speakerOn ? styles.primaryBtn : styles.neutralBtn}
+              onPress={() => toggleSpeaker()}
+            >
+              <Text style={styles.btnText}>{speakerOn ? 'Big Speaker: On' : 'Big Speaker: Off'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dangerBtn} onPress={endCall}>
+              <Text style={styles.btnText}>End Call</Text>
+            </TouchableOpacity>
+          </>
         )}
         {callState === 'ended' && <Text style={styles.status}>Call Ended</Text>}
       </View>
@@ -340,10 +555,12 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 22, fontWeight: '600', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 24 },
+  subtitle: { fontSize: 14, color: '#666', marginBottom: 8 },
+  debug: { fontSize: 12, color: '#888', marginBottom: 16 },
   controls: { alignItems: 'center', gap: 12 },
   primaryBtn: { backgroundColor: '#3b82f6', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   dangerBtn: { backgroundColor: '#ef4444', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  neutralBtn: { backgroundColor: '#6b7280', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   btnText: { color: '#fff', fontWeight: '600' },
   status: { fontSize: 16, color: '#333' },
 });

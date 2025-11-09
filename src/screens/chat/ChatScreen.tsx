@@ -47,6 +47,31 @@ const ChatScreen = ({ route }: any) => {
 
   useEffect(() => {
     (async () => {
+      let active = true;
+      // Load message history first to avoid overwriting live messages
+      try {
+        const history = await chatService.getMessages(room);
+      const mapped = (history || []).map((m: any) => ({
+        id: String(m.id),
+        text: String(m.text || ''),
+        sender: m.user?.name || m.sender || 'Unknown',
+        timestamp: m.createdAt
+          ? new Date(m.createdAt)
+          : m.timestamp
+          ? new Date(m.timestamp)
+          : new Date(),
+      }));
+        if (active) {
+          setMessages(prev => {
+            const byId = new Map<string, Message>();
+            [...mapped, ...prev].forEach((msg) => { byId.set(String(msg.id), msg); });
+            return Array.from(byId.values()).sort((a,b)=> new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          });
+        }
+      } catch (e) {
+        // ignore history load errors to keep chat usable
+      }
+
       // Connect to Socket.io server with JWT from storage
       const token = (await authService.getToken()) || '';
       socketRef.current = io(constantsV.CHAT_BASE_URL, {
@@ -59,32 +84,36 @@ const ChatScreen = ({ route }: any) => {
         extraHeaders: { Authorization: `Bearer ${token}` },
       });
 
-      // Join room
+      // Join room on connect/reconnect
+      socketRef.current.on('connect', () => {
+        socketRef.current?.emit('joinRoom', room);
+      });
+      socketRef.current.on('reconnect', () => {
+        socketRef.current?.emit('joinRoom', room);
+      });
+      // Also attempt initial join
       socketRef.current.emit('joinRoom', room);
 
       // Listen for messages
-      socketRef.current.on('message', (msg) => {
-        setMessages(prev => [...prev, msg]);
+      socketRef.current.on('message', (msg: any) => {
+        const mapped = {
+          id: String(msg.id || Date.now()),
+          text: String(msg.text || ''),
+          sender: String(msg.sender || 'Unknown'),
+          timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+        } as Message;
+        setMessages(prev => {
+          const byId = new Map<string, Message>();
+          [...prev, mapped].forEach((m) => { byId.set(String(m.id), m); });
+          return Array.from(byId.values()).sort((a,b)=> new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        });
       });
-
-      // Load message history for this room
-      try {
-        const history = await chatService.getMessages(room);
-        const mapped = (history || []).map((m: any) => ({
-          id: String(m.id),
-          text: String(m.text || ''),
-          sender: m.user?.name || 'Unknown',
-          timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
-        }));
-        setMessages(mapped);
-      } catch (e) {
-        // ignore history load errors to keep chat usable
-      }
     })();
 
     return () => {
       // Clean up on unmount
       if (socketRef.current) {
+        socketRef.current.off('message');
         socketRef.current.disconnect();
       }
     };
@@ -92,21 +121,8 @@ const ChatScreen = ({ route }: any) => {
 
   const handleSend = () => {
     if (message.trim() && socketRef.current) {
-      const newMessage = {
-        id: Date.now().toString(),
-        text: message,
-        sender: user?.name || 'Anonymous',
-        timestamp: new Date(),
-      };
-      
-      // Persist to backend
-      try { chatService.sendMessage(room, message).catch(()=>{}); } catch(e) {}
-
-      socketRef.current.emit('sendMessage', {
-        room,
-        message: newMessage
-      });
-      
+      // Rely on server to persist and broadcast to avoid duplicates
+      socketRef.current.emit('sendMessage', { room, text: message.trim() });
       setMessage('');
     }
   };

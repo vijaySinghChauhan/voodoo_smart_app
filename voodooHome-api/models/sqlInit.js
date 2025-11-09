@@ -185,9 +185,18 @@ async function initSqlSchema() {
     'ALTER TABLE devices ADD COLUMN device5 INT NULL',
     'ALTER TABLE devices ADD COLUMN flow_rate DECIMAL(10,3) DEFAULT 0',
     'ALTER TABLE devices ADD COLUMN total_liters DECIMAL(10,3) DEFAULT 0',
+    // Chat enhancements: allow string-based rooms (e.g., dm_1_2, general)
+    'ALTER TABLE chats ADD COLUMN room_key VARCHAR(100) NULL',
+    'ALTER TABLE chats ADD INDEX idx_room_key (room_key)',
   ];
   for (const stmt of alterStatements) {
     try { await pool.query(stmt); } catch (e) { /* ignore if column exists */ }
+  }
+  // Backfill room_key from legacy numeric room_id if present
+  try {
+    await pool.query("UPDATE chats SET room_key = CAST(room_id AS CHAR) WHERE room_key IS NULL AND room_id IS NOT NULL");
+  } catch (e) {
+    // ignore if update fails or table empty
   }
   console.log('✅ SQL tables initialized');
 }

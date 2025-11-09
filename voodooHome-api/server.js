@@ -33,6 +33,8 @@ const io = socketio(server, {
 });
 // Expose io to controllers via Express app
 app.set('io', io);
+// In-memory chat cache fallback when DB is unavailable
+app.set('chatCache', new Map());
 
 // Body parser
 app.use(express.json());
@@ -100,14 +102,53 @@ io.on('connection', (socket) => {
     console.log(`User joined room: ${room}`);
   });
   
-  socket.on('sendMessage', ({ room, message }) => {
-    // Optionally enrich with server-side timestamp/user id
-    const enriched = {
-      ...message,
-      timestamp: message.timestamp || new Date(),
-      senderId: socket.user?.id
-    };
-    io.to(room).emit('message', enriched);
+  socket.on('sendMessage', async ({ room, text }) => {
+    if (!room || !text) return;
+    try {
+      const Chat = require('./models/Chat');
+      const User = require('./models/User');
+      const userId = socket.user?.id;
+      // Persist message using room_key and user id
+      const saved = await Chat.create({ room, user: userId, text });
+      const user = await User.findById(userId);
+      const payload = {
+        id: String(saved.id),
+        text: saved.text,
+        sender: user?.name || 'Unknown',
+        timestamp: saved.createdAt || new Date(),
+      };
+      io.to(room).emit('message', payload);
+      // Cache message in memory
+      try {
+        const cache = app.get('chatCache');
+        if (cache) {
+          const arr = cache.get(room) || [];
+          arr.push(payload);
+          if (arr.length > 200) arr.splice(0, arr.length - 200);
+          cache.set(room, arr);
+        }
+      } catch (e) { /* ignore cache errors */ }
+    } catch (err) {
+      console.error('sendMessage persist failed, broadcasting ephemeral:', err?.message || err);
+      // Fallback broadcast so chat continues even if DB is down
+      const payload = {
+        id: String(Date.now()),
+        text: String(text),
+        sender: 'Unknown',
+        timestamp: new Date(),
+      };
+      io.to(room).emit('message', payload);
+      // Cache message in memory
+      try {
+        const cache = app.get('chatCache');
+        if (cache) {
+          const arr = cache.get(room) || [];
+          arr.push(payload);
+          if (arr.length > 200) arr.splice(0, arr.length - 200);
+          cache.set(room, arr);
+        }
+      } catch (e) { /* ignore cache errors */ }
+    }
   });
 
   // WebRTC signaling for audio calls
