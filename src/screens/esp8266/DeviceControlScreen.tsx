@@ -37,7 +37,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
-  const [targetValue, setTargetValue] = useState<string>('');
+  const [targetValue, setTargetValue] = useState<number>(0);
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(undefined);
@@ -48,25 +48,35 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [device5On, setDevice5On] = useState<boolean>(false);
   const [flowRate, setFlowRate] = useState<number | undefined>(undefined);
   const [totalLiters, setTotalLiters] = useState<number | undefined>(undefined);
+  const [showRemaining, setShowRemaining] = useState<boolean>(true);
+  const brightnessBufferRef = React.useRef<number[]>([]);
+  const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
   
-// Helper: map raw brightness to water tank percent using target as 100%
-const brightnessToPercent = (rawBrightness: number, target: string) => {
-  const t = (() => {
-    const n = Number((target || '').trim());
-    return isNaN(n) || n <= 0 ? 1 : n; // Avoid divide-by-zero
-  })();
+// Smooth brightness to reduce jitter
+const smoothValue = (newVal: number) => {
+  const buf = brightnessBufferRef.current;
+  buf.push(newVal);
+  if (buf.length > SMOOTH_WINDOW) buf.shift();
+  const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+  return avg;
+};
+
+// Helper: map to percent with optional remaining view
+// remaining = 100 - (brightness/target * 100); filled = (brightness/target * 100)
+const brightnessToPercent = (rawBrightness: number, target: number) => {
+ 
 
   if (typeof rawBrightness !== 'number' || isNaN(rawBrightness)) {
-    setBrightness(0);
     return 0;
   }
 
   const val = Math.max(0, rawBrightness);
-  const pct = Math.round(Math.min(100, (val / t) * 100)); // Clamp between 0–100
-  const pctRemaining = 100 - pct;
-
-  return pctRemaining;
+  const pctRaw = Math.min(100, Math.max(0, (val / target) * 100));
+  let pct = showRemaining ? 100 - pctRaw : pctRaw;
+  // Floor: avoid near-empty visuals from noise, but keep true zero as zero
+  if (pct > 0 && pct < 5) pct = 5;
+  return Math.round(Math.max(0, Math.min(100, pct)));
 };
 
   
@@ -155,7 +165,8 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
          
           if (typeof raw === 'number' && isFinite(raw)) {
             setBrightness(raw);
-            setWaterLevel(brightnessToPercent(raw, targetValue));
+            const smoothed = smoothValue(raw);
+            setWaterLevel(brightnessToPercent(smoothed, targetValue));
             Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetValue})`, position: 'bottom' });
           }
         });
@@ -216,9 +227,10 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
   // Recalculate water level when brightness or target changes
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
-     setWaterLevel(brightnessToPercent(brightness, targetValue));
+      const smoothed = smoothValue(brightness);
+      setWaterLevel(brightnessToPercent(smoothed, targetValue));
     }
-  }, [brightness, targetValue]);
+  }, [brightness, targetValue, showRemaining]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
@@ -233,7 +245,7 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
           setDeviceName(devDetail.name || 'Device');
           setSelectedDeviceIp(devDetail.ipAddress || devDetail.ip || null);
           if (devDetail.target !== undefined && devDetail.target !== null) {
-            setTargetValue(String(devDetail.target));
+            setTargetValue(devDetail.target);
           }
           setDevice2On(!!devDetail.device2);
           setDevice3On(!!devDetail.device3);
@@ -271,7 +283,8 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
         const b = await esp8266Service.getDeviceBrightnessFromServer(useDeviceId!);
         if (typeof b === 'number') {
           setBrightness(b);
-          setWaterLevel(brightnessToPercent(b, targetValue));
+          const smoothed = smoothValue(b);
+          setWaterLevel(brightnessToPercent(smoothed, targetValue));
         }
       }
     } catch (error) {
@@ -306,17 +319,17 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
         Toast.show({ type: 'error', text1: 'No Device', text2: 'Select a device first', position: 'bottom' });
         return;
       }
-      const parsed = targetValue.trim() === '' ? null : Number(targetValue);
-      if (parsed !== null && (isNaN(parsed) || !isFinite(parsed))) {
+      if (targetValue !== null && (isNaN(targetValue) || !isFinite(targetValue))) {
         Toast.show({ type: 'error', text1: 'Invalid Value', text2: 'Enter a numeric target', position: 'bottom' });
         return;
       }
-      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: parsed });
+      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: targetValue });
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Recalculate local tank percent immediately using current brightness
          
-              setWaterLevel(brightnessToPercent(brightness ?? 0, targetValue));
+              const smoothed = smoothValue(brightness ?? 0);
+              setWaterLevel(brightnessToPercent(smoothed, targetValue));
         
         await loadDeviceInfo(selectedDeviceId);
       } else {
@@ -464,6 +477,16 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
             <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
         </View>
+        {/* Mapping toggle: Remaining vs Filled */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={{ color: '#333', fontWeight: '600' }}>Show Remaining %</Text>
+          <Switch
+            value={showRemaining}
+            onValueChange={setShowRemaining}
+            trackColor={{ false: '#767577', true: '#4CAF50' }}
+            thumbColor={showRemaining ? '#fff' : '#f4f3f4'}
+          />
+        </View>
         <WaterTank percentage={waterLevel ?? 0} />
         <View style={{ marginTop: 10 }}>
           <Text style={{ color: '#666' }}>Exact Data: {brightness ?? '—'}</Text>
@@ -589,8 +612,8 @@ const brightnessToPercent = (rawBrightness: number, target: string) => {
               }}
               keyboardType="numeric"
               placeholder="Enter target depth"
-              value={targetValue}
-              onChangeText={setTargetValue}
+              value={targetValue.toString()}
+              onChangeText={(text) => setTargetValue(Number(text))}
             />
             <TouchableOpacity style={styles.configButton} onPress={handleSaveTarget}>
               <Text style={styles.buttonText}>Save Target</Text>

@@ -51,6 +51,8 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
   });
 
   const clamped = Math.max(0, Math.min(100, percentage));
+  const TANK_HEIGHT = 150; // keep in sync with styles.tank.height
+  const fillHeight = (clamped / 100) * TANK_HEIGHT;
 
   const waveTranslateY = waveAnim.interpolate({
     inputRange: [0, 1],
@@ -78,8 +80,8 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
         </Animated.View>
       </View>
       <View style={styles.tank}>
-        {/* Fill from bottom upward (correct direction) */}
-        <Animated.View style={[styles.water, { height: `${clamped}%`, position: 'absolute', bottom: 0, transform: [{ translateY: waveTranslateY }] }]} />
+        {/* Fill from bottom upward using pixel height for reliability */}
+        <Animated.View style={[styles.water, { height: fillHeight, position: 'absolute', bottom: 0, transform: [{ translateY: waveTranslateY }] }]} />
       </View>
       <Text style={styles.percentageText}>{clamped}%</Text>
     </View>
