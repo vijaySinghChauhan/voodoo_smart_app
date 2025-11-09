@@ -26,6 +26,7 @@
     "react-native-screens": "^4.11.1",
     "react-native-svg": "^15.12.0",
     "react-native-toast-message": "^2.3.1",
+    "react-native-webrtc": "^124.0.7",
     "react-native-wifi-reborn": "^4.13.6",
     "socket.io-client": "^4.8.1"
   },

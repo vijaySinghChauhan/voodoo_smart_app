@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
+import { io, Socket } from 'socket.io-client';
+import * as constantsV from '../../constants/constatantsV';
+import authService from '../../services/auth/authService';
+// WebRTC imports
+import { mediaDevices, RTCPeerConnection, RTCIceCandidate, RTCSessionDescription } from 'react-native-webrtc';
 
 type AudioStackParamList = {
   UserAudioList: undefined;
@@ -12,20 +17,91 @@ type AudioCallRouteProp = RouteProp<AudioStackParamList, 'AudioCall'>;
 const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => {
   const { targetUserId, targetUserName } = route.params || {};
   const [callState, setCallState] = useState<'idle' | 'connecting' | 'in_call' | 'ended'>('idle');
+  const socketRef = useRef<Socket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<any>(null);
+  const roomRef = useRef<string>('');
 
   useEffect(() => {
-    // Placeholder: initialize audio streaming stack here (e.g., WebRTC)
-    setCallState('idle');
+    // Build deterministic call room based on sorted ids
+    const a = String(constantsV?.CURRENT_USER_ID || 'self');
+    const b = String(targetUserId || 'other');
+    roomRef.current = `call_${[a, b].sort().join('_')}`;
   }, [targetUserId]);
 
-  const startCall = () => {
+  useEffect(() => {
+    // Connect socket and join signaling room
+    (async () => {
+      const token = (await authService.getToken()) || '';
+      socketRef.current = io(constantsV.CHAT_BASE_URL, {
+        transports: ['websocket', 'polling'],
+        path: '/voodoo/socket.io',
+        auth: { token },
+        extraHeaders: { Authorization: `Bearer ${token}` },
+      });
+      socketRef.current.emit('webrtc:join', roomRef.current);
+
+      // Handle incoming signaling messages
+      socketRef.current.on('webrtc:offer', async ({ sdp }) => {
+        if (!pcRef.current) return;
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+        const answer = await pcRef.current.createAnswer();
+        await pcRef.current.setLocalDescription(answer);
+        socketRef.current?.emit('webrtc:answer', { room: roomRef.current, sdp: answer });
+      });
+      socketRef.current.on('webrtc:answer', async ({ sdp }) => {
+        if (!pcRef.current) return;
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+        setCallState('in_call');
+      });
+      socketRef.current.on('webrtc:ice', async ({ candidate }) => {
+        try {
+          if (pcRef.current && candidate) {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+        } catch (e) {}
+      });
+    })();
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const startCall = async () => {
     setCallState('connecting');
-    // TODO: Setup signaling and media streams
-    setTimeout(() => setCallState('in_call'), 800);
+    // Create peer connection
+    pcRef.current = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    });
+    pcRef.current.onicecandidate = (event: any) => {
+      if (event.candidate) {
+        socketRef.current?.emit('webrtc:ice', { room: roomRef.current, candidate: event.candidate });
+      }
+    };
+    pcRef.current.onconnectionstatechange = () => {
+      const s = pcRef.current?.connectionState;
+      if (s === 'connected') setCallState('in_call');
+    };
+
+    // Acquire audio stream
+    const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+    localStreamRef.current = stream;
+    stream.getTracks().forEach((t: any) => pcRef.current?.addTrack(t, stream));
+
+    // Create offer
+    const offer = await pcRef.current.createOffer({ offerToReceiveAudio: true });
+    await pcRef.current.setLocalDescription(offer);
+    socketRef.current?.emit('webrtc:offer', { room: roomRef.current, sdp: offer });
   };
 
   const endCall = () => {
-    // TODO: Cleanup streams and signaling
+    // Cleanup streams and peer connection
+    try { localStreamRef.current?.getTracks()?.forEach((t: any) => t.stop()); } catch (e) {}
+    try { pcRef.current?.close(); } catch (e) {}
+    pcRef.current = null;
     setCallState('ended');
   };
 
@@ -66,4 +142,3 @@ const styles = StyleSheet.create({
 });
 
 export default AudioCallScreen;
-

@@ -7,7 +7,7 @@ exports.listUsers = async (req, res) => {
   try {
     const meId = req.user.id;
     const search = String(req.query.search || '').trim();
-    let sql = `SELECT id, name, email, avatar, role FROM users WHERE id <> ?`;
+    let sql = `SELECT id, name, email, avatar, role FROM users WHERE id <> ? AND role <> 'admin'`;
     let params = [meId];
     if (search) {
       sql += ` AND (name LIKE ? OR email LIKE ?)`;
@@ -22,4 +22,3 @@ exports.listUsers = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-

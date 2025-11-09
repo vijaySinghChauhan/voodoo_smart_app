@@ -106,6 +106,28 @@ io.on('connection', (socket) => {
     io.to(room).emit('message', enriched);
   });
 
+  // WebRTC signaling for audio calls
+  socket.on('webrtc:join', (room) => {
+    if (!room) return;
+    socket.join(room);
+    io.to(room).emit('webrtc:user-joined', { userId: socket.user?.id });
+  });
+
+  socket.on('webrtc:offer', ({ room, sdp }) => {
+    if (!room || !sdp) return;
+    io.to(room).emit('webrtc:offer', { from: socket.user?.id, sdp });
+  });
+
+  socket.on('webrtc:answer', ({ room, sdp }) => {
+    if (!room || !sdp) return;
+    io.to(room).emit('webrtc:answer', { from: socket.user?.id, sdp });
+  });
+
+  socket.on('webrtc:ice', ({ room, candidate }) => {
+    if (!room || !candidate) return;
+    io.to(room).emit('webrtc:ice', { from: socket.user?.id, candidate });
+  });
+
   // Brightness subscription: client provides deviceId and ip (SoftAP or LAN)
   socket.on('brightness:subscribe', async ({ deviceId, ip }) => {
     if (!ip) {

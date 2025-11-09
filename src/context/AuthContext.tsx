@@ -7,6 +7,7 @@ interface User {
   email: string;
   profilePicture?: string;
   role?: 'user' | 'admin';
+  phone?: string;
   token?: string;
 }
 
@@ -14,7 +15,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, phone?: string, role?: 'user' | 'admin') => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
 }
@@ -51,10 +52,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
   
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, phone?: string, role: 'user' | 'admin' = 'user') => {
     setIsLoading(true);
     try {
-      const newUser = await authService.signup(name, email, password);
+      const newUser = await authService.signup(name, email, password, phone, role);
       setUser(newUser);
     } finally {
       setIsLoading(false);

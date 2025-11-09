@@ -9,6 +9,7 @@ interface User {
   email: string;
   profilePicture?: string;
   role?: 'user' | 'admin';
+  phone?: string;
 }
 
 interface AuthResponse {
@@ -63,12 +64,14 @@ class AuthService {
     }
   }
   
-  async signup(name: string, email: string, password: string): Promise<User> {
+  async signup(name: string, email: string, password: string, phone?: string, role: 'user' | 'admin' = 'user'): Promise<User> {
     try {
       const response = await axios.post<AuthResponse>(`${this.baseUrl}/register`, {
         name,
         email,
-        password
+        password,
+        phone,
+        role
       });
       
       await this.saveToken(response.data.token);

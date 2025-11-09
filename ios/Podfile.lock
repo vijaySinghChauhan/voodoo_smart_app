@@ -8,6 +8,7 @@ PODS:
   - hermes-engine (0.80.0):
     - hermes-engine/Pre-built (= 0.80.0)
   - hermes-engine/Pre-built (0.80.0)
+  - JitsiWebRTC (124.0.2)
   - razorpay-pod (1.4.2)
   - RCT-Folly (2024.11.18.00):
     - boost
@@ -1649,6 +1650,8 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
+  - react-native-network-info (5.2.2):
+    - React
   - react-native-razorpay (2.3.0):
     - razorpay-pod
     - React
@@ -1742,6 +1745,9 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-webrtc (124.0.7):
+    - JitsiWebRTC (~> 124.0.0)
+    - React-Core
   - React-NativeModulesApple (0.80.0):
     - boost
     - DoubleConversion
@@ -2590,8 +2596,10 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-network-info (from `../node_modules/react-native-network-info`)
   - react-native-razorpay (from `../node_modules/react-native-razorpay`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
+  - react-native-webrtc (from `../node_modules/react-native-webrtc`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-oscompat (from `../node_modules/react-native/ReactCommon/oscompat`)
   - React-perflogger (from `../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -2634,6 +2642,7 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - JitsiWebRTC
     - razorpay-pod
     - SocketRocket
 
@@ -2719,10 +2728,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-network-info:
+    :path: "../node_modules/react-native-network-info"
   react-native-razorpay:
     :path: "../node_modules/react-native-razorpay"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
+  react-native-webrtc:
+    :path: "../node_modules/react-native-webrtc"
   React-NativeModulesApple:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-oscompat:
@@ -2808,6 +2821,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 7068e976238b29e97b3bafd09a994542af7d5c0b
+  JitsiWebRTC: b47805ab5668be38e7ee60e2258f49badfe8e1d0
   razorpay-pod: 77bdd9733b6ea81c9fbbd6b75fea6a09feab284e
   RCT-Folly: 59ec0ac1f2f39672a0c6e6cecdd39383b764646f
   RCTDeprecation: ff787f6c860a1b97dd1bc27264b61d23ad1994da
@@ -2842,8 +2856,10 @@ SPEC CHECKSUMS:
   React-logger: b69e65dc60f768e5509ac0cc27a360124bf70478
   React-Mapbuffer: b48f9f3311fd0ec0f7a5dc39d707eff521fb5f38
   React-microtasksnativemodule: d8568d0485a350c720c061ae835e09fc88c28715
+  react-native-network-info: 253a54a48dc8f9ef5abb7a8effdfdef8abd7d875
   react-native-razorpay: 0272dd684bc9148828c54a72e05059e3e2e8b813
   react-native-safe-area-context: 31fa8b0bb05496c4005aa5560283f5015e809b91
+  react-native-webrtc: b5062b745a26c99835efdf0d6c027c9b2ee7ddbc
   React-NativeModulesApple: f10596688a03af66804cfbe61792be24a7888da8
   React-oscompat: 7c0a341cc31e350da71ddf2e46de0a845d1d1626
   React-perflogger: 4cc44451f694d6205f47bd8d5d87c9c862c3335c

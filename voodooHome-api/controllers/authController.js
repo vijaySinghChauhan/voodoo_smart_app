@@ -8,8 +8,13 @@ const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, phone, adminInvite } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedRole = String(role || 'user').trim().toLowerCase();
+    const normalizedPhone = phone ? String(phone).trim() : null;
+    const invite = String(adminInvite || '').trim();
+    const inviteSecret = process.env.ADMIN_INVITE_SECRET || '';
+    const finalRole = normalizedRole === 'admin' && invite && inviteSecret && invite === inviteSecret ? 'admin' : 'user';
 
     // Check if user exists
     let user = await User.findOne({ email: normalizedEmail });
@@ -19,7 +24,7 @@ exports.register = async (req, res) => {
 
     // Create user
     // Pass plain password; the model hashes once during insert
-    user = new User({ name, email: normalizedEmail, password });
+    user = new User({ name, email: normalizedEmail, password, role: finalRole, phone: normalizedPhone });
     await user.save();
 
     // Create token
@@ -32,7 +37,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null }
     });
   } catch (error) {
     console.error(error);
@@ -73,7 +78,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null }
     });
   } catch (error) {
     console.error(error);
@@ -104,7 +109,8 @@ exports.updateDetails = async (req, res) => {
   try {
     const fieldsToUpdate = {
       name: req.body.name,
-      email: req.body.email
+      email: req.body.email,
+      phone: req.body.phone
     };
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate);

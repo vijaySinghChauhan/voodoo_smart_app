@@ -20,6 +20,12 @@ const SignupScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const isValidPhone = (p: string) => {
+    const digits = p.replace(/[^\d]/g, '');
+    return digits.length === 0 || (digits.length >= 10 && digits.length <= 15);
+  };
+  const phoneInvalid = phone.length > 0 && !isValidPhone(phone);
   const { signup, isLoading } = useAuth();
 
   const handleSignup = async () => {
@@ -44,8 +50,18 @@ const SignupScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       return;
     }
 
+    if (phoneInvalid) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid phone',
+        text2: 'Please enter a valid phone number',
+        position: 'bottom'
+      });
+      return;
+    }
+
     try {
-      await signup(name, email, password);
+      await signup(name, email, password, phone);
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -117,10 +133,25 @@ const SignupScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               />
             </View>
 
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Phone</Text>
+              <TextInput
+                style={[styles.input, phoneInvalid && styles.inputError]}
+                placeholder="Enter your phone number"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+              {phoneInvalid && (
+                <Text style={styles.errorText}>Invalid phone number format</Text>
+              )}
+            </View>
+
+
             <TouchableOpacity
               style={styles.signupButton}
               onPress={handleSignup}
-              disabled={isLoading}
+              disabled={isLoading || phoneInvalid}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
@@ -185,6 +216,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: '#e74c3c',
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    marginTop: 6,
   },
   signupButton: {
     backgroundColor: '#4a90e2',

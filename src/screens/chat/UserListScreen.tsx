@@ -25,7 +25,7 @@ const UserListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       // Load real users for authenticated clients
       const list = await userService.listUsers(search).catch(() => demoUsers);
       const normalized = (list || []).map((u: any) => ({ id: String(u.id), name: u.name || u.fullName || 'Unknown', email: u.email, role: u.role }));
-      const filtered = normalized.filter(u => u.id !== String(user?.id));
+      const filtered = normalized.filter(u => u.id !== String(user?.id) && u.role !== 'admin');
       setUsers(filtered);
     } catch (e) {
       setUsers(demoUsers.filter(u => u.id !== String(user?.id)));
