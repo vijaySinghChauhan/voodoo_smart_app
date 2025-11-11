@@ -103,7 +103,7 @@ const ChatScreen = ({ route }: any) => {
         transports: ['websocket', 'polling'],
         path: '/voodoo/socket.io',
         timeout: 10000,
-        reconnectionAttempts: 5,
+        // Allow continuous reconnection attempts; avoid hard stop after a few minutes
         reconnectionDelay: 1000,
         auth: { token },
         extraHeaders: { Authorization: `Bearer ${token}` },
@@ -112,6 +112,20 @@ const ChatScreen = ({ route }: any) => {
       // Surface connection/auth errors to the UI to guide users
       socketRef.current.on('connect_error', (err: any) => {
         setConnectionError('Chat connection failed. Please log in and retry.');
+      });
+
+      // Refresh auth token during reconnect attempts to avoid expired sessions
+      socketRef.current.on('reconnect_attempt', async () => {
+        const freshToken = (await authService.getToken()) || '';
+        if (socketRef.current) {
+          socketRef.current.auth = { token: freshToken } as any;
+          // socket.io client stores options under io.opts
+          (socketRef.current as any).io.opts.extraHeaders = { Authorization: `Bearer ${freshToken}` };
+        }
+      });
+
+      socketRef.current.on('disconnect', () => {
+        setConnectionError('Reconnecting…');
       });
 
       // Join room on connect/reconnect
@@ -199,8 +213,13 @@ const ChatScreen = ({ route }: any) => {
           return Array.from(byId.values()).sort((a,b)=> new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         });
         setMessage('');
-      } catch (e) {
-        setConnectionError('Unable to send message. Please check connection.');
+      } catch (e: any) {
+        const status = e?.response?.status;
+        if (status === 401) {
+          setConnectionError('Session expired. Please log in again.');
+        } else {
+          setConnectionError('Unable to send message. Please check connection.');
+        }
       }
     })();
   };

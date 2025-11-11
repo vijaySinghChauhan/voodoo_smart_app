@@ -74,7 +74,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const val = Math.max(0, rawBrightness);
   const t = Number.isFinite(target) && target > 0 ? target : 100;
   const pctRaw = Math.min(100, Math.max(0, (val / t) * 100));
-  let pct = showRemaining ? 100 - pctRaw : pctRaw;
+  let pct = showRemaining ? target - pctRaw : pctRaw;
   // Floor: avoid near-empty visuals from noise, but keep true zero as zero
   if (pct > 0 && pct < 5) pct = 5;
   return Math.round(Math.max(0, Math.min(100, pct)));

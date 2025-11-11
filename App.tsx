@@ -144,7 +144,8 @@ const AppDrawer = () => {
       <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
-      <Drawer.Screen name="Shop" component={EcommerceStack} />
+      {/* <Drawer.Screen name="Shop" component={EcommerceStack} />
+      <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} /> */}
       <Drawer.Screen name="Subscriptions" component={SubscriptionListScreen} />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />

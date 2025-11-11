@@ -1,12 +1,15 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../../constants/constatantsV';
+import authService from '../auth/authService';
 
 class ChatService {
   private baseUrl = `${BASE_URL}/chat`;
 
   private async getAuthHeader() {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await authService.getToken();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
     return { Authorization: `Bearer ${token}` };
   }
 
@@ -24,4 +27,3 @@ class ChatService {
 }
 
 export default new ChatService();
-

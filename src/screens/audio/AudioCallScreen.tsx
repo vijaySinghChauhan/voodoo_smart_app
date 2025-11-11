@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Vibration, NativeModules, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration, Platform, PermissionsAndroid } from 'react-native';
+import InCallManager from 'react-native-incall-manager';
 import { useNavigation } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { io, Socket } from 'socket.io-client';
@@ -7,7 +8,7 @@ import * as constantsV from '../../constants/constatantsV';
 import authService from '../../services/auth/authService';
 import { useAuth } from '../../context/AuthContext';
 // WebRTC imports
-import { mediaDevices, RTCPeerConnection, RTCIceCandidate, RTCSessionDescription } from 'react-native-webrtc';
+import { mediaDevices, RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, MediaStream } from 'react-native-webrtc';
 import userService from '../../services/users/userService';
 
 type AudioStackParamList = {
@@ -77,6 +78,12 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
         auth: { token },
         extraHeaders: { Authorization: `Bearer ${token}` },
       });
+      // Ensure we join the signaling room once socket connects
+      socketRef.current.on('connect', () => {
+        if (roomRef.current) {
+          socketRef.current?.emit('webrtc:join', roomRef.current);
+        }
+      });
       // webrtc:join will be emitted when room is ready in a separate effect
 
       // Handle incoming signaling messages
@@ -130,6 +137,11 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
                   const tracks = stream.getAudioTracks();
                   tracks.forEach((t: any) => (t.enabled = true));
                   setRemoteAudioTracks(tracks?.length || 0);
+                  // Start timer when remote audio arrives
+                  if (callStateRef.current !== 'in_call') {
+                    setCallState('in_call');
+                  }
+                  if (!callStartAt) setCallStartAt(Date.now());
                 }
               } catch (_) {}
             };
@@ -218,6 +230,13 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
 
   const startCall = async () => {
     setCallState('connecting');
+    // Pre-activate audio session and route to speaker
+    try {
+      InCallManager.start({ media: 'audio' });
+      InCallManager.setForceSpeakerphoneOn(true);
+      InCallManager.setSpeakerphoneOn(true);
+      setSpeakerOn(true);
+    } catch (_) {}
     // Notify target user of incoming call
     if (targetUserId) {
       socketRef.current?.emit('webrtc:invite', { to: targetUserId, room: roomRef.current });
@@ -262,20 +281,44 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     };
     (pcRef.current as any).ontrack = (event: any) => {
       try {
-        const stream = event?.streams?.[0];
+        const stream = event?.streams?.[0] || (event?.track ? new MediaStream([event.track]) : null);
         if (stream) {
           remoteStreamRef.current = stream;
           const tracks = stream.getAudioTracks();
           tracks.forEach((t: any) => (t.enabled = true));
           setRemoteAudioTracks(tracks?.length || 0);
           // Reinforce audio routing to speaker when remote audio arrives
-          const InCallManager = NativeModules.InCallManager;
           try {
-            InCallManager?.setForceSpeakerphoneOn?.(true);
-            InCallManager?.setSpeakerphoneOn?.(true);
+            InCallManager.setForceSpeakerphoneOn(true);
+            InCallManager.setSpeakerphoneOn(true);
           } catch (_) {}
+          // Start timer when remote audio arrives
+          if (callStateRef.current !== 'in_call') {
+            setCallState('in_call');
+          }
+          if (!callStartAt) setCallStartAt(Date.now());
         }
       } catch (_) { /* ignore */ }
+    };
+    // Support legacy stream event for some platforms
+    (pcRef.current as any).onaddstream = (event: any) => {
+      try {
+        const stream = event?.stream;
+        if (stream) {
+          remoteStreamRef.current = stream;
+          const tracks = stream.getAudioTracks();
+          tracks.forEach((t: any) => (t.enabled = true));
+          setRemoteAudioTracks(tracks?.length || 0);
+          try {
+            InCallManager.setForceSpeakerphoneOn(true);
+            InCallManager.setSpeakerphoneOn(true);
+          } catch (_) {}
+          if (callStateRef.current !== 'in_call') {
+            setCallState('in_call');
+          }
+          if (!callStartAt) setCallStartAt(Date.now());
+        }
+      } catch (_) {}
     };
 
     // Acquire audio stream
@@ -309,10 +352,9 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     setCallState('connecting');
     // Activate audio session immediately and route to speaker
     try {
-      const InCallManager = NativeModules.InCallManager;
-      InCallManager?.start?.({ media: 'audio' });
-      InCallManager?.setForceSpeakerphoneOn?.(true);
-      InCallManager?.setSpeakerphoneOn?.(true);
+      InCallManager.start({ media: 'audio' });
+      InCallManager.setForceSpeakerphoneOn(true);
+      InCallManager.setSpeakerphoneOn(true);
       setSpeakerOn(true);
     } catch (_) {}
     if (!pcRef.current) {
@@ -349,17 +391,38 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
         } catch (_) {}
       };
       (pcRef.current as any).ontrack = (event: any) => {
-        const stream = event?.streams?.[0];
+        const stream = event?.streams?.[0] || (event?.track ? new MediaStream([event.track]) : null);
         if (stream) {
           remoteStreamRef.current = stream;
           const tracks = stream.getAudioTracks();
           tracks.forEach((t: any) => (t.enabled = true));
           setRemoteAudioTracks(tracks?.length || 0);
-          const InCallManager = NativeModules.InCallManager;
           try {
-            InCallManager?.setForceSpeakerphoneOn?.(true);
-            InCallManager?.setSpeakerphoneOn?.(true);
+            InCallManager.setForceSpeakerphoneOn(true);
+            InCallManager.setSpeakerphoneOn(true);
           } catch (_) {}
+          if (callStateRef.current !== 'in_call') {
+            setCallState('in_call');
+          }
+          if (!callStartAt) setCallStartAt(Date.now());
+        }
+      };
+      // Legacy onaddstream for older devices
+      (pcRef.current as any).onaddstream = (event: any) => {
+        const stream = event?.stream;
+        if (stream) {
+          remoteStreamRef.current = stream;
+          const tracks = stream.getAudioTracks();
+          tracks.forEach((t: any) => (t.enabled = true));
+          setRemoteAudioTracks(tracks?.length || 0);
+          try {
+            InCallManager.setForceSpeakerphoneOn(true);
+            InCallManager.setSpeakerphoneOn(true);
+          } catch (_) {}
+          if (callStateRef.current !== 'in_call') {
+            setCallState('in_call');
+          }
+          if (!callStartAt) setCallStartAt(Date.now());
         }
       };
     }
@@ -402,9 +465,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     const desired = typeof next === 'boolean' ? next : !speakerOn;
     setSpeakerOn(desired);
     try {
-      const InCallManager = NativeModules.InCallManager;
-      InCallManager?.setForceSpeakerphoneOn?.(desired);
-      InCallManager?.setSpeakerphoneOn?.(desired);
+      InCallManager.setForceSpeakerphoneOn(desired);
+      InCallManager.setSpeakerphoneOn(desired);
     } catch (e) {
       console.warn('toggleSpeaker error', e);
     }
@@ -433,20 +495,19 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     pcRef.current = null;
     setCallState('ended');
     // Stop any in-call audio and ringtone
-    const InCallManager = NativeModules.InCallManager;
     try {
-      InCallManager?.stopRingtone?.();
-      InCallManager?.stop?.();
+      InCallManager.stopRingtone();
+      InCallManager.stop();
     } catch (_) {}
   };
 
   // Drive ringtone and audio routing from call state
   useEffect(() => {
-    const InCallManager = NativeModules.InCallManager;
     if (callState === 'ringing') {
       try {
-        InCallManager?.start?.({ media: 'audio' });
-        InCallManager?.startRingtone?.('default');
+        InCallManager.start({ media: 'audio' });
+        // Provide full argument list: ringtone id, vibrate pattern, iOS category, duration seconds
+        InCallManager.startRingtone('default', [0, 500, 500], 'AVAudioSessionCategorySoloAmbient', 30);
       } catch (_) {
         // Fallback to vibration if native module not available
         if (Platform.OS !== 'web') {
@@ -455,17 +516,17 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
       }
     } else if (callState === 'in_call' || callState === 'connecting') {
       try {
-        InCallManager?.stopRingtone?.();
-        InCallManager?.start?.({ media: 'audio' });
-        InCallManager?.setForceSpeakerphoneOn?.(true);
-        InCallManager?.setMicrophoneMute?.(false);
+        InCallManager.stopRingtone();
+        InCallManager.start({ media: 'audio' });
+        InCallManager.setForceSpeakerphoneOn(true);
+        InCallManager.setMicrophoneMute(false);
       } catch (_) { /* ignore */ }
       // Stop vibration
       Vibration.cancel();
     } else if (callState === 'ended' || callState === 'idle') {
       try {
-        InCallManager?.stopRingtone?.();
-        InCallManager?.stop?.();
+        InCallManager.stopRingtone();
+        InCallManager.stop();
       } catch (_) { /* ignore */ }
       Vibration.cancel();
     }

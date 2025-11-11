@@ -275,6 +275,7 @@ class ESP8266Service {
   
   // Get all devices (both assigned and unassigned)
   async getAllDevices(): Promise<Array<{
+    status: string;
     id: string;
     name: string;
     deviceType?: string;

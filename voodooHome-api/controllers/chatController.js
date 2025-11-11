@@ -25,16 +25,17 @@ exports.getMessages = async (req, res) => {
 // @access  Private
 exports.sendMessage = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, sender: senderFromBody } = req.body;
+    const senderName = (req.user && req.user.name) || senderFromBody || 'Unknown';
     const message = await Chat.create({ room: req.params.roomId, user: req.user.id, text });
     // Also push to cache for immediate availability
     try {
       const cache = req.app && req.app.get && req.app.get('chatCache');
       if (cache) {
         const payload = {
-          id: String(message.id),
+          id: String(message.id || message._id || Date.now()),
           text: message.text,
-          sender: (req.user && req.user.name) || 'Unknown',
+          sender: senderName,
           timestamp: message.createdAt || new Date(),
         };
         const arr = cache.get(req.params.roomId) || [];
@@ -43,7 +44,14 @@ exports.sendMessage = async (req, res) => {
         cache.set(req.params.roomId, arr);
       }
     } catch (e) { /* ignore cache errors */ }
-    res.status(201).json({ success: true, data: message });
+    // Return enriched payload so clients can render immediately without extra joins
+    const responsePayload = {
+      id: String(message.id || message._id || Date.now()),
+      text: message.text,
+      sender: senderName,
+      timestamp: message.createdAt || new Date(),
+    };
+    res.status(201).json({ success: true, data: responsePayload });
   } catch (error) {
     // Fallback to cache-only when DB is down
     try {
@@ -51,7 +59,7 @@ exports.sendMessage = async (req, res) => {
       const payload = {
         id: String(Date.now()),
         text: String(req.body?.text || ''),
-        sender: (req.user && req.user.name) || 'Unknown',
+        sender: (req.user && req.user.name) || req.body?.sender || 'Unknown',
         timestamp: new Date(),
       };
       if (cache) {
