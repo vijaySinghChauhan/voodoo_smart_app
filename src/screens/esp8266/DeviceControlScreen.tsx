@@ -62,22 +62,18 @@ const smoothValue = (newVal: number) => {
   return avg;
 };
 
-// Helper: map to percent with optional remaining view
-// remaining = 100 - (brightness/target * 100); filled = (brightness/target * 100)
+// Helper: map brightness to percentage of target
+// filled = (brightness/target * 100); remaining = 100 - filled
 const brightnessToPercent = (rawBrightness: number, target: number) => {
- 
-
-  if (typeof rawBrightness !== 'number' || isNaN(rawBrightness)) {
+  if (!Number.isFinite(rawBrightness)) {
     return 0;
   }
 
   const val = Math.max(0, rawBrightness);
   const t = Number.isFinite(target) && target > 0 ? target : 100;
-  const pctRaw = Math.min(100, Math.max(0, (val / t) * 100));
-  let pct = showRemaining ? target - pctRaw : pctRaw;
-  // Floor: avoid near-empty visuals from noise, but keep true zero as zero
-  if (pct > 0 && pct < 5) pct = 5;
-  return Math.round(Math.max(0, Math.min(100, pct)));
+  const filled = Math.min(100, Math.max(0, (val / t) * 100));
+  const pct = 100 - filled;
+  return Math.round(pct);
 };
 
   

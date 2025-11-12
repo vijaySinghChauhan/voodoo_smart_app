@@ -213,7 +213,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         </View>
 
         {/* Products Section */}
-        {/* <View style={styles.section}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured Products</Text>
             <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Products'); } catch (e) {} ; navigation.navigate('Shop'); }}>
@@ -251,7 +251,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           ) : (
             <Text style={styles.emptyText}>No products available</Text>
           )}
-        </View> */}
+        </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
