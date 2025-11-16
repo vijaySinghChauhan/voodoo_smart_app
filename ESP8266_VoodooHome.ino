@@ -15,7 +15,6 @@
 //  GPIO 16.  D0
 //  GPIO 15.  D8
 //  GPIO 0.  D3
-//  GPIO 0.  D3
 
 // ------------------ Configuration ------------------
 ESP8266WebServer server(80);
@@ -27,16 +26,18 @@ const char* AP_PASS = "";
 const int TRIGGER_PIN = 12; // D6
 const int ECHO_PIN = 14;    // D5
 const int RELAY_PIN = 5;    // D1
+const int WIFI_LED_PIN = 15;    // D8
 const int Device1 = 4;      // D2
 
 const int Device2 = 0;      // D3
 //const int Device3 = 2;      // D4
+const int FLOW_SENSOR_PIN = 2;  // D4 / GPIO2
+
 const int Device4 = 16;      // D0
 const int Device5 = 13;      // D7
 
-
+int tankTarget = 1000;
 // Water flow sensor
-const int FLOW_SENSOR_PIN = 2;  // D4 / GPIO2
 volatile unsigned long pulseCount = 0;  // Count pulses
 float calibrationFactor = 7.5;  // YF-S201 typical value
 unsigned long lastFlowSample = 0;
@@ -55,6 +56,7 @@ void IRAM_ATTR pulseCounter() {
 // API details
 const String API_URL = "https://apnabanda.in/voodoo/api/devices/register-esp";
 const String FIRMWARE_VERSION = "1.2.3";
+ String wifi_connection = "Disconnected";
 
 // WiFi credentials
 String ssid = "";
@@ -72,17 +74,18 @@ unsigned long lastMeasurement = 0;
 void setup() {
   Serial.begin(115200);
   delay(200);
-
+  pinMode(WIFI_LED_PIN, OUTPUT);
   pinMode(TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
 
   pinMode(Device1, OUTPUT);
   pinMode(Device2, OUTPUT);
-  //pinMode(Device3, OUTPUT);
+  // pinMode(Device3, OUTPUT);
   pinMode(Device4, OUTPUT);
   pinMode(Device5, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+
 
   pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
@@ -124,20 +127,27 @@ void loop() {
 
   if (millis() - lastMeasurement > SAMPLE_INTERVAL) {
     float distance = getDistance();
+    distance = 1.0;
     if (distance > 0 && distance < 99999) {
       lastDistance = distance;
+
       Serial.printf("📏 Distance: %.2f cm\n", distance);
 
       if (WiFi.status() == WL_CONNECTED) {
+        wifi_connection = "Connected";
+    
         sendDataToServer(distance);
         Serial.println("⚠️ WiFI Connected");
-
+        digitalWrite(WIFI_LED_PIN, HIGH);
       }
       else
       {
         Serial.println("⚠️ WiFI Disconnected");
+                 digitalWrite(WIFI_LED_PIN, LOW);
+
       }
     } else {
+      Serial.println("Wifi - "+ WiFi.status());
       Serial.println("⚠️ Invalid ultrasonic reading");
     }
     lastMeasurement = millis();
@@ -242,8 +252,14 @@ void connectToWiFi() {
     Serial.println("\n✅ WiFi Connected!");
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
+    digitalWrite(WIFI_LED_PIN, HIGH);
+    
+    
+
   } else {
     Serial.println("\n❌ WiFi Connection Failed!");
+    digitalWrite(WIFI_LED_PIN, LOW);
+
   }
 }
 
@@ -267,11 +283,28 @@ float getDistance() {
   return distance;
 }
 
+//-----convert to filled percent---------------
+String brightnessToPercent(int rawBrightness, int target) {
+  // Ensure brightness is non-negative
+  float val = max(0.0f, (float)rawBrightness);
+
+  // Validate target (default 100 if invalid)
+  float t = (target > 0) ? (float)target : 100.0f;
+
+  // Calculate percentage (bounded between 0 and 100)
+  float filled = min(100.0f, max(0.0f, (val / t) * 100.0f));
+
+  // Return formatted string with 2 decimal places
+  return String(100-filled, 2);
+}
+
 // ------------------ API Communication ------------------
 
 void sendDataToServer(float brightnessValue) {
+      Serial.println("Sending data to server .....");
   WiFiClientSecure client;
   HTTPClient https;
+
 
   client.setInsecure(); // Skip SSL certificate validation
 
@@ -283,7 +316,7 @@ void sendDataToServer(float brightnessValue) {
     payload += "\"ipAddress\": \"" + WiFi.localIP().toString() + "\",";
     payload += "\"ssid\": \"" + WiFi.SSID() + "\",";
     payload += "\"firmwareVersion\": \"" + String(FIRMWARE_VERSION) + "\",";
-    payload += "\"brightness\": " + String(brightnessValue, 2) + ",";
+    payload += "\"brightness\": " + (brightnessToPercent(brightnessValue,tankTarget)) + ",";
     payload += "\"flowRate\": " + String(flowRate, 3) + ",";
     payload += "\"totalLiters\": " + String(totalLiters, 4);
     payload += "}";
@@ -303,7 +336,11 @@ void sendDataToServer(float brightnessValue) {
       if (error) {
         Serial.print("❌ JSON parse failed: ");
         Serial.println(error.c_str());
+            Serial.println("Paeersing from server fail!");
+
       } else {
+            Serial.println("⚠️ Data from server received!");
+
         // Extract variables
         bool success = doc["success"];
         bool updated = doc["updated"];
@@ -312,15 +349,15 @@ void sendDataToServer(float brightnessValue) {
         const char* deviceType = doc["data"]["deviceType"];
         const char* ip = doc["data"]["ipAddress"];
         int brightness = doc["data"]["brightness"];
-        int target = doc["data"]["target"];
+        tankTarget = doc["data"]["target"];
         bool isOn = doc["data"]["isOn"];
         const char* firmware = doc["data"]["firmwareVersion"];
         const char* ssidResp = doc["data"]["ssid"];
-        bool device1 = doc["data"]["device1"];
-        bool device2 = doc["data"]["device2"];
-        bool device3 = doc["data"]["device3"];
-        bool device4 = doc["data"]["device4"];
-        bool device5 = doc["data"]["device5"];
+        int device1 = doc["data"]["device1"];
+        int device2 = doc["data"]["device2"];
+        int device3 = doc["data"]["device3"];
+        int device4 = doc["data"]["device4"];
+        int device5 = doc["data"]["device5"];
         // Print extracted values
         Serial.println("----- Parsed Values -----");
         Serial.print("Success: "); Serial.println(success);
@@ -331,7 +368,7 @@ void sendDataToServer(float brightnessValue) {
         Serial.print("IP Address: "); Serial.println(ip);
         Serial.print("SSID: "); Serial.println(ssidResp);
         Serial.print("Brightness: "); Serial.println(brightness);
-        Serial.print("Target: "); Serial.println(target);
+        Serial.print("Target: "); Serial.println(tankTarget);
         Serial.print("Is On: "); Serial.println(isOn ? "true" : "false");
         Serial.print("Firmware: "); Serial.println(firmware);
          Serial.print("Device1: "); Serial.println(device1);
@@ -340,12 +377,14 @@ void sendDataToServer(float brightnessValue) {
          Serial.print("Device4: "); Serial.println(device4);
          Serial.print("Device5: "); Serial.println(device5);
         Serial.println("--------------------------");
+        Serial.println("⚠️Parsed!");
 
         // ✅ You can now store or use them in logic:
         if (isOn==1) {
           digitalWrite(Device1, HIGH);
                  
            Serial.println("Motor swithed on");
+
 
         } else {
           digitalWrite(Device1, LOW);
