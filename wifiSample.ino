@@ -120,6 +120,7 @@ void setup() {
   digitalWrite(Device5, HIGH);
 
   // WiFi LED
+
   pinMode(WIFI_LED_PIN, OUTPUT);
   digitalWrite(WIFI_LED_PIN, LOW);
 
@@ -151,6 +152,8 @@ void setup() {
 // Loop
 // ----------------------------------------------------------
 void loop() {
+//  digitalWrite(WIFI_LED_PIN, LOW);
+  // setColor(255, 0, 0, 0, 0);   // Red
   server.handleClient();
 
   // FLOW sensor every 1s
@@ -172,14 +175,16 @@ void loop() {
 
     if (WiFi.status() == WL_CONNECTED) {
       digitalWrite(WIFI_LED_PIN, HIGH);
+      //  setColor(0, 255, 0, 0, 0);   // Green
+
       sendDataToServer(lastDistance);
         Serial.println("WIFI connected");
 
     } else {
       digitalWrite(WIFI_LED_PIN, LOW);
         Serial.println("WIFI Disconnected");
-
-    }
+    //   setColor(255, 0, 0, 0, 0);   // Red
+     }
 
     lastMeasurement = millis();
   }
@@ -195,7 +200,7 @@ void handleWiFiScan() {
     JsonObject obj = arr.createNestedObject();
     obj["ssid"] = WiFi.SSID(i);
     obj["rssi"] = WiFi.RSSI(i);
-    obj["secure"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+    // obj["secure"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
   }
 
   String out;
@@ -384,6 +389,9 @@ void handleConnect() {
   ssid = server.arg("ssid");
   password = server.arg("pass");
   server.send(200,"text/plain","Connecting...");
+  
+  // setColor(255, 150, 0, 50, 100); // Mix colors
+
   connectToWiFi();
 }
 
@@ -448,6 +456,13 @@ void handleSwitch() {
   server.send(200,"application/json","{\"result\":\"OK\"}");
 }
 
+// void setColor(int r, int g, int b, int w, int a) {
+//   analogWrite(WIFI_LED_PIN, r);
+//   analogWrite(WIFI_LED_PIN, g);
+//   analogWrite(WIFI_LED_PIN, b);
+//   analogWrite(WIFI_LED_PIN, w);
+//   analogWrite(WIFI_LED_PIN, a);
+// }
 // ----------------------------------------------------------
 // Send Data To Server
 // ----------------------------------------------------------
@@ -476,19 +491,20 @@ void sendDataToServer(float brightnessValue) {
   int code = https.POST(payload);
 
   if (code > 0) {
-      Serial.println("Data res code = " + code);
-
+ Serial.print("Data response code = ");
+  Serial.println(code);
     String resp = https.getString();
-
+    Serial.println("Server Response:");
+    Serial.println(resp);
     DynamicJsonDocument doc(4096);
     if (deserializeJson(doc,resp)==DeserializationError::Ok) {
 
       JsonObject data = doc["data"];
-      int d1 = data["device1"] | 0;
-      int d2 = data["device2"] | 0;
-      int d3 = data["device3"] | 0;
-      int d4 = data["device4"] | 0;
-      int d5 = data["device5"] | 0;
+      int d1 = data["device1"] ;
+      int d2 = data["device2"] ;
+      int d3 = data["device3"] ;
+      int d4 = data["device4"] ;
+      int d5 = data["device5"] ;
 
           Serial.print("Data parsed ");
           Serial.print(d1); Serial.print("-");
@@ -496,12 +512,17 @@ void sendDataToServer(float brightnessValue) {
           Serial.print(d3); Serial.print("-");
           Serial.print(d4); Serial.print("-");
           Serial.println(d5);
-
-      if (d1!=0) {digitalWrite(Device1, HIGH);} else{digitalWrite(Device1, LOW);}
-      if (d2!=0) {digitalWrite(Device2, HIGH);} else{digitalWrite(Device2, LOW);}
-      if (d3!=0) {digitalWrite(Device3, HIGH);} else{digitalWrite(Device3, LOW);}
-      if (d4!=0) {digitalWrite(Device4, HIGH);} else{digitalWrite(Device4, LOW);}
-      if (d5!=0) {digitalWrite(Device5, HIGH);} else{digitalWrite(Device5, LOW);}
+  //  ACTIVE-LOW RELAY LOGIC FIXED
+    digitalWrite(Device1, d1 ? HIGH : LOW);
+    digitalWrite(Device2, d2 ? HIGH : LOW);
+    digitalWrite(Device3, d3 ? HIGH : LOW);
+    digitalWrite(Device4, d4 ? HIGH : LOW);
+    digitalWrite(Device5, d5 ? HIGH : LOW);
+      // if (d1!=0) {digitalWrite(Device1, HIGH);} else{digitalWrite(Device1, LOW);}
+      // if (d2!=0) {digitalWrite(Device2, HIGH);} else{digitalWrite(Device2, LOW);}
+      // if (d3!=0) {digitalWrite(Device3, HIGH);} else{digitalWrite(Device3, LOW);}
+      // if (d4!=0) {digitalWrite(Device4, HIGH);} else{digitalWrite(Device4, LOW);}
+      // if (d5!=0) {digitalWrite(Device5, HIGH);} else{digitalWrite(Device5, LOW);}
 
       if (data.containsKey("target"))
         tankTarget = data["target"].as<int>();

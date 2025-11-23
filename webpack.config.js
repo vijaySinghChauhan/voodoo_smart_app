@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
   mode: 'development',
@@ -14,24 +15,43 @@ module.exports = {
     extensions: ['.web.tsx', '.web.ts', '.tsx', '.ts', '.web.js', '.js', '.json'],
     alias: {
       'react-native': 'react-native-web',
-      'react-native-drawer-layout': path.resolve(__dirname, 'node_modules/react-native-drawer-layout/lib/commonjs'),
-      '@react-navigation/stack': path.resolve(__dirname, 'node_modules/@react-navigation/stack/lib/commonjs'),
-      '@react-navigation/drawer': path.resolve(__dirname, 'node_modules/@react-navigation/drawer/lib/commonjs'),
-      '@react-navigation/native': path.resolve(__dirname, 'node_modules/@react-navigation/native/lib/commonjs'),
+      'react-native-reanimated': path.resolve(__dirname, 'src/shims/reanimatedShim.web.ts'),
       '@react-native-async-storage/async-storage': path.resolve(__dirname, 'src/shims/asyncStorageShim.web.ts'),
       'react-native-toast-message': path.resolve(__dirname, 'src/shims/toastShim.web.ts'),
-      '@react-navigation/stack/lib/module/views/GestureHandler': path.resolve(__dirname, 'node_modules/@react-navigation/stack/lib/module/views/GestureHandler.js'),
-      'react-native-drawer-layout/lib/module/views/Drawer': path.resolve(__dirname, 'node_modules/react-native-drawer-layout/lib/module/views/Drawer.js'),
+      'react-native-webrtc': path.resolve(__dirname, 'src/shims/webrtcShim.web.ts'),
+      'react-native-webrtc/lib/commonjs': path.resolve(__dirname, 'src/shims/webrtcShim.web.ts'),
+      'react-native-network-info': path.resolve(__dirname, 'src/shims/networkInfoShim.web.ts'),
+      '@react-navigation/native': path.resolve(__dirname, 'node_modules/@react-navigation/native/lib/module/index.js'),
+      '@react-navigation/drawer': path.resolve(__dirname, 'node_modules/@react-navigation/drawer/lib/module/index.js'),
+      '@react-navigation/stack': path.resolve(__dirname, 'node_modules/@react-navigation/stack/lib/module/index.js'),
+      '@react-navigation/elements/lib/module/useFrameSize.js': path.resolve(__dirname, 'src/shims/useFrameSizeShim.web.js'),
+      // Leave @react-navigation packages to resolve via their package exports
     },
-    mainFields: ['browser', 'main', 'module'],
-    conditionNames: ['react-native', 'browser', 'require', 'default'],
-    exportsFields: [],
+    mainFields: ['browser', 'module', 'main'],
+    // Use default package exports resolution to support modern ESM packages
     byDependency: {
       esm: { fullySpecified: false },
     },
   },
   module: {
     rules: [
+      {
+        test: /node_modules\/react-native-gesture-handler\/lib\/module\/.*\.(ts|js)$/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              'module:@react-native/babel-preset',
+              ['@babel/preset-react', { runtime: 'automatic' }],
+              '@babel/preset-typescript',
+            ],
+          },
+        },
+      },
+      {
+        test: /node_modules\/(?:@react-navigation|react-native-safe-area-context)\/lib\/module\/.+\.js$/,
+        type: 'javascript/auto',
+      },
       {
         test: /\.m?js$/,
         resolve: {
@@ -71,9 +91,24 @@ module.exports = {
       },
     ],
   },
+  plugins: [
+    new webpack.DefinePlugin({
+      __DEV__: JSON.stringify(true),
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    }),
+    // Replace problematic ESM file using CommonJS require with a safe shim
+    new webpack.NormalModuleReplacementPlugin(
+      /@react-navigation\/elements\/lib\/module\/useFrameSize\.js$/,
+      path.resolve(__dirname, 'src/shims/useFrameSizeShim.web.js')
+    ),
+  ],
   devServer: {
     static: {
       directory: path.resolve(__dirname, 'web'),
+    },
+    devMiddleware: {
+      publicPath: '/',
+      writeToDisk: true,
     },
     hot: true,
     historyApiFallback: true,

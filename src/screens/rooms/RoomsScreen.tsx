@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -153,57 +154,43 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
     );
   };
 
+  const getRoomImage = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('living'))
+      return 'https://images.unsplash.com/photo-1505691723518-36a5ac3b2b8f?q=80&w=1200&auto=format&fit=crop';
+    if (n.includes('kitchen'))
+      return 'https://images.unsplash.com/photo-1496412705862-e0088f16f791?q=80&w=1200&auto=format&fit=crop';
+    if (n.includes('bed'))
+      return 'https://images.unsplash.com/photo-1505691723518-41e5e5b2b8f0?q=80&w=1200&auto=format&fit=crop';
+    if (n.includes('bath'))
+      return 'https://images.unsplash.com/photo-1617093627127-6c4b7f2a9f50?q=80&w=1200&auto=format&fit=crop';
+    if (n.includes('office'))
+      return 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=1200&auto=format&fit=crop';
+    return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop';
+  };
+
   const renderRoomItem = ({ item }: { item: Room }) => (
-    <TouchableOpacity 
-      style={{
-        padding: 15,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        marginBottom: 10,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-      }}
-      onPress={() => navigation.navigate('RoomDetail', { roomId: item.id })}
-    >
-      <View style={styles.roomInfo}>
-        <Text style={styles.roomName}>{item.name}</Text>
-        <Text style={styles.deviceCount}>{item.deviceCount} devices</Text>
-      </View>
-      
-      <View style={styles.roomActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.editButton]}
-          onPress={() => openEditModal(item)}
-        >
-          <Text style={styles.actionButtonText}>Edit</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handleDeleteRoom(item)}
-        >
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
+    <TouchableOpacity style={styles.cardWrap} activeOpacity={0.9} onPress={() => navigation.navigate('RoomDetail', { roomId: item.id })}>
+      <ImageBackground
+        source={{ uri: getRoomImage(item.name) }}
+        style={styles.cardImage}
+        imageStyle={styles.cardImageInner}
+      >
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardTitle}>{item.name}</Text>
+          <View style={styles.cardDevicesBarWrap}>
+            <View style={[styles.cardDevicesBar, { width: `${Math.min(100, (item.deviceCount || 0) * 20)}%` }]} />
+          </View>
+          <Text style={styles.cardDevicesText}>{item.deviceCount} devices</Text>
+        </View>
+      </ImageBackground>
     </TouchableOpacity>
-  )
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={{ fontSize: 22, fontWeight: '700' }}>Rooms</Text>
-        <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={openAddModal}>
-          <Text style={styles.actionButtonText}>Add Room</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Your Rooms</Text>
       </View>
 
       {rooms.length === 0 ? (
@@ -215,9 +202,15 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
           data={rooms}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderRoomItem}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: 'space-between' }}
           contentContainerStyle={{ paddingVertical: 8 }}
         />
       )}
+
+      <TouchableOpacity style={styles.fab} activeOpacity={0.9} onPress={openAddModal}>
+        <Text style={styles.fabPlus}>+</Text>
+      </TouchableOpacity>
 
       <Modal
         visible={isModalVisible}
@@ -280,7 +273,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#f2f5f9'
   },
   header: {
     flexDirection: 'row',
@@ -288,6 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16
   },
+  headerTitle: { fontSize: 22, fontWeight: '700' },
   roomActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -302,5 +296,15 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#e74c3c'
-  }
+  },
+  cardWrap: { width: '48%', marginBottom: 14 },
+  cardImage: { width: '100%', height: 140, justifyContent: 'flex-end' },
+  cardImageInner: { borderRadius: 12 },
+  cardFooter: { backgroundColor: 'rgba(255,255,255,0.95)', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, padding: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#222' },
+  cardDevicesBarWrap: { height: 4, backgroundColor: '#e6eaf2', borderRadius: 2, marginTop: 6 },
+  cardDevicesBar: { height: 4, backgroundColor: '#3A56D4', borderRadius: 2 },
+  cardDevicesText: { fontSize: 12, color: '#6C757D', marginTop: 6 },
+  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#0F4C81', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6 },
+  fabPlus: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -2 }
 });

@@ -29,6 +29,13 @@ class ESP8266Service {
   private deviceHttpBaseUrl: string | null = null;
   private isConnected: boolean = false;
   private deviceName: string = '';
+  private subdeviceLabels: {
+    subdevice1?: string;
+    subdevice2?: string;
+    subdevice3?: string;
+    subdevice4?: string;
+    subdevice5?: string;
+  } = {};
   
   // Store the last known IP of the ESP8266 device
   async setDeviceIP(ip: string): Promise<void> {
@@ -61,6 +68,48 @@ class ESP8266Service {
       return name;
     }
     return null;
+  }
+
+  // Set subdevice labels locally (persisted)
+  async setSubdeviceLabels(labels: {
+    subdevice1?: string;
+    subdevice2?: string;
+    subdevice3?: string;
+    subdevice4?: string;
+    subdevice5?: string;
+  }): Promise<void> {
+    this.subdeviceLabels = { ...this.subdeviceLabels, ...labels };
+    try {
+      await AsyncStorage.setItem('ESP8266_SUBDEVICE_LABELS', JSON.stringify(this.subdeviceLabels));
+    } catch (e) {
+      console.warn('Failed to persist subdevice labels:', e);
+    }
+  }
+
+  // Get subdevice labels (from memory or storage)
+  async getSubdeviceLabels(): Promise<{
+    subdevice1?: string;
+    subdevice2?: string;
+    subdevice3?: string;
+    subdevice4?: string;
+    subdevice5?: string;
+  }> {
+    if (Object.keys(this.subdeviceLabels).length) {
+      return this.subdeviceLabels;
+    }
+    try {
+      const raw = await AsyncStorage.getItem('ESP8266_SUBDEVICE_LABELS');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          this.subdeviceLabels = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load subdevice labels:', e);
+    }
+    return {};
   }
   
   // Check if the ESP8266 is reachable

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   FlatList,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -23,6 +24,11 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const [isScanning, setIsScanning] = useState(false);
   const [manualIP, setManualIP] = useState('');
   const [deviceName, setDeviceName] = useState('');
+  const [subdevice1, setSubdevice1] = useState('');
+  const [subdevice2, setSubdevice2] = useState('');
+  const [subdevice3, setSubdevice3] = useState('');
+  const [subdevice4, setSubdevice4] = useState('');
+  const [subdevice5, setSubdevice5] = useState('');
 
   const scanForDevices = async () => {
     setIsScanning(true);
@@ -113,6 +119,13 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
       try { await logService.logButtonClick('Manual Connect Device', { ip: manualIP, name: deviceName }); } catch (e) {}
       await esp8266Service.setDeviceIP(manualIP);
       await esp8266Service.setDeviceName(deviceName);
+      await esp8266Service.setSubdeviceLabels({
+        subdevice1: subdevice1?.trim() || undefined,
+        subdevice2: subdevice2?.trim() || undefined,
+        subdevice3: subdevice3?.trim() || undefined,
+        subdevice4: subdevice4?.trim() || undefined,
+        subdevice5: subdevice5?.trim() || undefined,
+      });
       
       const connected = await esp8266Service.checkConnection();
       if (connected) {
@@ -153,6 +166,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Text style={styles.title}>Discover Devices</Text>
         <TouchableOpacity
@@ -179,6 +193,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           renderItem={renderDeviceItem}
           keyExtractor={(item) => item.ip}
           contentContainerStyle={styles.deviceList}
+          scrollEnabled={false}
         />
       ) : (
         <View style={styles.emptyContainer}>
@@ -210,6 +225,53 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           />
         </View>
 
+        <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Sub-device Names (optional)</Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>subdevice1</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Main Power"
+            value={subdevice1}
+            onChangeText={setSubdevice1}
+          />
+        </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>subdevice2</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Door Lock"
+            value={subdevice2}
+            onChangeText={setSubdevice2}
+          />
+        </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>subdevice3</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Watering"
+            value={subdevice3}
+            onChangeText={setSubdevice3}
+          />
+        </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>subdevice4</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Dog Feed"
+            value={subdevice4}
+            onChangeText={setSubdevice4}
+          />
+        </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>subdevice5</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., AC Control"
+            value={subdevice5}
+            onChangeText={setSubdevice5}
+          />
+        </View>
+
         <TouchableOpacity
           style={styles.connectButton}
           onPress={handleManualConnect}
@@ -217,6 +279,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           <Text style={styles.connectButtonText}>Connect</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -225,6 +288,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',

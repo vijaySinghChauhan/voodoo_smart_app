@@ -47,6 +47,13 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [device3On, setDevice3On] = useState<boolean>(false);
   const [device4On, setDevice4On] = useState<boolean>(false);
   const [device5On, setDevice5On] = useState<boolean>(false);
+  const [subLabels, setSubLabels] = useState<{
+    subdevice1?: string;
+    subdevice2?: string;
+    subdevice3?: string;
+    subdevice4?: string;
+    subdevice5?: string;
+  }>({});
   const [flowRate, setFlowRate] = useState<number | undefined>(undefined);
   const [totalLiters, setTotalLiters] = useState<number | undefined>(undefined);
   const [showRemaining, setShowRemaining] = useState<boolean>(true);
@@ -98,9 +105,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     (async () => {
       try {
         const token = (await authService.getToken()) || '';
+        const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (process.env.NODE_ENV !== 'production'));
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: __DEV__ ? ['polling'] : ['websocket', 'polling'],
-          upgrade: __DEV__ ? false : true,
+          transports: isDev ? ['polling'] : ['websocket', 'polling'],
+          upgrade: isDev ? false : true,
           path: '/voodoo/socket.io',
           reconnection: true,
           timeout: 15000,
@@ -255,6 +263,49 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             setDevice3On(!!devDetail.device3);
             setDevice4On(!!devDetail.device4);
             setDevice5On(!!devDetail.device5);
+            // Resolve subdevice labels from API or stored values
+            try {
+              const storedLabels = await esp8266Service.getSubdeviceLabels();
+              const resolveLabel = (apiValue: any, ...alts: (string | undefined)[]) => {
+                if (typeof apiValue === 'string' && apiValue.trim().length) return apiValue.trim();
+                for (const a of alts) {
+                  if (a && a.trim && a.trim().length) return a.trim();
+                }
+                return undefined;
+              };
+              setSubLabels({
+                subdevice1: resolveLabel(
+                  devDetail.subdevice1,
+                  devDetail.device1Name,
+                  devDetail.device1_label,
+                  storedLabels?.subdevice1
+                ),
+                subdevice2: resolveLabel(
+                  devDetail.subdevice2,
+                  devDetail.device2Name,
+                  devDetail.device2_label,
+                  storedLabels?.subdevice2
+                ),
+                subdevice3: resolveLabel(
+                  devDetail.subdevice3,
+                  devDetail.device3Name,
+                  devDetail.device3_label,
+                  storedLabels?.subdevice3
+                ),
+                subdevice4: resolveLabel(
+                  devDetail.subdevice4,
+                  devDetail.device4Name,
+                  devDetail.device4_label,
+                  storedLabels?.subdevice4
+                ),
+                subdevice5: resolveLabel(
+                  devDetail.subdevice5,
+                  devDetail.device5Name,
+                  devDetail.device5_label,
+                  storedLabels?.subdevice5
+                ),
+              });
+            } catch (e) {}
           }
       } else {
         // No deviceId context: keep minimal UI; details may be IP-based
@@ -486,13 +537,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
         {/* Mapping toggle: Remaining vs Filled */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={{ color: '#333', fontWeight: '600' }}>Show Remaining %</Text>
-          <Switch
-            value={showRemaining}
-            onValueChange={setShowRemaining}
-            trackColor={{ false: '#767577', true: '#4CAF50' }}
-            thumbColor={showRemaining ? '#fff' : '#f4f3f4'}
-          />
+          <Text style={{ color: '#333', fontWeight: '600' }}>Show Remaining %{showRemaining }</Text>
+   
         </View>
         <WaterTank percentage={waterLevel ?? 0} />
         <View style={{ marginTop: 10 }}>
@@ -501,7 +547,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={styles.controlSection}>
           <Text style={styles.sectionTitle}>Power Control</Text>
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>Power</Text>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Power'}</Text>
             <Switch
               value={isPowerOn}
               onValueChange={handlePowerToggle}
@@ -509,40 +555,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
             />
           </View>
-        </View>
-
-        <View style={[styles.controlSection, { marginTop: 10 }] }>
-          <Text style={styles.sectionTitle}>GPIO Controls</Text>
-          <View style={styles.powerControl}>
-          <Text style={styles.powerLabel}>Device2</Text>
-          <Switch
-            value={device2On}
-            onValueChange={(val) => {
-              setDevice2On(val);
-              toggleDeviceField('device2', val);
-              if (val) {
-                setTimeout(() => {
-                  // setDevice2On(false);
-                  // toggleDeviceField('device2', false);
-                }, 10000);
-              }
-            }}
-            trackColor={{ false: '#767577', true: '#4CAF50' }}
-            thumbColor={device2On ? '#fff' : '#f4f3f4'}
-          />
-        </View>
-        <View style={styles.powerControl}>
-          <Text style={styles.powerLabel}>Device3</Text>
-          <Switch
-            value={device3On}
-            onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
-            trackColor={{ false: '#767577', true: '#4CAF50' }}
-            thumbColor={device3On ? '#fff' : '#f4f3f4'}
-          />
-        </View>
-       
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Flow Data (Device3)</Text>
+               <View style={{ marginTop: 12 }}>
+            <Text style={styles.sectionTitle}>Flow Data </Text>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Flow Rate</Text>
               <Text style={styles.infoValue}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '—'}</Text>
@@ -552,8 +566,41 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
             </View>
           </View>
+        </View>
+     
+        <View style={[styles.controlSection, { marginTop: 10 }] }>
+          <Text style={styles.sectionTitle}>GPIO Controls</Text>
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>Device4</Text>
+          <Text style={styles.powerLabel}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
+          <Switch
+            value={device2On}
+            onValueChange={(val) => {
+              setDevice2On(val);
+              toggleDeviceField('device2', val);
+              if (val) {
+                setTimeout(() => {
+                  setDevice2On(false);
+                  toggleDeviceField('device2', false);
+                }, 1000);
+              }
+            }}
+            trackColor={{ false: '#767577', true: '#4CAF50' }}
+            thumbColor={device2On ? '#fff' : '#e0cae0ff'}
+          />
+        </View>
+        <View style={styles.powerControl}>
+          <Text style={styles.powerLabel}>{subLabels?.subdevice3 || 'Watering Plants'}</Text>
+          <Switch
+            value={device3On}
+            onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
+            trackColor={{ false: '#767577', true: '#4CAF50' }}
+            thumbColor={device3On ? '#fff' : '#e6d2e6ff'}
+          />
+        </View>
+       
+         
+          <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
             <Switch
               value={device4On}
               onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
@@ -562,7 +609,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             />
           </View>
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>Device5</Text>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice5 || 'AC Control'}</Text>
             <Switch
               value={device5On}
               onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
