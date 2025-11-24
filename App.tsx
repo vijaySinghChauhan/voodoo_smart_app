@@ -110,7 +110,19 @@ const RoomsStack = () => (
 
 const EcommerceStack = () => (
   <Stack.Navigator initialRouteName="ProductList">
-    <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="ProductList" component={ProductListScreen} 
+        options={({ navigation }) => ({
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Cart')}
+              style={{ marginRight: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open cart"
+            >
+              <Text style={{ fontSize: 20 }}>🛒</Text>
+            </TouchableOpacity>
+          ),
+        })}/>
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
     <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
     <Stack.Screen name="Checkout" component={CheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
@@ -140,12 +152,39 @@ const AppDrawer = () => {
   const { user } = useAuth();
   return (
     <Drawer.Navigator initialRouteName="Dashboard">
-      <Drawer.Screen name="Dashboard" component={DashboardScreen} />
+      <Drawer.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={({ navigation }) => ({
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Cart')}
+              style={{ marginRight: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open cart"
+            >
+              <Text style={{ fontSize: 20 }}>🛒</Text>
+            </TouchableOpacity>
+          ),
+        })}
+      />
       <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
       <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
-      <Drawer.Screen name="Shop" component={EcommerceStack} />
+      <Drawer.Screen name="Shop" component={EcommerceStack} 
+        options={({ navigation }) => ({
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Cart')}
+              style={{ marginRight: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open cart"
+            >
+              <Text style={{ fontSize: 20 }}>🛒</Text>
+            </TouchableOpacity>
+          ),
+        })}/>
       <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
       <Drawer.Screen name="Subscriptions" component={SubscriptionListScreen} />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
@@ -153,6 +192,10 @@ const AppDrawer = () => {
       <Drawer.Screen name="Profile" component={ProfileScreen} />
       <Drawer.Screen name="Chat" component={ChatStack} />
       <Drawer.Screen name="Audio" component={AudioStack} options={{ title: 'Audio Calls' }} />
+      <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
+      <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
+      <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
+      
       {user?.role === 'admin' && (
         <>
           <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />

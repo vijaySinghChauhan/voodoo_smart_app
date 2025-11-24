@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -102,7 +102,22 @@ const AppDrawer = () => {
   const { user } = useAuth();
   return (
     <Drawer.Navigator initialRouteName="Dashboard">
-      <Drawer.Screen name="Dashboard" component={DashboardScreen} />
+      <Drawer.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={({ navigation }) => ({
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Cart')}
+              style={{ marginRight: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open cart"
+            >
+              <Text style={{ fontSize: 20 }}>🛒</Text>
+            </TouchableOpacity>
+          ),
+        })}
+      />
       <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
@@ -112,6 +127,9 @@ const AppDrawer = () => {
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
+      <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
+      <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
+      <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
       {user?.role === 'admin' && (
         <>
           <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />

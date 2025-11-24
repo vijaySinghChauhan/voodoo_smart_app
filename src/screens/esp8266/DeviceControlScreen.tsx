@@ -355,7 +355,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   };
 
-  const toggleDeviceField = async (field: 'device2'|'device3'|'device4'|'device5', value: boolean) => {
+  const toggleDeviceField = async (field: 'device1'|'device2'|'device3'|'device4'|'device5', value: boolean) => {
     try {
       // Log toggle intent
       await logService.logButtonClick(`Toggle ${field}`, { value });
@@ -403,16 +403,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     setIsPowerOn(value);
     
     try {
-      const state = value ? 'on' : 'off';
       if (!selectedDeviceId) {
         throw new Error('No device selected');
       }
-      const ok = await esp8266Service.controlDeviceOnServer(selectedDeviceId, state);
+      const ok = await esp8266Service.controlDeviceOnServer(selectedDeviceId, value ? 'on' : 'off');
       if (ok) {
         Toast.show({
           type: 'success',
           text1: 'Success',
-          text2: `Device turned ${state} successfully`,
+          text2: `Device turned ${value ? 'on' : 'off'} successfully`,
           position: 'bottom'
         });
         // Refresh device state from server and update UI
@@ -550,7 +549,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Power'}</Text>
             <Switch
               value={isPowerOn}
-              onValueChange={handlePowerToggle}
+              onValueChange={(val) => {
+                setIsPowerOn(val);
+                toggleDeviceField('device1', val);
+            
+              }}
               trackColor={{ false: '#767577', true: '#4CAF50' }}
               thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
             />
@@ -581,7 +584,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 setTimeout(() => {
                   setDevice2On(false);
                   toggleDeviceField('device2', false);
-                }, 1000);
+                }, 7000);
               }
             }}
             trackColor={{ false: '#767577', true: '#4CAF50' }}

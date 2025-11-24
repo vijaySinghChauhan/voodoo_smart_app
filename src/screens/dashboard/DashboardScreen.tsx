@@ -429,13 +429,14 @@ devicesList: {
   quickEmoji: { fontSize: 20 },
   quickLabel: { ...FONTS.small, color: COLORS.textLight, marginTop: 6 },
   productsList: {
-    paddingHorizontal: SIZES.padding,
+    paddingRight: SIZES.padding,
   },
   productCard: {
     width: 150,
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     marginRight: SIZES.margin,
+    marginVertical: SIZES.small,
     ...SHADOWS.medium,
   },
 productImage: {

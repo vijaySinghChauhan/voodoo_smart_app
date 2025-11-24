@@ -140,8 +140,11 @@ const CartScreen = ({ navigation }) => {
       });
       return;
     }
-    
-    navigation.navigate('Checkout', { totalAmount });
+    // Navigate into nested Ecommerce stack when Cart is opened from Drawer
+    navigation.navigate('Shop', {
+      screen: 'Checkout',
+      params: { totalAmount },
+    });
   };
 
   const renderCartItem = ({ item }: { item: CartItem }) => (
@@ -218,7 +221,11 @@ const CartScreen = ({ navigation }) => {
           <Text style={styles.emptyText}>Your cart is empty</Text>
           <TouchableOpacity
             style={styles.shopButton}
-            onPress={() => navigation.navigate('ProductList')}
+            onPress={() =>
+              navigation.navigate('Shop', {
+                screen: 'ProductList',
+              })
+            }
           >
             <Text style={styles.shopButtonText}>Continue Shopping</Text>
           </TouchableOpacity>
