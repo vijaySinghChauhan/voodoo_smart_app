@@ -205,6 +205,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     };
   }, []);
 
+  // Respond to route param changes when navigating to this screen repeatedly
+  useEffect(() => {
+    const nextDeviceId = route?.params?.deviceId;
+    const fromDiscovery = !!route?.params?.fromDiscovery;
+    // If a different deviceId is provided, update selection and reload info
+    if (nextDeviceId && nextDeviceId !== selectedDeviceId) {
+      setSelectedDeviceId(nextDeviceId);
+      loadDeviceInfo(nextDeviceId);
+    } else if (!nextDeviceId && fromDiscovery) {
+      // Discovery flow without specific id can still refresh
+      loadDeviceInfo(null);
+    }
+  }, [route?.params?.deviceId]);
+
   useEffect(() =>{
     if(device2On)
       setTimeout(() => {
