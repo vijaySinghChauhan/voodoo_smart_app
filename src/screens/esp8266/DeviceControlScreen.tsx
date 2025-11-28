@@ -38,7 +38,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<number>(100);
-  const [targetInput, setTargetInput] = useState<string>('100');
+  const [targetInput, setTargetInput] = useState<string>("");
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(undefined);
@@ -72,15 +72,15 @@ const smoothValue = (newVal: number) => {
 
 // Helper: map brightness to percentage of target (filled)
 // filled = clamp((brightness/target) * 100, 0, 100)
+
 const brightnessToPercent = (rawBrightness: number, target: number) => {
   if (!Number.isFinite(rawBrightness)) {
     return 0;
   }
-  return 100-rawBrightness;
-  // const val = Math.max(0, rawBrightness);
-  // const t = Number.isFinite(target) && target > 0 ? target : 100;
-  // const filled = Math.min(100, Math.max(0, (val / t) * 100));
-  // return Math.round(filled);
+  const val = Math.max(0, rawBrightness);
+  const t = Number.isFinite(target) && target > 0 ? target : 100;
+  const filled = Math.min(100, Math.max(0, (val / t) * 100));
+  return 100-Math.round(filled);
 };
 
   
@@ -171,9 +171,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           if (typeof raw === 'number' && isFinite(raw)) {
             setBrightness(raw);
             const smoothed = smoothValue(raw);
-            const filled = brightnessToPercent(smoothed, targetValue);
+            const filled = brightnessToPercent(smoothed, Number(targetInput));
             setWaterLevel(showRemaining ? 100 - filled : filled);
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetValue})`, position: 'bottom' });
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
           }
         });
         socket.on('flow:update', (payload) => {
@@ -222,8 +222,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() =>{
     if(device2On)
       setTimeout(() => {
-       // setDevice2On(false);
-      }, 10000);
+        setDevice2On(false);
+      }, 7000);
   })
 
   // Re-subscribe brightness updates when IP becomes available or changes
@@ -248,10 +248,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
       const smoothed = smoothValue(brightness);
-      const filled = brightnessToPercent(smoothed, targetValue);
+      const filled = brightnessToPercent(smoothed, Number(targetInput));
       setWaterLevel(showRemaining ? 100 - filled : filled);
     }
-  }, [brightness, targetValue, showRemaining]);
+  }, [brightness, targetInput, showRemaining]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
@@ -269,8 +269,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               const tRaw = devDetail.target;
               const tNum = typeof tRaw === 'number' ? tRaw : (typeof tRaw === 'string' ? parseFloat(tRaw) : undefined);
               if (typeof tNum === 'number' && isFinite(tNum) && tNum > 0) {
-                setTargetValue(tNum);
-                setTargetInput(String(tNum));
+           
+           //     setTargetValue(tNum);
+                setTargetInput(targetInput);
               }
             }
             setDevice2On(!!devDetail.device2);
@@ -353,7 +354,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         if (typeof b === 'number') {
           setBrightness(b);
           const smoothed = smoothValue(b);
-          const filled = brightnessToPercent(smoothed, targetValue);
+          const filled = brightnessToPercent(smoothed, Number(targetInput));
           setWaterLevel(showRemaining ? 100 - filled : filled);
         }
       }
@@ -384,7 +385,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
   const handleSaveTarget = async () => {
     try {
-      await logService.logButtonClick('Save Target', { targetValue });
+      await logService.logButtonClick('Save Target', { targetInput});
       if (!selectedDeviceId) {
         Toast.show({ type: 'error', text1: 'No Device', text2: 'Select a device first', position: 'bottom' });
         return;
@@ -398,10 +399,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Update local target and recalc using current brightness
-        setTargetValue(parsed);
-        setTargetInput(String(parsed));
+  
+  //      setTargetValue(targetValue);
+       setTargetInput(targetInput);
         const smoothed = smoothValue(brightness ?? 0);
-        const filled = brightnessToPercent(smoothed, parsed);
+        const filled = brightnessToPercent(smoothed, Number(targetInput));
         setWaterLevel(showRemaining ? 100 - filled : filled);
         await loadDeviceInfo(selectedDeviceId);
       } else {
