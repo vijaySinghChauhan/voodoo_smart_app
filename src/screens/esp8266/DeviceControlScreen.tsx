@@ -42,10 +42,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<number>(1000);
-  const [targetInput, setTargetInput] = useState<string>("100");
+  const [targetInput, setTargetInput] = useState<string>("1000");
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
-  const [brightness, setBrightness] = useState<number | undefined>(100);
+  const [brightness, setBrightness] = useState<number | undefined>(500);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
   const [device2On, setDevice2On] = useState<boolean>(false);
   const [device3On, setDevice3On] = useState<boolean>(false);
