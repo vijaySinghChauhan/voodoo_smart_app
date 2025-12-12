@@ -8,6 +8,8 @@ import {
   ScrollView,
   Switch,
   TextInput,
+  Vibration,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -18,6 +20,8 @@ import { useAuth } from '../../context/AuthContext';
 import * as appConstants from '../../constants/constatantsV';
 import authService from '../../services/auth/authService';
 import logService from '../../services/logging/logService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notificationService } from '../../services/notifications/notificationService';
 
 interface DeviceStatus {
   connected: boolean;
@@ -37,11 +41,11 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
-  const [targetValue, setTargetValue] = useState<number>(100);
-  const [targetInput, setTargetInput] = useState<string>("");
+  const [targetValue, setTargetValue] = useState<number>(1000);
+  const [targetInput, setTargetInput] = useState<string>("100");
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
-  const [brightness, setBrightness] = useState<number | undefined>(undefined);
+  const [brightness, setBrightness] = useState<number | undefined>(100);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
   const [device2On, setDevice2On] = useState<boolean>(false);
   const [device3On, setDevice3On] = useState<boolean>(false);
@@ -60,6 +64,22 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const brightnessBufferRef = React.useRef<number[]>([]);
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
+  // Automation: dual rules (Turn ON / Turn OFF) based on tank level
+  const [onEnabled, setOnEnabled] = useState<boolean>(false);
+  const [onOperator, setOnOperator] = useState<'lt' | 'ge'>('lt');
+  const [onThreshold, setOnThreshold] = useState<number>(50);
+  const [offEnabled, setOffEnabled] = useState<boolean>(false);
+  const [offOperator, setOffOperator] = useState<'lt' | 'ge'>('ge');
+  const [offThreshold, setOffThreshold] = useState<number>(80);
+  const [showOnOperatorMenu, setShowOnOperatorMenu] = useState<boolean>(false);
+  const [showOnPercentMenu, setShowOnPercentMenu] = useState<boolean>(false);
+  const [showOffOperatorMenu, setShowOffOperatorMenu] = useState<boolean>(false);
+  const [showOffPercentMenu, setShowOffPercentMenu] = useState<boolean>(false);
+  const [lastAutoAt, setLastAutoAt] = useState<number>(0);
+  // Full tank alert state
+  const prevWaterLevelRef = React.useRef<number>(0);
+  const lastFullAlertAtRef = React.useRef<number>(0);
+  const fullAlertArmedRef = React.useRef<boolean>(true); // re-arm when level drops sufficiently
   
 // Smooth brightness to reduce jitter
 const smoothValue = (newVal: number) => {
@@ -244,6 +264,57 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   }, [selectedDeviceIp, selectedDeviceId, socketRef]);
 
+  // Load saved automation rules for selected device
+  useEffect(() => {
+    const loadRules = async () => {
+      try {
+        if (!selectedDeviceId) return;
+        const key = `auto_rules_${selectedDeviceId}`;
+        const json = await AsyncStorage.getItem(key);
+        if (json) {
+          const r = JSON.parse(json);
+          setOnEnabled(!!r?.on?.enabled);
+          setOnOperator(r?.on?.operator === 'ge' ? 'ge' : 'lt');
+          const onThr = Number(r?.on?.threshold);
+          setOnThreshold(Number.isFinite(onThr) ? onThr : 50);
+          setOffEnabled(!!r?.off?.enabled);
+          setOffOperator(r?.off?.operator === 'lt' ? 'lt' : 'ge');
+          const offThr = Number(r?.off?.threshold);
+          setOffThreshold(Number.isFinite(offThr) ? offThr : 80);
+        } else {
+          // Migrate old single-rule if present
+          const oldJson = await AsyncStorage.getItem(`auto_rule_${selectedDeviceId}`);
+          if (oldJson) {
+            const r = JSON.parse(oldJson);
+            if (r?.action === 'off') {
+              setOffEnabled(!!r.enabled);
+              setOffOperator(r.operator === 'lt' ? 'lt' : 'ge');
+              const t = Number(r.threshold);
+              setOffThreshold(Number.isFinite(t) ? t : 80);
+            } else {
+              setOnEnabled(!!r.enabled);
+              setOnOperator(r.operator === 'ge' ? 'ge' : 'lt');
+              const t = Number(r.threshold);
+              setOnThreshold(Number.isFinite(t) ? t : 50);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    loadRules();
+  }, [selectedDeviceId]);
+
+  const persistRules = async () => {
+    try {
+      if (!selectedDeviceId) return;
+      const payload = {
+        on: { enabled: onEnabled, operator: onOperator, threshold: onThreshold },
+        off: { enabled: offEnabled, operator: offOperator, threshold: offThreshold },
+      };
+      await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
+    } catch (e) {}
+  };
+
   // Recalculate water level when brightness or target changes
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
@@ -252,6 +323,81 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       setWaterLevel(showRemaining ? 100 - filled : filled);
     }
   }, [brightness, targetInput, showRemaining]);
+
+  // Automation: evaluate ON/OFF rules with a small cooldown to avoid rapid toggles
+  useEffect(() => {
+    try {
+      if (!selectedDeviceId) return;
+      const now = Date.now();
+      if (now - lastAutoAt < 2000) return; // 2s cooldown
+      const level = Number(waterLevel);
+      if (!Number.isFinite(level)) return;
+      // ON rule
+      if (onEnabled) {
+        const onMet = onOperator === 'lt' ? level < onThreshold : level >= onThreshold;
+        if (onMet && !isPowerOn) {
+          toggleDeviceField('device1', true);
+          setIsPowerOn(true);
+          setLastAutoAt(now);
+          Toast.show({ type: 'success', text1: 'Automation', text2: `Power ON at ${level}%`, position: 'bottom' });
+          return;
+        }
+      }
+      // OFF rule
+      if (offEnabled) {
+        const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
+        if (offMet && isPowerOn) {
+          toggleDeviceField('device1', false);
+          setIsPowerOn(false);
+          setLastAutoAt(now);
+          Toast.show({ type: 'success', text1: 'Automation', text2: `Power OFF at ${level}%`, position: 'bottom' });
+          return;
+        }
+      }
+    } catch (e) {}
+  }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt]);
+
+  // Alert when tank reaches 100%
+  useEffect(() => {
+    try {
+      const level = Number(waterLevel);
+      const prev = Number(prevWaterLevelRef.current || 0);
+      const now = Date.now();
+      const recentlyAlerted = now - (lastFullAlertAtRef.current || 0) < 30_000; // 30s cooldown
+
+      // Re-arm alert after level drops below 95%
+      if (level <= 95) {
+        fullAlertArmedRef.current = true;
+      }
+
+      // Trigger only on rising edge crossing to >= 100
+      if (!recentlyAlerted && fullAlertArmedRef.current && prev < 100 && level >= 100) {
+        try {
+          Toast.show({ type: 'success', text1: 'Tank Full', text2: 'Water tank reached 100%', position: 'bottom' });
+        } catch {}
+
+        // System notification (web and native where available)
+        try { notificationService.showSystemNotification('Tank Full', 'Water tank reached 100%'); } catch {}
+
+        // Play alternating beeps on web; vibrate on native as a fallback
+        if (Platform.OS === 'web') {
+          // Dynamically import web shim to avoid bundling issues elsewhere
+          import('../../shims/audioShim.web')
+            .then((mod) => {
+              try { mod.playAlternatingBeeps({ count: 6, durationMs: 180, gapMs: 120, freqs: [880, 1320] }); } catch {}
+            })
+            .catch(() => {});
+        } else {
+          try { Vibration.vibrate([0, 400, 150, 400, 150, 400], false); } catch {}
+        }
+
+        lastFullAlertAtRef.current = now;
+        fullAlertArmedRef.current = false; // disarm until it drops below threshold
+      }
+
+      prevWaterLevelRef.current = level;
+    } catch {}
+  }, [waterLevel]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
@@ -573,6 +719,142 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               trackColor={{ false: '#767577', true: '#4CAF50' }}
               thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
             />
+          </View>
+          {/* Automation rules UI: Turn ON and Turn OFF */}
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.sectionTitle}>Automation Rules: Power</Text>
+            {/* Turn ON Rule */}
+            <View style={{ marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.powerLabel}>Turn ON rule</Text>
+                <Switch
+                  value={onEnabled}
+                  onValueChange={(v) => { setOnEnabled(v); persistRules(); }}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              <Text style={styles.infoLabel}>When level is</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setShowOnOperatorMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginRight: 8 }}
+                >
+                  <Text style={{ color: '#333' }}>{onOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowOnPercentMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginLeft: 8 }}
+                >
+                  <Text style={{ color: '#333' }}>{onThreshold}%</Text>
+                </TouchableOpacity>
+              </View>
+              {showOnOperatorMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[
+                    { key: 'lt', label: 'Less than' },
+                    { key: 'ge', label: 'More than or equal' },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        const next = opt.key === 'ge' ? 'ge' : 'lt';
+                        setOnOperator(next);
+                        setShowOnOperatorMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {showOnPercentMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      onPress={() => {
+                        setOnThreshold(p);
+                        setShowOnPercentMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{p}%</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Turn OFF Rule */}
+            <View style={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.powerLabel}>Turn OFF rule</Text>
+                <Switch
+                  value={offEnabled}
+                  onValueChange={(v) => { setOffEnabled(v); persistRules(); }}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              <Text style={styles.infoLabel}>When level is</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setShowOffOperatorMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginRight: 8 }}
+                >
+                  <Text style={{ color: '#333' }}>{offOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowOffPercentMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginLeft: 8 }}
+                >
+                  <Text style={{ color: '#333' }}>{offThreshold}%</Text>
+                </TouchableOpacity>
+              </View>
+              {showOffOperatorMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[
+                    { key: 'lt', label: 'Less than' },
+                    { key: 'ge', label: 'More than or equal' },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        const next = opt.key === 'lt' ? 'lt' : 'ge';
+                        setOffOperator(next);
+                        setShowOffOperatorMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {showOffPercentMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      onPress={() => {
+                        setOffThreshold(p);
+                        setShowOffPercentMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{p}%</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            <Text style={{ marginTop: 8, color: '#666' }}>Current level: {waterLevel}%</Text>
           </View>
                <View style={{ marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Flow Data </Text>

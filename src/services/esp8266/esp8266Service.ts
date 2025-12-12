@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import authService from '../auth/authService';
 import * as constantsV from '../../constants/constatantsV';
+import { mockDevices } from '../mock/mockData';
 
 interface ESP8266Config {
   ssid: string;
@@ -373,6 +374,11 @@ class ESP8266Service {
 
   // ===== Backend API helpers =====
   async getDevicesFromServer(): Promise<any[]> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      const key = 'devices_offline';
+      const existingJson = await AsyncStorage.getItem(key);
+      return existingJson ? JSON.parse(existingJson) : (mockDevices as any[]);
+    }
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const response = await axios.get(`${this.apiBaseUrl}/devices`, {

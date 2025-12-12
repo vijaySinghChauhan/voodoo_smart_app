@@ -1,1 +1,8 @@
-{}
+{
+  "ignore_dirs": [
+    "dist",
+    "voodooHome-api",
+    "web",
+    "vendor"
+  ]
+}

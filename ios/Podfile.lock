@@ -2222,6 +2222,8 @@ PODS:
     - React-perflogger (= 0.80.0)
     - React-utils (= 0.80.0)
     - SocketRocket
+  - ReactNativeIncallManager (4.2.1):
+    - React-Core
   - RNCAsyncStorage (2.2.0):
     - boost
     - DoubleConversion
@@ -2631,6 +2633,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - ReactNativeIncallManager (from `../node_modules/react-native-incall-manager`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
@@ -2798,6 +2801,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  ReactNativeIncallManager:
+    :path: "../node_modules/react-native-incall-manager"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
@@ -2891,6 +2896,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: cd55f820247d424280ae0b94e1ffb38963410c01
   ReactCodegen: 304f881dea867b659e4ba479608ec06f8117e0c5
   ReactCommon: 658874decaf8c4fd76cfa3a878b94a869db85b1c
+  ReactNativeIncallManager: 65a85aed033c1d9ec66f98a943cca51c61a210e9
   RNCAsyncStorage: 767abb068db6ad28b5f59a129fbc9fab18b377e2
   RNGestureHandler: 9d04ec6e1379b595222c2467f5e8d1c44157fcc9
   RNReanimated: 2010262133feb53009f16faaa404042eed7da018

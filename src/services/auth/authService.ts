@@ -2,6 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import * as constantsV from '../../constants/constatantsV';
+import { mockUser } from '../mock/mockData';
 
 interface User {
   id: string;
@@ -46,6 +47,17 @@ class AuthService {
   
   async login(email: string, password: string): Promise<User> {
     try {
+      // Offline mode: accept mock credentials and return mock user
+      if ((constantsV as any).OFFLINE_MODE) {
+        const { email: mockEmail, password: mockPass } = (constantsV as any).MOCK_CREDENTIALS || {};
+        if (email === mockEmail && password === mockPass) {
+          await this.saveToken((constantsV as any).MOCK_TOKEN || 'mock-token');
+          await AsyncStorage.setItem('user', JSON.stringify(mockUser));
+          return mockUser as User;
+        }
+        // If wrong creds in offline, throw an error similar to server
+        throw new Error('Invalid credentials (offline)');
+      }
       const response = await axios.post<AuthResponse>(`${this.baseUrl}/login`, {
         email,
         password
@@ -66,6 +78,18 @@ class AuthService {
   
   async signup(name: string, email: string, password: string, phone?: string, role: 'user' | 'admin' = 'user'): Promise<User> {
     try {
+      if ((constantsV as any).OFFLINE_MODE) {
+        const offlineUser: User = {
+          id: 'u_local',
+          name: name || mockUser.name,
+          email: email || mockUser.email,
+          role,
+          phone,
+        } as any;
+        await this.saveToken((constantsV as any).MOCK_TOKEN || 'mock-token');
+        await AsyncStorage.setItem('user', JSON.stringify(offlineUser));
+        return offlineUser;
+      }
       const response = await axios.post<AuthResponse>(`${this.baseUrl}/register`, {
         name,
         email,
@@ -110,6 +134,12 @@ class AuthService {
   
   async updateProfile(userData: Partial<User>): Promise<User> {
     try {
+      if ((constantsV as any).OFFLINE_MODE) {
+        const currentUser = await this.getCurrentUser();
+        const updatedUser = { ...(currentUser || mockUser), ...userData } as User;
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
       if (!this.token) {
         throw new Error('Not authenticated');
       }
@@ -141,6 +171,9 @@ class AuthService {
     try {
       const t = await AsyncStorage.getItem('auth_token');
       this.token = t;
+      if ((constantsV as any).OFFLINE_MODE) {
+        return (constantsV as any).MOCK_TOKEN || 'mock-token';
+      }
       return t;
     } catch (err) {
       console.error('Failed to read auth token:', err);

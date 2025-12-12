@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: 'development',
@@ -7,7 +8,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
-    publicPath: '/',
+    publicPath: 'auto',
     clean: true,
   },
   devtool: 'source-map',
@@ -101,11 +102,14 @@ module.exports = {
       /@react-navigation\/elements\/lib\/module\/useFrameSize\.js$/,
       path.resolve(__dirname, 'src/shims/useFrameSizeShim.web.js')
     ),
+    new HtmlWebpackPlugin({
+      template: path.resolve(__dirname, 'web/index.html'),
+      inject: 'body',
+      scriptLoading: 'defer',
+    }),
   ],
   devServer: {
-    static: {
-      directory: path.resolve(__dirname, 'web'),
-    },
+    static: false,
     devMiddleware: {
       publicPath: '/',
       writeToDisk: true,

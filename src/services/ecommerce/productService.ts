@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as constantsV from '../../constants/constatantsV';
+import { mockProducts, mockCategories } from '../mock/mockData';
 
 export interface Product {
   id: string;              // normalized id for UI
@@ -22,6 +23,9 @@ class ProductService {
   // Get all products
   // This is correct for getProducts
   async getProducts(): Promise<Product[]> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      return mockProducts.map(p => ({ ...p, id: String(p.id), price: Number(p.price) }));
+    }
     const response = await axios.get(`${this.baseUrl}`);
     const items = response.data.data || [];
     // Normalize id and price for UI
@@ -34,6 +38,10 @@ class ProductService {
   
   // This is WRONG for getProductById
   async getProductById(productId: string): Promise<Product | null> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      const p = mockProducts.find(mp => String(mp.id) === String(productId));
+      return p ? { ...p, id: String(p.id), price: Number(p.price) } : null;
+    }
     try {
       const response = await axios.get(`${this.baseUrl}/${productId}`);
       const p = response.data.data;
@@ -106,6 +114,9 @@ class ProductService {
   
   // Get categories
   async getCategories(): Promise<string[]> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      return mockCategories.slice();
+    }
     try {
       const response = await axios.get(`${this.baseUrl}/categories`);
       return response.data;

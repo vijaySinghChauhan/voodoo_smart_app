@@ -11,6 +11,7 @@ import { io, Socket } from 'socket.io-client';
 import * as constantsV from './src/constants/constatantsV';
 import authService from './src/services/auth/authService';
 import userService from './src/services/users/userService';
+import { notificationService } from './src/services/notifications/notificationService';
 
 // Splash Screen
 import SplashScreen from './src/screens/SplashScreen';
@@ -222,8 +223,13 @@ const AppNavigator = () => {
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 3000);
-    
+
     return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize local notifications on native if available
+  React.useEffect(() => {
+    try { notificationService.initLocalNotifications(); } catch {}
   }, []);
 
   // Connect to signaling and listen for incoming call invites

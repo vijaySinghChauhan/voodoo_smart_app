@@ -28,3 +28,15 @@ export const API_VERSION = 'v1';
 
 // Timeout settings
 export const API_TIMEOUT = 30000; // 30 seconds
+
+// Offline mode: when true, services will return static mock data
+export const OFFLINE_MODE = true;
+
+// Mock user credentials for offline login
+export const MOCK_CREDENTIALS = {
+  email: 'mock@voodoo.local',
+  password: 'Voodoo@123',
+};
+
+// Mock token used in offline mode
+export const MOCK_TOKEN = 'mock-token-voodoo';
