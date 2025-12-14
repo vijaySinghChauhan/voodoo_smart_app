@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Trust both system and user-added CAs -->
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Explicit domain config for the API host -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">voodootechsystems.in</domain>
+    </domain-config>
+</network-security-config>

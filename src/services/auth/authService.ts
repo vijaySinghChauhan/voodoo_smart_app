@@ -2,6 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import * as constantsV from '../../constants/constatantsV';
+import configService from '../config/configService';
 import { mockUser } from '../mock/mockData';
 
 interface User {
@@ -19,8 +20,7 @@ interface AuthResponse {
 }
 
 class AuthService {
-  //private baseUrl: string = 'http://localhost:3001/api/auth'; // Local API URL
-    private  baseUrl: string = constantsV.BASE_URL+'/auth'; // Local API URL
+  // Base URL is resolved dynamically via configService
 
   private token: string | null = null;
   
@@ -58,7 +58,7 @@ class AuthService {
         // If wrong creds in offline, throw an error similar to server
         throw new Error('Invalid credentials (offline)');
       }
-      const response = await axios.post<AuthResponse>(`${this.baseUrl}/login`, {
+      const response = await axios.post<AuthResponse>(constantsV.API_ENDPOINTS.LOGIN, {
         email,
         password
       });
@@ -90,7 +90,8 @@ class AuthService {
         await AsyncStorage.setItem('user', JSON.stringify(offlineUser));
         return offlineUser;
       }
-      const response = await axios.post<AuthResponse>(`${this.baseUrl}/register`, {
+      const baseUrl = await configService.getBaseUrl();
+      const response = await axios.post<AuthResponse>(`${baseUrl}/auth/register`, {
         name,
         email,
         password,
@@ -144,7 +145,8 @@ class AuthService {
         throw new Error('Not authenticated');
       }
       
-      const response = await axios.put<User>(`${this.baseUrl}/updatedetails`, userData, {
+      const baseUrl = await configService.getBaseUrl();
+      const response = await axios.put<User>(`${baseUrl}/auth/updatedetails`, userData, {
         headers: {
           Authorization: `Bearer ${this.token}`
         }

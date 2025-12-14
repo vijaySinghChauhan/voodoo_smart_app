@@ -1,9 +1,9 @@
 // export const BASE_URL = 'http://192.168.1.6:3001/api'; // Replace with your actual base URL
 // export const CHAT_BASE_URL = 'http://192.168.1.6:3001'; 
 // Use local API/server during development to keep JWT and sockets aligned
-export const BASE_URL = 'https://apnabanda.in/voodoo/api';
+export const BASE_URL = 'https://voodootechsystems.in/voodoo/api';
 // Socket.IO should point to the host only; path is configured separately
-export const CHAT_BASE_URL = 'https://apnabanda.in';
+export const CHAT_BASE_URL = 'https://voodootechsystems.in';
 
 // Default ICE servers; add TURN here for reliable media across carriers/NATs
 export const ICE_SERVERS = [
@@ -30,7 +30,7 @@ export const API_VERSION = 'v1';
 export const API_TIMEOUT = 30000; // 30 seconds
 
 // Offline mode: when true, services will return static mock data
-export const OFFLINE_MODE = true;
+export const OFFLINE_MODE = false;
 
 // Mock user credentials for offline login
 export const MOCK_CREDENTIALS = {

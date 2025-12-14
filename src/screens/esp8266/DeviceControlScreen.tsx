@@ -357,6 +357,23 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     } catch (e) {}
   }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt]);
 
+  // New rule: if flow rate drops below 5, switch off device1
+  useEffect(() => {
+    try {
+      if (!selectedDeviceId) return;
+      const fr = flowRate;
+      if (typeof fr !== 'number' || !isFinite(fr)) return;
+      const now = Date.now();
+      if (now - lastAutoAt < 2000) return; // reuse cooldown to prevent rapid toggles
+      if (fr < 5 && isPowerOn) {
+        toggleDeviceField('device1', false);
+        setIsPowerOn(false);
+        setLastAutoAt(now);
+        Toast.show({ type: 'success', text1: 'Automation', text2: `Flow low (${fr}). Power OFF`, position: 'bottom' });
+      }
+    } catch {}
+  }, [flowRate, isPowerOn, selectedDeviceId, lastAutoAt]);
+
   // Alert when tank reaches 100%
   useEffect(() => {
     try {

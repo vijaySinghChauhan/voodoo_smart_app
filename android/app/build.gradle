@@ -51,7 +51,7 @@ react {
     // hermesFlags = ["-O", "-output-source-map"]
 
     /* Autolinking */
-    autolinkLibrariesWithApp()
+autolinkLibrariesWithApp()
 }
 
 /**
@@ -107,11 +107,17 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release
+            // Use release signing if provided, otherwise fall back to debug keystore
+            signingConfig project.hasProperty('MYAPP_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+}
+
+// Exclude Firebase Messaging when not using FCM (prevents runtime crashes without google-services.json)
+configurations.all {
+    exclude group: 'com.google.firebase', module: 'firebase-messaging'
 }
 
 dependencies {

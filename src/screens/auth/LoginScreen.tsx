@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import logService from '../../services/logging/logService';
+import configService from '../../services/config/configService';
+import * as constantsV from '../../constants/constatantsV';
 
 const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [baseUrl, setBaseUrl] = useState<string>('');
   const { login, isLoading } = useAuth();
+
+  useEffect(() => {
+    // Load current or default base URL into field
+    (async () => {
+      const current = await configService.getBaseUrl();
+      setBaseUrl(current || constantsV.BASE_URL);
+    })();
+  }, []);
 
   const handleLogin = async () => {
     try { await logService.logButtonClick('Login Attempt', { email }); } catch (e) {}
@@ -46,11 +57,12 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         position: 'bottom'
       });
       navigation.navigate('DashboardMain')
-    } catch (error) {
+    } catch (error: any) {
+      const message = (error?.response?.data?.message || error?.message || 'Login failed') as string;
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: 'Invalid email or password',
+        text2: message,
         position: 'bottom'
       });
     }
@@ -66,6 +78,8 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           <View style={styles.formContainer}>
             <Text style={styles.title}>VoodooTech Smart</Text>
             <Text style={styles.subtitle}>Login to your account</Text>
+
+            {/* Base URL field removed per request; login uses fixed endpoint */}
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
@@ -165,6 +179,17 @@ const styles = StyleSheet.create({
     padding: 15,
     alignItems: 'center',
     marginTop: 10,
+  },
+  smallButton: {
+    backgroundColor: '#e0e7ff',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  smallButtonText: {
+    color: '#1f3b7d',
+    fontSize: 12,
+    fontWeight: '600',
   },
   loginButtonText: {
     color: '#fff',

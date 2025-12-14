@@ -102,7 +102,8 @@ export class NotificationService {
         PushNotification.configure({
           onRegister: function () {},
           onNotification: function () {},
-          requestPermissions: true,
+          // Avoid triggering FCM permission flow on Android when Firebase isn't configured yet
+          requestPermissions: Platform.OS === 'ios',
         });
       } catch {}
       try {

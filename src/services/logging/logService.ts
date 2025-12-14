@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as constantsV from '../../constants/constatantsV';
+import configService from '../config/configService';
 import authService from '../auth/authService';
 
 type LogEvent = {
@@ -12,7 +13,6 @@ type LogEvent = {
 };
 
 class LogService {
-  private baseUrl: string = `${constantsV.BASE_URL}/logs`;
 
   private async getHeaders() {
     const token = (await authService.getToken()) || (await AsyncStorage.getItem('auth_token'));
@@ -22,11 +22,12 @@ class LogService {
   async log(event: LogEvent): Promise<void> {
     try {
       const headers = await this.getHeaders();
+      const baseUrl = await configService.getBaseUrl();
       const payload = {
         ...event,
         timestamp: event.timestamp || new Date().toISOString(),
       };
-      await axios.post(this.baseUrl, payload, { headers, timeout: 10000 });
+      await axios.post(`${baseUrl}/logs`, payload, { headers, timeout: 10000 });
     } catch (err) {
       // Fail silently to avoid impacting UX
       console.log('logService: failed to log event', err?.message || String(err));
