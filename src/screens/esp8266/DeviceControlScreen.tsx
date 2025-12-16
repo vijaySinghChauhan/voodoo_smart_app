@@ -42,10 +42,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<number>(1000);
-  const [targetInput, setTargetInput] = useState<string>("1000");
+  const [targetInput, setTargetInput] = useState<string>("");
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
-  const [brightness, setBrightness] = useState<number | undefined>(500);
+  const [brightness, setBrightness] = useState<number | undefined>(0);
   const [socketRef, setSocketRef] = useState<Socket | null>(null);
   const [device2On, setDevice2On] = useState<boolean>(false);
   const [device3On, setDevice3On] = useState<boolean>(false);
@@ -64,6 +64,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const brightnessBufferRef = React.useRef<number[]>([]);
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
+  const [activeSocketHost, setActiveSocketHost] = useState<string | null>(null);
   // Automation: dual rules (Turn ON / Turn OFF) based on tank level
   const [onEnabled, setOnEnabled] = useState<boolean>(false);
   const [onOperator, setOnOperator] = useState<'lt' | 'ge'>('lt');
@@ -100,10 +101,16 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const val = Math.max(0, rawBrightness);
   const t = Number.isFinite(target) && target > 0 ? target : 100;
   const filled = Math.min(100, Math.max(0, (val / t) * 100));
-  return 100-Math.round(filled);
+  return Math.round(filled);
 };
 
   
+  // Track whether we've received brightness via socket; used for failover
+  const brightnessReceivedRef = React.useRef<boolean>(false);
+  const fallbackTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const fallbackPathRetriedRef = React.useRef<boolean>(false);
+  const fallbackNoAuthRetriedRef = React.useRef<boolean>(false);
+  const fallbackHttpRetriedRef = React.useRef<boolean>(false);
 
   useEffect(() => {
     // Determine deviceId from route params if available
@@ -126,9 +133,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       try {
         const token = (await authService.getToken()) || '';
         const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (process.env.NODE_ENV !== 'production'));
+        const transportList = Platform.OS === 'android' ? ['polling'] : (isDev ? ['polling'] : ['websocket', 'polling']);
+        brightnessReceivedRef.current = false;
         const socket = io(appConstants.CHAT_BASE_URL, {
-          transports: isDev ? ['polling'] : ['websocket', 'polling'],
-          upgrade: isDev ? false : true,
+          transports: transportList,
+          upgrade: transportList.includes('websocket'),
           path: '/voodoo/socket.io',
           reconnection: true,
           timeout: 15000,
@@ -142,6 +151,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         });
         setSocketRef(socket);
         socket.on('connect', async () => {
+          setActiveSocketHost(appConstants.CHAT_BASE_URL);
           try {
             const did = initialDeviceId || selectedDeviceId;
             if (!did) return;
@@ -162,7 +172,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           }
         });
         socket.on('connect_error', (err) => {
-          console.warn('Socket connect error:', err?.message || err);
+          const msg = err?.message || String(err || 'Unknown error');
+          console.warn('Socket connect error:', msg);
+          Toast.show({ type: 'error', text1: 'Socket Error', text2: msg, position: 'bottom' });
+        });
+        socket.on('brightness:subscribed', ({ deviceId }) => {
+          Toast.show({ type: 'info', text1: 'Subscribed', text2: `Brightness for ${deviceId}`, position: 'bottom' });
         });
         socket.on('reconnect', () => {
           try {
@@ -176,11 +191,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           } catch (e) {}
         });
         socket.on('brightness:update', (payload) => {
+          brightnessReceivedRef.current = true;
           let raw: number | undefined;
           if (typeof payload?.brightness === 'number') {
             raw = payload.brightness;
           } else if (typeof payload?.value === 'number') {
             raw = payload.value;
+          } else if (typeof payload?.brightness === 'string') {
+            const parsed = parseFloat(payload.brightness);
+            raw = isNaN(parsed) ? undefined : parsed;
+          } else if (typeof payload?.value === 'string') {
+            const parsed = parseFloat(payload.value);
+            raw = isNaN(parsed) ? undefined : parsed;
           } else if (typeof payload === 'string') {
             const parsed = parseFloat(payload);
             raw = isNaN(parsed) ? undefined : parsed;
@@ -191,8 +213,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           if (typeof raw === 'number' && isFinite(raw)) {
             setBrightness(raw);
             const smoothed = smoothValue(raw);
+            // Treat helper as "filled" computation (100 - normalized)
             const filled = brightnessToPercent(smoothed, Number(targetInput));
-            setWaterLevel(showRemaining ? 100 - filled : filled);
+            setWaterLevel(filled);
             Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
           }
         });
@@ -210,18 +233,289 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           if (/timeout/i.test(msg) || /Missing device IP/i.test(msg)) return;
           console.warn('Brightness socket error:', msg);
         });
+        // If no brightness arrives within 7s, switch to fallback host
+        if (fallbackTimerRef.current) {
+          clearTimeout(fallbackTimerRef.current);
+        }
+        if (appConstants.DISABLE_FALLBACK_SOCKET) {
+          console.warn('Fallback socket disabled by config. Skipping fallback attempts.');
+        } else {
+        fallbackTimerRef.current = setTimeout(async () => {
+          if (!brightnessReceivedRef.current) {
+            try { socket.disconnect(); } catch {}
+            const fbSocket = io(appConstants.CHAT_FALLBACK_URL, {
+              transports: transportList,
+              upgrade: transportList.includes('websocket'),
+              path: '/voodoo/socket.io',
+              reconnection: true,
+              timeout: 15000,
+              forceNew: true,
+              reconnectionAttempts: 999999,
+              reconnectionDelay: 1200,
+              reconnectionDelayMax: 5000,
+              auth: { token },
+              query: { token },
+              extraHeaders: { Authorization: `Bearer ${token}` },
+            });
+            // Only set as active socket when fallback actually connects
+            fbSocket.on('connect', async () => {
+              setSocketRef(fbSocket);
+              setActiveSocketHost(appConstants.CHAT_FALLBACK_URL);
+              try {
+                const did = initialDeviceId || selectedDeviceId;
+                if (!did) return;
+                const dev = await esp8266Service.getDeviceFromServer(did);
+                const ip = dev?.ipAddress || dev?.ip || null;
+                setSelectedDeviceIp(ip);
+                if (ip) {
+                  fbSocket.emit('brightness:subscribe', { deviceId: did, ip });
+                } else {
+                  fbSocket.emit('brightness:subscribe', { deviceId: did });
+                }
+                fbSocket.emit('flow:subscribe', { deviceId: did });
+              } catch (e) {}
+            });
+            fbSocket.on('brightness:update', (payload) => {
+              brightnessReceivedRef.current = true;
+              let raw: number | undefined;
+              if (typeof payload?.brightness === 'number') raw = payload.brightness;
+              else if (typeof payload?.value === 'number') raw = payload.value;
+              else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
+              else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
+              else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
+              else if (typeof payload === 'number') raw = payload;
+              if (typeof raw === 'number' && isFinite(raw)) {
+                setBrightness(raw);
+                const smoothed = smoothValue(raw);
+                const filled = brightnessToPercent(smoothed, Number(targetInput));
+                setWaterLevel(filled);
+              }
+            });
+            fbSocket.on('flow:update', (payload) => {
+              const frRaw = payload?.flowRate;
+              const tlRaw = payload?.totalLiters;
+              const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+              const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+              if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+              if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+            });
+            fbSocket.on('connect_error', (err) => {
+              const msg = err?.message || String(err || 'Unknown error');
+              console.warn('Fallback socket connect error:', msg);
+              // Suppress user-facing toast for fallback errors to reduce noise
+              // Try default Socket.IO path once if the custom path fails
+              if (!fallbackPathRetriedRef.current) {
+                fallbackPathRetriedRef.current = true;
+                try { fbSocket.disconnect(); } catch {}
+                const fbSocket2 = io(appConstants.CHAT_FALLBACK_URL, {
+                  transports: transportList,
+                  upgrade: transportList.includes('websocket'),
+                  path: '/socket.io',
+                  reconnection: true,
+                  timeout: 15000,
+                  forceNew: true,
+                  reconnectionAttempts: 999999,
+                  reconnectionDelay: 1200,
+                  reconnectionDelayMax: 5000,
+                  auth: { token },
+                  query: { token },
+                  extraHeaders: { Authorization: `Bearer ${token}` },
+                });
+                // Only set as active socket when fallback actually connects
+                fbSocket2.on('connect', async () => {
+                  setSocketRef(fbSocket2);
+                  setActiveSocketHost(appConstants.CHAT_FALLBACK_URL);
+                  try {
+                    const did = initialDeviceId || selectedDeviceId;
+                    if (!did) return;
+                    const dev = await esp8266Service.getDeviceFromServer(did);
+                    const ip = dev?.ipAddress || dev?.ip || null;
+                    setSelectedDeviceIp(ip);
+                    if (ip) { fbSocket2.emit('brightness:subscribe', { deviceId: did, ip }); }
+                    else { fbSocket2.emit('brightness:subscribe', { deviceId: did }); }
+                    fbSocket2.emit('flow:subscribe', { deviceId: did });
+                  } catch (e) {}
+                });
+                fbSocket2.on('brightness:update', (payload) => {
+                  brightnessReceivedRef.current = true;
+                  let raw: number | undefined;
+                  if (typeof payload?.brightness === 'number') raw = payload.brightness;
+                  else if (typeof payload?.value === 'number') raw = payload.value;
+                  else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
+                  else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
+                  else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
+                  else if (typeof payload === 'number') raw = payload;
+                  if (typeof raw === 'number' && isFinite(raw)) {
+                    setBrightness(raw);
+                    const smoothed = smoothValue(raw);
+                    const filled = brightnessToPercent(smoothed, Number(targetInput));
+                    setWaterLevel(filled);
+                  }
+                });
+                fbSocket2.on('flow:update', (payload) => {
+                  const frRaw = payload?.flowRate;
+                  const tlRaw = payload?.totalLiters;
+                  const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+                  const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+                  if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+                  if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+                });
+                fbSocket2.on('connect_error', (err2) => {
+                  const msg2 = err2?.message || String(err2 || 'Unknown error');
+                  console.warn('Fallback socket (default path) connect error:', msg2);
+                  // Suppress user-facing toast for fallback errors to reduce noise
+                  // If unauthorized, attempt one more time without any auth/query/headers
+                  if (/unauthorized/i.test(msg2) && !fallbackNoAuthRetriedRef.current) {
+                    fallbackNoAuthRetriedRef.current = true;
+                    try { fbSocket2.disconnect(); } catch {}
+                    const fbSocket3 = io(appConstants.CHAT_FALLBACK_URL, {
+                      transports: transportList,
+                      upgrade: transportList.includes('websocket'),
+                      path: '/socket.io',
+                      reconnection: true,
+                      timeout: 15000,
+                      forceNew: true,
+                      reconnectionAttempts: 999999,
+                      reconnectionDelay: 1200,
+                      reconnectionDelayMax: 5000,
+                    });
+                    // Only set as active socket when fallback actually connects
+                    fbSocket3.on('connect', async () => {
+                      setSocketRef(fbSocket3);
+                      setActiveSocketHost(appConstants.CHAT_FALLBACK_URL);
+                      try {
+                        const did = initialDeviceId || selectedDeviceId;
+                        if (!did) return;
+                        const dev = await esp8266Service.getDeviceFromServer(did);
+                        const ip = dev?.ipAddress || dev?.ip || null;
+                        setSelectedDeviceIp(ip);
+                        if (ip) { fbSocket3.emit('brightness:subscribe', { deviceId: did, ip }); }
+                        else { fbSocket3.emit('brightness:subscribe', { deviceId: did }); }
+                        fbSocket3.emit('flow:subscribe', { deviceId: did });
+                      } catch (e) {}
+                    });
+                    fbSocket3.on('brightness:update', (payload) => {
+                      brightnessReceivedRef.current = true;
+                      let raw: number | undefined;
+                      if (typeof payload?.brightness === 'number') raw = payload.brightness;
+                      else if (typeof payload?.value === 'number') raw = payload.value;
+                      else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
+                      else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
+                      else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
+                      else if (typeof payload === 'number') raw = payload;
+                      if (typeof raw === 'number' && isFinite(raw)) {
+                        setBrightness(raw);
+                        const smoothed = smoothValue(raw);
+                        const filled = brightnessToPercent(smoothed, Number(targetInput));
+                        setWaterLevel(filled);
+                      }
+                    });
+                    fbSocket3.on('flow:update', (payload) => {
+                      const frRaw = payload?.flowRate;
+                      const tlRaw = payload?.totalLiters;
+                      const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+                      const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+                      if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+                      if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+                    });
+                    fbSocket3.on('connect_error', (err3) => {
+                      const msg3 = err3?.message || String(err3 || 'Unknown error');
+                      console.warn('Fallback socket (no auth) connect error:', msg3);
+                      // Suppress user-facing toast for fallback errors to reduce noise
+                      // Final attempt: try HTTP scheme in case HTTPS/TLS or CORS blocks
+                      if (!fallbackHttpRetriedRef.current) {
+                        fallbackHttpRetriedRef.current = true;
+                        try { fbSocket3.disconnect(); } catch {}
+                        const httpUrl = appConstants.CHAT_FALLBACK_URL.replace(/^https:/, 'http:');
+                        const fbSocket4 = io(httpUrl, {
+                          transports: transportList,
+                          upgrade: transportList.includes('websocket'),
+                          path: '/socket.io',
+                          reconnection: true,
+                          timeout: 15000,
+                          forceNew: true,
+                          reconnectionAttempts: 999999,
+                          reconnectionDelay: 1200,
+                          reconnectionDelayMax: 5000,
+                        });
+                        fbSocket4.on('connect', async () => {
+                          setSocketRef(fbSocket4);
+                          setActiveSocketHost(httpUrl);
+                          try {
+                            const did = initialDeviceId || selectedDeviceId;
+                            if (!did) return;
+                            const dev = await esp8266Service.getDeviceFromServer(did);
+                            const ip = dev?.ipAddress || dev?.ip || null;
+                            setSelectedDeviceIp(ip);
+                            if (ip) { fbSocket4.emit('brightness:subscribe', { deviceId: did, ip }); }
+                            else { fbSocket4.emit('brightness:subscribe', { deviceId: did }); }
+                            fbSocket4.emit('flow:subscribe', { deviceId: did });
+                          } catch (e) {}
+                        });
+                        fbSocket4.on('brightness:update', (payload) => {
+                          brightnessReceivedRef.current = true;
+                          let raw: number | undefined;
+                          if (typeof payload?.brightness === 'number') raw = payload.brightness;
+                          else if (typeof payload?.value === 'number') raw = payload.value;
+                          else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
+                          else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
+                          else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
+                          else if (typeof payload === 'number') raw = payload;
+                          if (typeof raw === 'number' && isFinite(raw)) {
+                            setBrightness(raw);
+                            const smoothed = smoothValue(raw);
+                            const filled = brightnessToPercent(smoothed, Number(targetInput));
+                            setWaterLevel(filled);
+                          }
+                        });
+                        fbSocket4.on('flow:update', (payload) => {
+                          const frRaw = payload?.flowRate;
+                          const tlRaw = payload?.totalLiters;
+                          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+                          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+                          if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+                          if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+                        });
+                        fbSocket4.on('connect_error', (err4) => {
+                          const msg4 = err4?.message || String(err4 || 'Unknown error');
+                          console.warn('Fallback socket (HTTP) connect error:', msg4);
+                        });
+                      }
+                    });
+                    fbSocket3.on('brightness:subscribed', ({ deviceId }) => {
+                      Toast.show({ type: 'info', text1: 'Subscribed (fallback no auth)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+                    });
+                  }
+                });
+                fbSocket2.on('brightness:subscribed', ({ deviceId }) => {
+                  Toast.show({ type: 'info', text1: 'Subscribed (fallback default path)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+                });
+              }
+            });
+            fbSocket.on('brightness:subscribed', ({ deviceId }) => {
+              Toast.show({ type: 'info', text1: 'Subscribed (fallback)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+            });
+          }
+        }, Platform.OS === 'android' ? 20000 : 10000);
+        }
       } catch (err) {
         console.warn('Socket init failed:', err);
       }
     })();
 
     return () => {
-      if (socketRef) {
-        const did = route?.params?.deviceId || selectedDeviceId || 'unknown';
-        socketRef.emit('brightness:unsubscribe', { deviceId: did });
-        socketRef.emit('flow:unsubscribe', { deviceId: did });
-        socketRef.disconnect();
-      }
+      try {
+        if (fallbackTimerRef.current) {
+          clearTimeout(fallbackTimerRef.current);
+          fallbackTimerRef.current = null;
+        }
+        if (socketRef) {
+          const did = route?.params?.deviceId || selectedDeviceId || 'unknown';
+          socketRef.emit('brightness:unsubscribe', { deviceId: did });
+          socketRef.emit('flow:unsubscribe', { deviceId: did });
+          socketRef.disconnect();
+        }
+      } catch {}
     };
   }, []);
 
@@ -320,7 +614,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
       const smoothed = smoothValue(brightness);
       const filled = brightnessToPercent(smoothed, Number(targetInput));
-      setWaterLevel(showRemaining ? 100 - filled : filled);
+      setWaterLevel(filled);
     }
   }, [brightness, targetInput, showRemaining]);
 
@@ -437,6 +731,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 setTargetInput(targetInput);
               }
             }
+            // Initialize brightness from API detail if available (fallback until socket updates arrive)
+            const bRaw = devDetail?.brightness;
+            const bNum = typeof bRaw === 'number' ? bRaw : (typeof bRaw === 'string' ? parseFloat(bRaw) : undefined);
+            if (typeof bNum === 'number' && isFinite(bNum)) {
+              setBrightness(bNum);
+              const smoothed = smoothValue(bNum);
+              const filled = brightnessToPercent(smoothed, Number(targetInput));
+              setWaterLevel(filled);
+            }
             setDevice2On(!!devDetail.device2);
             setDevice3On(!!devDetail.device3);
             setDevice4On(!!devDetail.device4);
@@ -512,13 +815,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
         if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
         if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-        // Fetch initial brightness via server API for immediate UI feedback
-        const b = await esp8266Service.getDeviceBrightnessFromServer(useDeviceId!);
-        if (typeof b === 'number') {
-          setBrightness(b);
-          const smoothed = smoothValue(b);
+        // Initialize brightness from server state if present (fallback until socket updates arrive)
+        const sbRaw = serverState?.brightness;
+        const sbNum = typeof sbRaw === 'number' ? sbRaw : (typeof sbRaw === 'string' ? parseFloat(sbRaw) : undefined);
+        if (typeof sbNum === 'number' && isFinite(sbNum)) {
+          setBrightness(sbNum);
+          const smoothed = smoothValue(sbNum);
           const filled = brightnessToPercent(smoothed, Number(targetInput));
-          setWaterLevel(showRemaining ? 100 - filled : filled);
+          setWaterLevel(filled);
         }
       }
     } catch (error) {
@@ -709,14 +1013,16 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? '#4CAF50' : '#ff6b6b' }]} />
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
           </View>
+          {activeSocketHost ? (
+            <Text style={{ color: '#666', marginTop: 4 }}>Socket Host: {activeSocketHost}</Text>
+          ) : null}
           <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 8 }}>
             <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
         </View>
-        {/* Mapping toggle: Remaining vs Filled */}
+        {/* Display: Tank Filled percent */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={{ color: '#333', fontWeight: '600' }}>Show Remaining %{showRemaining }</Text>
-   
+          <Text style={{ color: '#333', fontWeight: '600' }}>Tank Filled %</Text>
         </View>
         <WaterTank percentage={waterLevel ?? 0} />
         <View style={{ marginTop: 10 }}>
@@ -970,6 +1276,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={styles.infoValue}>{deviceStatus?.energyUsage ? `${deviceStatus.energyUsage} kWh` : 'Unknown'}</Text>
           </View>
 
+        
           <View style={{ marginTop: 15 }}>
             <Text style={styles.sectionTitle}>Target Depth (100%)</Text>
             <TextInput

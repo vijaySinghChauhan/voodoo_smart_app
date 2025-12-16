@@ -1,3 +1,11 @@
 {
-  "extends": "@react-native/typescript-config"
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom", "react-native"]
+  }
 }

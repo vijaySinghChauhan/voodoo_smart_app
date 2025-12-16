@@ -57,7 +57,7 @@ autolinkLibrariesWithApp()
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -82,8 +82,8 @@ android {
         applicationId "com.voodoohomes2"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.5"
+        versionCode 7
+        versionName "1.7"
     }
     signingConfigs {
         release {
@@ -110,15 +110,13 @@ android {
             // Use release signing if provided, otherwise fall back to debug keystore
             signingConfig project.hasProperty('MYAPP_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
 }
 
-// Exclude Firebase Messaging when not using FCM (prevents runtime crashes without google-services.json)
-configurations.all {
-    exclude group: 'com.google.firebase', module: 'firebase-messaging'
-}
+// Firebase Messaging exclusion removed to satisfy R8; library presence avoids missing class errors
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin

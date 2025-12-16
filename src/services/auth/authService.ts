@@ -58,7 +58,9 @@ class AuthService {
         // If wrong creds in offline, throw an error similar to server
         throw new Error('Invalid credentials (offline)');
       }
-      const response = await axios.post<AuthResponse>(constantsV.API_ENDPOINTS.LOGIN, {
+      const loginUrl = (constantsV as any).API_ENDPOINTS?.LOGIN || '';
+      console.log('[Auth] Calling login API:', loginUrl);
+      const response = await axios.post<AuthResponse>(loginUrl, {
         email,
         password
       });

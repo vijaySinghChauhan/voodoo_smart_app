@@ -27,7 +27,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in with a safety fallback for web
+    let cancelled = false;
+    const fallback = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('[Auth] Fallback: clearing isLoading after timeout');
+        setIsLoading(false);
+      }
+    }, 5000);
+
     const loadUser = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
@@ -35,11 +43,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       } catch (error) {
         console.error('Failed to load user:', error);
       } finally {
-        setIsLoading(false);
+        clearTimeout(fallback);
+        if (!cancelled) setIsLoading(false);
       }
     };
-    
+
     loadUser();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+    };
   }, []);
   
   const login = async (email: string, password: string) => {

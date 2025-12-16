@@ -28,6 +28,7 @@ class ESP8266Service {
   // Separate bases for server API and device HTTP
   private apiBaseUrl: string = constantsV.BASE_URL;
   private deviceHttpBaseUrl: string | null = null;
+  private storedDeviceIP: string | null = null;
   private isConnected: boolean = false;
   private deviceName: string = '';
   private subdeviceLabels: {
@@ -42,13 +43,16 @@ class ESP8266Service {
   async setDeviceIP(ip: string): Promise<void> {
     // Ensure protocol for device direct calls
     const withProto = ip.startsWith('http') ? ip : `http://${ip}`;
-    this.deviceHttpBaseUrl = withProto;
+    this.storedDeviceIP = ip;
+    // On web, route via webpack devServer proxy to avoid CORS
+    this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : withProto;
     await AsyncStorage.setItem('ESP8266_IP', ip);
   }
   
   // Retrieve the last known IP
   async getDeviceIP(): Promise<string | null> {
     const ip = await AsyncStorage.getItem('ESP8266_IP');
+    if (ip) this.storedDeviceIP = ip;
     //const ip = '192.168.4.1';
 
   
@@ -119,7 +123,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       
       // Increase timeout from 5000 to 10000 (10 seconds)
@@ -143,7 +147,8 @@ class ESP8266Service {
       
       // Default to ESP SoftAP when no explicit IP provided
       if (!this.deviceHttpBaseUrl) {
-        this.deviceHttpBaseUrl = 'http://'+ config.deviceIP;
+        const ip = config.deviceIP || this.storedDeviceIP || '192.168.4.1';
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
 
       // ESP8266 sketch expects POST /connect with form fields: ssid and pass
@@ -173,7 +178,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       
       const response = await axios.post(`${this.deviceHttpBaseUrl}/reset`, {}, { timeout: 5000 });
@@ -190,7 +195,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) throw new Error('Device IP not set');
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       
       const response = await axios.get(`${this.deviceHttpBaseUrl}/status`, { timeout: 5000 });
@@ -207,7 +212,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       
       const response = await axios.post(`${this.deviceHttpBaseUrl}/disable`, {}, { timeout: 5000 });
@@ -224,7 +229,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=on`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
@@ -240,7 +245,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=off`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
@@ -256,7 +261,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) return false;
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       const response = await axios.get(`${this.deviceHttpBaseUrl}/switch?state=${state}`, { timeout: 5000 });
       return response.status === 200 || response.status === 204;
@@ -307,7 +312,7 @@ class ESP8266Service {
       if (!this.deviceHttpBaseUrl) {
         const ip = await this.getDeviceIP();
         if (!ip) throw new Error('Device IP not set');
-        this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        this.deviceHttpBaseUrl = Platform.OS === 'web' ? '/esp' : (ip.startsWith('http') ? ip : `http://${ip}`);
       }
       
       const response = await axios.get(`${this.deviceHttpBaseUrl}/energy`, { timeout: 5000 });

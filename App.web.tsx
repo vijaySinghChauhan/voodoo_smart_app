@@ -1,8 +1,9 @@
-import React from 'react';
+import 'react-native-gesture-handler';
+import * as React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import Toast from 'react-native-toast-message';
@@ -39,8 +40,8 @@ import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
 import AdminUserDetailScreen from './src/screens/admin/AdminUserDetailScreen';
 
-const Stack = createStackNavigator();
-const Drawer = createDrawerNavigator();
+const Stack = createStackNavigator<any>();
+const Drawer = createDrawerNavigator<any>();
 
 // Feature stacks
 const RoomsStack = () => (
@@ -140,11 +141,16 @@ const AppDrawer = () => {
   );
 };
 
-const RootStack = createStackNavigator();
-const navigationRef = createNavigationContainerRef();
+const RootStack = createStackNavigator<any>();
+
+const LoadingScreen: React.FC<any> = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+    <Text style={{ fontSize: 18 }}>Loading authentication…</Text>
+  </View>
+);
 
 export const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Login">
     <Stack.Screen name="Login" component={LoginScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="DashboardMain" component={AppDrawer} />
@@ -154,36 +160,90 @@ export const AuthStack = () => (
 const AppNavigator = () => {
   const { user, isLoading } = useAuth();
   const [showSplash, setShowSplash] = React.useState(true);
+  const searchParams = React.useMemo(() => {
+    try {
+      return typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const forceAuth = !!searchParams?.has('forceAuth');
+  const skipSplash = !!searchParams?.has('skipSplash');
+  const forcePlain = !!searchParams?.has('forcePlain');
 
   React.useEffect(() => {
+    if (skipSplash) {
+      setShowSplash(false);
+      return;
+    }
     const t = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(t);
-  }, []);
+  }, [skipSplash]);
+
+  // Debug: reflect navigator state in the page status tag
+  React.useEffect(() => {
+    try {
+      const el = typeof document !== 'undefined' ? document.getElementById('bundle-status') : null;
+      if (el) {
+        const state = showSplash ? 'splash' : isLoading ? 'loading' : user ? 'app' : 'auth';
+        el.textContent = `App state: ${state} · user: ${user ? user.email : 'none'}`;
+      }
+    } catch {}
+  }, [showSplash, isLoading, user]);
 
   if (showSplash) {
     console.log('[Web] AppNavigator: showing Splash');
     return (
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Splash" component={SplashScreenWeb} />
+          <RootStack.Screen name="Splash">
+            {() => <SplashScreenWeb onDone={() => setShowSplash(false)} />}
+          </RootStack.Screen>
         </RootStack.Navigator>
       </NavigationContainer>
     );
   }
 
   if (isLoading) {
-    console.log('[Web] AppNavigator: auth isLoading=true, rendering nothing temporarily');
-    return null;
+    console.log('[Web] AppNavigator: auth isLoading=true, showing loading fallback');
+    return (
+      <NavigationContainer>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Loading" component={LoadingScreen} />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    );
   }
 
+  // Diagnostic: render LoginScreen directly without navigation if requested
+  if (forcePlain) {
+    console.log('[Web] AppNavigator: forcePlain=1, rendering LoginScreen directly');
+    const dummyNav: any = {
+      navigate: (...args: any[]) => console.log('navigate', args),
+      reset: (...args: any[]) => console.log('reset', args),
+      goBack: () => console.log('goBack'),
+    };
+    return (
+      <View style={{ flex: 1 }}>
+        <LoginScreen navigation={dummyNav} />
+      </View>
+    );
+  }
+
+  const content = forceAuth
+    ? (console.log('[Web] AppNavigator: forceAuth=1, rendering AuthStack'), <AuthStack />)
+    : user
+    ? (console.log('[Web] AppNavigator: rendering AppDrawer'), <AppDrawer />)
+    : (console.log('[Web] AppNavigator: rendering AuthStack'), <AuthStack />);
+
   return (
-    <NavigationContainer ref={navigationRef}>
-      {user ? (console.log('[Web] AppNavigator: rendering AppDrawer'), <AppDrawer />) : (console.log('[Web] AppNavigator: rendering AuthStack'), <AuthStack />)}
+    <NavigationContainer>
+      {content}
     </NavigationContainer>
   );
 };
 
-export default function App(): React.JSX.Element {
+export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

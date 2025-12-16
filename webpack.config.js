@@ -120,5 +120,18 @@ module.exports = {
     client: {
       overlay: true,
     },
+    // Proxy ESP8266 device requests to avoid browser CORS.
+    // Set DEVICE_IP env var when starting the dev server, e.g.:
+    // DEVICE_IP=192.168.1.50 npm run web
+    proxy: [
+      {
+        context: ['/esp'],
+        target: `http://${process.env.DEVICE_IP || '192.168.4.1'}`,
+        changeOrigin: true,
+        secure: false,
+        pathRewrite: { '^/esp': '' },
+        logLevel: 'info',
+      },
+    ],
   },
 };

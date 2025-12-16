@@ -53,7 +53,7 @@ ESP8266WebServer server(80);
 const char* AP_SSID = "VoodooTech SmartHome";
 const char* AP_PASS = "";
 
-const String API_URL = "https://apnabanda.in/voodoo/api/devices/register-esp";
+const String API_URL = "https://voodootechsystems.in/voodoo/api/devices/register-esp";
 const String FIRMWARE_VERSION = "1.2.3";
 
 String ssid = "";
