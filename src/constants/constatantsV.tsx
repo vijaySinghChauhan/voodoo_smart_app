@@ -5,7 +5,7 @@ export const BASE_URL = 'https://voodootechsystems.in/voodoo/api';
 // Socket.IO should point to the host only; path is configured separately
 export const CHAT_BASE_URL = 'https://voodootechsystems.in';
 // Fallback Socket.IO host: ESP firmware currently posts updates here
-export const CHAT_FALLBACK_URL = 'https://apnabanda.in';
+export const CHAT_FALLBACK_URL = 'https://voodootechsystems.in';
 // Control whether the app should attempt fallback Socket.IO host
 export const DISABLE_FALLBACK_SOCKET = false;
 

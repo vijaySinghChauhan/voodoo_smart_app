@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import * as React from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
+import { View, TouchableOpacity, Text, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -102,7 +103,14 @@ const AdminStack = () => (
 const AppDrawer = () => {
   const { user } = useAuth();
   return (
-    <Drawer.Navigator initialRouteName="Dashboard">
+    <Drawer.Navigator
+      initialRouteName="Dashboard"
+      screenOptions={{
+        drawerType: Platform.OS === 'web' ? 'front' : 'front',
+        swipeEnabled: Platform.OS === 'web' ? false : true,
+        overlayColor: Platform.OS === 'web' ? 'transparent' : undefined,
+      }}
+    >
       <Drawer.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -168,8 +176,10 @@ const AppNavigator = () => {
     }
   }, []);
   const forceAuth = !!searchParams?.has('forceAuth');
-  const skipSplash = !!searchParams?.has('skipSplash');
+  // In development, skip splash by default for faster iteration
+  const skipSplash = (__DEV__ ? true : false) || !!searchParams?.has('skipSplash');
   const forcePlain = !!searchParams?.has('forcePlain');
+  const forceSimple = !!searchParams?.has('forceSimple');
 
   React.useEffect(() => {
     if (skipSplash) {
@@ -215,18 +225,25 @@ const AppNavigator = () => {
     );
   }
 
-  // Diagnostic: render LoginScreen directly without navigation if requested
+  // Diagnostic: simplified auth-only flow if requested
   if (forcePlain) {
-    console.log('[Web] AppNavigator: forcePlain=1, rendering LoginScreen directly');
-    const dummyNav: any = {
-      navigate: (...args: any[]) => console.log('navigate', args),
-      reset: (...args: any[]) => console.log('reset', args),
-      goBack: () => console.log('goBack'),
-    };
+    console.log('[Web] AppNavigator: forcePlain=1, rendering AuthStack in NavigationContainer');
     return (
-      <View style={{ flex: 1 }}>
-        <LoginScreen navigation={dummyNav} />
-      </View>
+      <NavigationContainer>
+        <AuthStack />
+      </NavigationContainer>
+    );
+  }
+
+  // Diagnostic: render DashboardScreen directly without Drawer to isolate issues
+  if (forceSimple) {
+    console.log('[Web] AppNavigator: forceSimple=1, rendering DashboardScreen directly');
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="DashboardSimple" component={DashboardScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
     );
   }
 
@@ -247,12 +264,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <View style={{ flex: 1 }}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <AuthProvider>
             <AppNavigator />
             <Toast />
           </AuthProvider>
-        </View>
+        </GestureHandlerRootView>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

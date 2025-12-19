@@ -23,11 +23,11 @@ const int ECHO_PIN         = 14;  // D5
 const int FLOW_SENSOR_PIN  = 2;   // D4 (GPIO2) input only
 
 // Active LOW devices
-const int Device1 = 5;    // D1
-const int Device2 = 4;    // D2
+const int Device1 = 5;    // D1 Motor
+const int Device2 = 4;    // D2 Door  lock
 const int Device3 = 13;   // D7
 const int Device4 = 16;   // D0
-const int Device5 = 15;   // D8 (active-low relay)
+const int Device5 = 15;   // D8 (active-low relay) AC
 
 // WiFi LED
 const int WIFI_LED_PIN = 0;  // D3 (GPIO0)
@@ -44,6 +44,7 @@ void handleSwitch();
 float getDistance();
 void connectToWiFi();
 void sendDataToServer(float brightnessValue);
+long getStableDistanceCM(int samples = 5);
 
 // ----------------------------------------------------------
 // Globals
@@ -69,10 +70,18 @@ unsigned long lastFlowSample = 0;
 // Ultrasonic
 float lastDistance = -1;
 unsigned long lastMeasurement = 0;
-const unsigned long SAMPLE_INTERVAL = 5000;
+const unsigned long SAMPLE_INTERVAL = 50000UL;
 
 int tankTarget = 1000;
+// Variables to store duration and distance
 
+//define sound velocity in cm/uS
+#define SOUND_VELOCITY 0.034
+#define CM_TO_INCH 0.393701
+
+long duration;
+float distanceCm;
+float distanceInch;
 // ----------------------------------------------------------
 // Interrupt Handler
 // ----------------------------------------------------------
@@ -102,7 +111,7 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
 
   // Flow sensor
-  pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(FLOW_SENSOR_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
 
   // Devices (active-low relays)
@@ -113,11 +122,11 @@ void setup() {
   pinMode(Device5, OUTPUT);
 
   // OFF initially
-  digitalWrite(Device1, HIGH);
-  digitalWrite(Device2, HIGH);
-  digitalWrite(Device3, HIGH);
-  digitalWrite(Device4, HIGH);
-  digitalWrite(Device5, HIGH);
+  digitalWrite(Device1, LOW);
+  digitalWrite(Device2, LOW);
+  digitalWrite(Device3, LOW);
+  digitalWrite(Device4, LOW);
+  digitalWrite(Device5, LOW);
 
   // WiFi LED
 
@@ -131,7 +140,7 @@ void setup() {
   Serial.println("\nAP Started");
   Serial.println(AP_SSID);
   Serial.println(WiFi.softAPIP());
-
+  Serial.println(WiFi.localIP());
   // Routes
   server.on("/", [](){ server.sendHeader("Location","/dashboard");server.send(302,""); });
   server.on("/dashboard", handleDashboard);
@@ -167,27 +176,40 @@ void loop() {
     totalLiters += flowRate / 60.0;
 
     lastFlowSample = millis();
+
+          Serial.println("Flow Rate :");
+          Serial.println(flowRate);
+           Serial.println("totalLiters :");
+          Serial.println(totalLiters);
+          // Serial.println("lastFlowSample :");
+          // Serial.println(lastFlowSample);
+          delay(1000);
   }
 
   // Ultrasonic measurement
-  if (millis() - lastMeasurement >= SAMPLE_INTERVAL) {
-    lastDistance = getDistance();
+
+    lastDistance = getStableDistanceCM();
+      Serial.println("Distance");
+            Serial.println(lastDistance);
+
 
     if (WiFi.status() == WL_CONNECTED) {
       digitalWrite(WIFI_LED_PIN, HIGH);
       //  setColor(0, 255, 0, 0, 0);   // Green
 
       sendDataToServer(lastDistance);
+      Serial.println("Distance");
+      Serial.println(lastDistance);
         Serial.println("WIFI connected");
 
     } else {
       digitalWrite(WIFI_LED_PIN, LOW);
         Serial.println("WIFI Disconnected");
+        Serial.println(WiFi.localIP());
     //   setColor(255, 0, 0, 0, 0);   // Red
      }
 
-    lastMeasurement = millis();
-  }
+  
 }
 
 void handleWiFiScan() {
@@ -212,18 +234,45 @@ void handleWiFiScan() {
 // Ultrasonic Distance
 // ----------------------------------------------------------
 float getDistance() {
+ // Clears the trigPin
   digitalWrite(TRIGGER_PIN, LOW);
   delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
   digitalWrite(TRIGGER_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIGGER_PIN, LOW);
+  
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+ duration = pulseIn(ECHO_PIN, HIGH, 30000);
 
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
-  if (duration <= 0) return -1;
+  if (duration == 0) return -1;
 
-  return (duration * 0.0343) / 2.0;
+  
+  // Prints the distance on the Serial Monitor
+  Serial.print("Distance : ");
+  Serial.println(duration * 0.0343 / 2);
+
+  
+  delay(1000);
+  return duration * 0.0343 / 2;
 }
 
+long getStableDistanceCM(int samples) {
+  long sum = 0;
+  int valid = 0;
+
+  for (int i = 0; i < samples; i++) {
+    long d = getDistance();
+    if (d > 0) {
+      sum += d;
+      valid++;
+    }
+    delay(20);
+  }
+
+  if (valid == 0) return -1;
+  return sum / valid;
+}
 // ----------------------------------------------------------
 // WiFi Connect
 // ----------------------------------------------------------
@@ -483,7 +532,7 @@ void sendDataToServer(float brightnessValue) {
   payload += "\"ipAddress\":\""+WiFi.localIP().toString()+"\",";
   payload += "\"ssid\":\""+WiFi.SSID()+"\",";
   payload += "\"firmwareVersion\":\""+FIRMWARE_VERSION+"\",";
-  payload += "\"brightness\":"+brightnessToPercent(brightnessValue,tankTarget)+",";
+  payload += "\"brightness\":"+String(brightnessValue,2)+",";
   payload += "\"flowRate\":"+String(flowRate,3)+",";
   payload += "\"totalLiters\":"+String(totalLiters,3);
   payload += "}";

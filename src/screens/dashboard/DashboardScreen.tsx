@@ -42,6 +42,14 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [activeDevices, setActiveDevices] = useState(0);
   const [totalDevices, setTotalDevices] = useState(0);
 
+  // Prevent blank screen on slow/blocked network: enforce per-call timeouts
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+    ]);
+  };
+
   useEffect(() => {
     loadDashboardData();
 
@@ -57,15 +65,15 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     setIsLoading(true);
     try {
       // Load rooms
-      const roomsData = await roomService.getRooms();
+      const roomsData = await withTimeout(roomService.getRooms(), 6000, []);
       setRooms(roomsData);
 
       // Load devices
-      const devicesData = await esp8266Service.getAllDevices();
+      const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
       setDevices(devicesData);
 
       // Load products from API
-      const productsData = await productService.getProducts();
+      const productsData = await withTimeout(productService.getProducts(), 6000, []);
       setProducts(productsData.slice(0, 5)); // Show only first 5 products on dashboard
 
       // Calculate statistics

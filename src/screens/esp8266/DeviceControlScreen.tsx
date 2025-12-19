@@ -10,6 +10,7 @@ import {
   TextInput,
   Vibration,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -101,7 +102,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const val = Math.max(0, rawBrightness);
   const t = Number.isFinite(target) && target > 0 ? target : 100;
   const filled = Math.min(100, Math.max(0, (val / t) * 100));
-  return Math.round(filled);
+  return 100-Math.round(filled);
 };
 
   
@@ -859,14 +860,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       }
       const parsed = parseFloat(targetInput);
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        Toast.show({ type: 'error', text1: 'Invalid Value', text2: 'Enter a positive numeric target', position: 'bottom' });
+        Alert.alert(
+          'Invalid Value',
+          'Please enter a positive numeric target value.',
+          [{ text: 'OK' }],
+          { cancelable: true }
+        );
         return;
       }
       const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: parsed });
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Update local target and recalc using current brightness
-  
+
   //      setTargetValue(targetValue);
        setTargetInput(targetInput);
         const smoothed = smoothValue(brightness ?? 0);
@@ -1293,6 +1299,28 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               placeholder="Enter target depth"
               value={targetInput}
               onChangeText={(text) => setTargetInput(text)}
+              onBlur={() => {
+                const parsed = parseFloat(targetInput);
+                if (!Number.isFinite(parsed) || parsed <= 0) {
+                  Alert.alert(
+                    'Invalid Value',
+                    'Please enter a positive numeric target value.',
+                    [{ text: 'OK' }],
+                    { cancelable: true }
+                  );
+                }
+              }}
+              onEndEditing={() => {
+                const parsed = parseFloat(targetInput);
+                if (!Number.isFinite(parsed) || parsed <= 0) {
+                  Alert.alert(
+                    'Invalid Value',
+                    'Please enter a positive numeric target value.',
+                    [{ text: 'OK' }],
+                    { cancelable: true }
+                  );
+                }
+              }}
             />
             <TouchableOpacity style={styles.configButton} onPress={handleSaveTarget}>
               <Text style={styles.buttonText}>Save Target</Text>
