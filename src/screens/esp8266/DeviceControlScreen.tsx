@@ -66,6 +66,14 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
   const [activeSocketHost, setActiveSocketHost] = useState<string | null>(null);
+  // Debug panel state
+  const [socketConnected, setSocketConnected] = useState<boolean>(false);
+  const [showDebugPanel, setShowDebugPanel] = useState<boolean>(false);
+  const [lastBrightness, setLastBrightness] = useState<number | null>(null);
+  const [lastBrightnessAt, setLastBrightnessAt] = useState<number | null>(null);
+  const [lastFlowRate, setLastFlowRate] = useState<number | null>(null);
+  const [lastTotalLiters, setLastTotalLiters] = useState<number | null>(null);
+  const [lastFlowAt, setLastFlowAt] = useState<number | null>(null);
   // Automation: dual rules (Turn ON / Turn OFF) based on tank level
   const [onEnabled, setOnEnabled] = useState<boolean>(false);
   const [onOperator, setOnOperator] = useState<'lt' | 'ge'>('lt');
@@ -78,6 +86,13 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [showOffOperatorMenu, setShowOffOperatorMenu] = useState<boolean>(false);
   const [showOffPercentMenu, setShowOffPercentMenu] = useState<boolean>(false);
   const [lastAutoAt, setLastAutoAt] = useState<number>(0);
+  // No-flow auto OFF rule
+  const [noFlowAutoOffEnabled, setNoFlowAutoOffEnabled] = useState<boolean>(false);
+  const [noFlowDelaySec, setNoFlowDelaySec] = useState<number>(40);
+  const [showNoFlowDelayMenu, setShowNoFlowDelayMenu] = useState<boolean>(false);
+  const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isPowerOnRef = React.useRef<boolean>(false);
+  const flowRateRef = React.useRef<number | undefined>(undefined);
   // Full tank alert state
   const prevWaterLevelRef = React.useRef<number>(0);
   const lastFullAlertAtRef = React.useRef<number>(0);
@@ -152,6 +167,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         });
         setSocketRef(socket);
         socket.on('connect', async () => {
+          setSocketConnected(true);
           setActiveSocketHost(appConstants.CHAT_BASE_URL);
           try {
             const did = initialDeviceId || selectedDeviceId;
@@ -176,9 +192,55 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           const msg = err?.message || String(err || 'Unknown error');
           console.warn('Socket connect error:', msg);
           Toast.show({ type: 'error', text1: 'Socket Error', text2: msg, position: 'bottom' });
+          setSocketConnected(false);
+          // If custom path fails, retry once with default Socket.IO path on primary host
+          try {
+            if (!(global as any).__primaryPathRetried) {
+              (global as any).__primaryPathRetried = true;
+              try { socket.disconnect(); } catch {}
+              const tokenRetry = (async () => (await authService.getToken()) || '')();
+              Promise.resolve(tokenRetry).then((tkn) => {
+                const retrySocket = io(appConstants.CHAT_BASE_URL, {
+                  transports: transportList,
+                  upgrade: transportList.includes('websocket'),
+                  path: socketPath,
+                  reconnection: true,
+                  timeout: 15000,
+                  forceNew: true,
+                  reconnectionAttempts: 999999, // keep trying forever
+                  reconnectionDelay: 1200,
+                  reconnectionDelayMax: 5000,
+                  auth: { token: tkn },
+                  query: { token: tkn },
+                  extraHeaders: { Authorization: `Bearer ${tkn}` },
+                });
+                setSocketRef(retrySocket);
+                retrySocket.on('connect', async () => {
+                  setSocketConnected(true);
+                  setActiveSocketHost(appConstants.CHAT_BASE_URL);
+                  try {
+                    const did = initialDeviceId || selectedDeviceId;
+                    if (!did) return;
+                    const dev = await esp8266Service.getDeviceFromServer(did);
+                    const ip = dev?.ipAddress || dev?.ip || null;
+                    setSelectedDeviceIp(ip);
+                    if (ip) retrySocket.emit('brightness:subscribe', { deviceId: did, ip });
+                    else retrySocket.emit('brightness:subscribe', { deviceId: did });
+                    retrySocket.emit('flow:subscribe', { deviceId: did });
+                  } catch (e2) {}
+                });
+              });
+            }
+          } catch {}
+        });
+        socket.on('disconnect', () => {
+          setSocketConnected(false);
         });
         socket.on('brightness:subscribed', ({ deviceId }) => {
           Toast.show({ type: 'info', text1: 'Subscribed', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+        });
+        socket.on('flow:subscribed', ({ deviceId }) => {
+          Toast.show({ type: 'info', text1: 'Subscribed', text2: `Flow for ${deviceId}`, position: 'bottom' });
         });
         socket.on('reconnect', () => {
           try {
@@ -189,6 +251,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             } else {
               socket.emit('brightness:subscribe', { deviceId: did });
             }
+            // Ensure flow subscription is also restored on reconnect
+            socket.emit('flow:subscribe', { deviceId: did });
           } catch (e) {}
         });
         socket.on('brightness:update', (payload) => {
@@ -218,6 +282,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             const filled = brightnessToPercent(smoothed, Number(targetInput));
             setWaterLevel(filled);
             Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
+            setLastBrightness(raw);
+            setLastBrightnessAt(Date.now());
           }
         });
         socket.on('flow:update', (payload) => {
@@ -227,6 +293,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
           if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
           if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+          if (typeof fr === 'number' && isFinite(fr)) setLastFlowRate(fr);
+          if (typeof tl === 'number' && isFinite(tl)) setLastTotalLiters(tl);
+          setLastFlowAt(Date.now());
         });
         socket.on('brightness:error', ({ error }) => {
           // Suppress noisy device polling timeouts and missing IP warnings
@@ -576,6 +645,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setOffOperator(r?.off?.operator === 'lt' ? 'lt' : 'ge');
           const offThr = Number(r?.off?.threshold);
           setOffThreshold(Number.isFinite(offThr) ? offThr : 80);
+          // No-flow rule
+          setNoFlowAutoOffEnabled(!!r?.noFlow?.enabled);
+          const nfDelay = Number(r?.noFlow?.delaySec);
+          setNoFlowDelaySec(Number.isFinite(nfDelay) ? nfDelay : 40);
         } else {
           // Migrate old single-rule if present
           const oldJson = await AsyncStorage.getItem(`auto_rule_${selectedDeviceId}`);
@@ -605,6 +678,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       const payload = {
         on: { enabled: onEnabled, operator: onOperator, threshold: onThreshold },
         off: { enabled: offEnabled, operator: offOperator, threshold: offThreshold },
+        noFlow: { enabled: noFlowAutoOffEnabled, delaySec: noFlowDelaySec },
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
     } catch (e) {}
@@ -668,6 +742,42 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       }
     } catch {}
   }, [flowRate, isPowerOn, selectedDeviceId, lastAutoAt]);
+
+  // Keep refs in sync to avoid stale closures in timers
+  useEffect(() => { isPowerOnRef.current = isPowerOn; }, [isPowerOn]);
+  useEffect(() => { flowRateRef.current = flowRate; }, [flowRate]);
+
+  // Start/clear delayed no-flow auto OFF timer when power state or rule changes
+  useEffect(() => {
+    try {
+      // Clear any existing timer
+      if (noFlowTimerRef.current) {
+        clearTimeout(noFlowTimerRef.current);
+        noFlowTimerRef.current = null;
+      }
+      // Arm new timer only if rule enabled and power currently ON
+      if (noFlowAutoOffEnabled && isPowerOn) {
+        noFlowTimerRef.current = setTimeout(() => {
+          try {
+            const fr = flowRateRef.current;
+            const stillOn = isPowerOnRef.current;
+            if (stillOn && typeof fr === 'number' && isFinite(fr) && fr === 0) {
+              toggleDeviceField('device1', false);
+              setIsPowerOn(false);
+              setLastAutoAt(Date.now());
+              try { Toast.show({ type: 'success', text1: 'Automation', text2: `No Flow for ${noFlowDelaySec}s. Power OFF`, position: 'bottom' }); } catch {}
+            }
+          } catch {}
+        }, Math.max(1, noFlowDelaySec) * 1000);
+      }
+    } catch {}
+    return () => {
+      if (noFlowTimerRef.current) {
+        clearTimeout(noFlowTimerRef.current);
+        noFlowTimerRef.current = null;
+      }
+    };
+  }, [isPowerOn, noFlowAutoOffEnabled, noFlowDelaySec]);
 
   // Alert when tank reaches 100%
   useEffect(() => {
@@ -1185,7 +1295,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
             <Text style={{ marginTop: 8, color: '#666' }}>Current level: {waterLevel}%</Text>
           </View>
-               <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Flow Data </Text>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Flow Rate</Text>
@@ -1194,6 +1304,110 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Total Liters</Text>
               <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
+            </View>
+            {/* No Flow Auto-OFF Rule */}
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.powerLabel}>Auto OFF when flow is 0</Text>
+                <Switch
+                  value={noFlowAutoOffEnabled}
+                  onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              <Text style={styles.infoLabel}>Delay before switching OFF</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setShowNoFlowDelayMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1 }}
+                >
+                  <Text style={{ color: '#333' }}>{noFlowDelaySec}s</Text>
+                </TouchableOpacity>
+              </View>
+              {showNoFlowDelayMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[10, 20, 30, 40, 60, 120].map((sec) => (
+                    <TouchableOpacity
+                      key={sec}
+                      onPress={() => {
+                        setNoFlowDelaySec(sec);
+                        setShowNoFlowDelayMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{sec}s</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            {/* Debug Panel */}
+            <View style={{ marginTop: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, backgroundColor: '#fff' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.powerLabel}>Show Debug Panel</Text>
+                <Switch
+                  value={showDebugPanel}
+                  onValueChange={(v) => setShowDebugPanel(v)}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={showDebugPanel ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              {showDebugPanel && (
+                <View style={{ marginTop: 10 }}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Socket Host</Text>
+                    <Text style={styles.infoValue}>{activeSocketHost || '—'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Socket Connected</Text>
+                    <Text style={styles.infoValue}>{socketConnected ? 'Yes' : 'No'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Last Brightness</Text>
+                    <Text style={styles.infoValue}>{lastBrightness != null ? `${lastBrightness}` : '—'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Brightness Time</Text>
+                    <Text style={styles.infoValue}>{lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : '—'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Last Flow Rate</Text>
+                    <Text style={styles.infoValue}>{lastFlowRate != null ? `${lastFlowRate} L/min` : '—'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Last Total Liters</Text>
+                    <Text style={styles.infoValue}>{lastTotalLiters != null ? `${lastTotalLiters} L` : '—'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Flow Time</Text>
+                    <Text style={styles.infoValue}>{lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : '—'}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        // Reconnect and resubscribe
+                        const did = selectedDeviceId;
+                        const ip = selectedDeviceIp;
+                        if (socketRef) {
+                          try { socketRef.disconnect(); } catch {}
+                          try { socketRef.connect(); } catch {}
+                          if (did) {
+                            if (ip) socketRef.emit('brightness:subscribe', { deviceId: did, ip });
+                            else socketRef.emit('brightness:subscribe', { deviceId: did });
+                            socketRef.emit('flow:subscribe', { deviceId: did });
+                          }
+                        }
+                        Toast.show({ type: 'info', text1: 'Debug', text2: 'Reconnect & Resubscribe attempted', position: 'bottom' });
+                      } catch (e) {}
+                    }}
+                    style={{ marginTop: 10, backgroundColor: '#4a90e2', padding: 10, borderRadius: 8, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff' }}>Reconnect & Resubscribe</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
         </View>
