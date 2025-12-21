@@ -93,6 +93,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
+  // Ensure UI shows power OFF by default on first load
+  const hasMappedInitialPowerRef = React.useRef<boolean>(false);
   // Full tank alert state
   const prevWaterLevelRef = React.useRef<number>(0);
   const lastFullAlertAtRef = React.useRef<number>(0);
@@ -150,11 +152,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const token = (await authService.getToken()) || '';
         const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (process.env.NODE_ENV !== 'production'));
         const transportList = Platform.OS === 'android' ? ['polling'] : (isDev ? ['polling'] : ['websocket', 'polling']);
+        const socketPath = '/voodoo/socket.io';
         brightnessReceivedRef.current = false;
         const socket = io(appConstants.CHAT_BASE_URL, {
           transports: transportList,
           upgrade: transportList.includes('websocket'),
-          path: '/voodoo/socket.io',
+          path: socketPath,
           reconnection: true,
           timeout: 15000,
           forceNew: true,
@@ -316,7 +319,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             const fbSocket = io(appConstants.CHAT_FALLBACK_URL, {
               transports: transportList,
               upgrade: transportList.includes('websocket'),
-              path: '/voodoo/socket.io',
+              path: socketPath,
               reconnection: true,
               timeout: 15000,
               forceNew: true,
@@ -726,10 +729,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     } catch (e) {}
   }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt]);
 
-  // New rule: if flow rate drops below 5, switch off device1
+  // New rule: optional immediate auto OFF when flow rate drops below threshold
+  // Respect the UI toggle (noFlowAutoOffEnabled) so automation is OFF by default
   useEffect(() => {
     try {
       if (!selectedDeviceId) return;
+      if (!noFlowAutoOffEnabled) return; // keep disabled by default
       const fr = flowRate;
       if (typeof fr !== 'number' || !isFinite(fr)) return;
       const now = Date.now();
@@ -741,7 +746,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         Toast.show({ type: 'success', text1: 'Automation', text2: `Flow low (${fr}). Power OFF`, position: 'bottom' });
       }
     } catch {}
-  }, [flowRate, isPowerOn, selectedDeviceId, lastAutoAt]);
+  }, [flowRate, isPowerOn, selectedDeviceId, lastAutoAt, noFlowAutoOffEnabled]);
 
   // Keep refs in sync to avoid stale closures in timers
   useEffect(() => { isPowerOnRef.current = isPowerOn; }, [isPowerOn]);
@@ -918,7 +923,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           firmwareVersion: (devDetail?.firmwareVersion || serverState.firmwareVersion) || undefined,
         };
         setDeviceStatus(mapped);
-        setIsPowerOn(serverState.isOn);
+        // Show OFF by default on first load, then follow server state afterwards
+        if (!hasMappedInitialPowerRef.current) {
+          setIsPowerOn(false);
+          hasMappedInitialPowerRef.current = true;
+        } else {
+          setIsPowerOn(!!serverState.isOn);
+        }
         // Flow data
         const frRaw = devDetail?.flowRate ?? serverState.flowRate;
         const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters;

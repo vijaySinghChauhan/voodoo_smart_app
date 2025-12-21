@@ -31,7 +31,8 @@ const int Device5 = 15;   // D8 (active-low relay) AC
 
 // WiFi LED
 const int WIFI_LED_PIN = 0;  // D3 (GPIO0)
-
+unsigned long lastWiFiRetry = 0;
+const unsigned long WIFI_RETRY_INTERVAL = 15000; // 15 seconds
 // ----------------------------------------------------------
 // Function Prototypes (Fixes compilation errors)
 // ----------------------------------------------------------
@@ -106,6 +107,8 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
   // Ultrasonic
   pinMode(TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -134,7 +137,7 @@ void setup() {
   digitalWrite(WIFI_LED_PIN, LOW);
 
   // AP Mode
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
 
   Serial.println("\nAP Started");
@@ -164,7 +167,7 @@ void loop() {
 //  digitalWrite(WIFI_LED_PIN, LOW);
   // setColor(255, 0, 0, 0, 0);   // Red
   server.handleClient();
-
+  ensureWiFiConnected();
   // FLOW sensor every 1s
   if (millis() - lastFlowSample >= 1000) {
     detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
@@ -192,7 +195,7 @@ void loop() {
       Serial.println("Distance");
             Serial.println(lastDistance);
 
-
+   
     if (WiFi.status() == WL_CONNECTED) {
       digitalWrite(WIFI_LED_PIN, HIGH);
       //  setColor(0, 255, 0, 0, 0);   // Green
@@ -212,6 +215,20 @@ void loop() {
   
 }
 
+void ensureWiFiConnected() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  if (ssid.length() == 0) return;
+
+  unsigned long now = millis();
+  if (now - lastWiFiRetry < WIFI_RETRY_INTERVAL) return;
+
+  lastWiFiRetry = now;
+
+  Serial.println("WiFi lost. Retrying connection...");
+  WiFi.disconnect();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(ssid.c_str(), password.c_str());
+}
 void handleWiFiScan() {
   int n = WiFi.scanNetworks();
   DynamicJsonDocument doc(1024);
@@ -253,7 +270,6 @@ float getDistance() {
   Serial.println(duration * 0.0343 / 2);
 
   
-  delay(1000);
   return duration * 0.0343 / 2;
 }
 
