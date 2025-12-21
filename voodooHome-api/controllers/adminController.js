@@ -4,7 +4,7 @@ const { pool } = require('../config/db');
 exports.listUsers = async (req, res) => {
   try {
     const search = String(req.query.search || '').trim();
-    let sql = `SELECT id, name, email, phone, avatar, role, created_at, last_login FROM users`;
+    let sql = `SELECT id, name, email, phone, avatar, role, beta, tester, created_at, last_login FROM users`;
     let params = [];
     if (search) {
       sql += ` WHERE name LIKE ? OR email LIKE ? OR phone LIKE ?`;
@@ -30,6 +30,8 @@ exports.listUsers = async (req, res) => {
       phone: u.phone || null,
       avatar: u.avatar || null,
       role: u.role,
+      beta: typeof u.beta === 'number' ? u.beta : (u.beta ? 1 : 0),
+      tester: typeof u.tester === 'number' ? u.tester : (u.tester ? 1 : 0),
       createdAt: u.created_at,
       lastLogin: u.last_login,
       roomCount: roomCounts[u.id] || 0,

@@ -12,14 +12,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../services/esp8266/esp8266Service';
 import { NetworkInfo } from 'react-native-network-info';
+import { useAuth } from '../context/AuthContext';
+import * as constantsV from '../constants/constatantsV';
 
 const WiFiConfigScreen: React.FC = () => {
+  const { user } = useAuth();
   const [ssid, setSSID] = useState('Airtel_vija_6651');
   const [password, setPassword] = useState('air00336');
   const [deviceIP, setDeviceIP] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
+  const [showProfiles, setShowProfiles] = useState(false);
+  const isTester = !!user && ((user as any).tester === 1 || (user as any).tester === '1' || (user as any).tester === true);
 // Get local IP address
 NetworkInfo.getIPV4Address().then(ipAddress => {
   console.log('📡 Device IP Address:', ipAddress);
@@ -107,6 +112,25 @@ NetworkInfo.getSSID().then(ssid => {
         text2: 'Failed to connect to ESP8266 device',
         position: 'bottom'
       });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setIsConnecting(true);
+    try {
+      const success = await esp8266Service.disconnectDevice();
+      if (success) {
+        setIsConnected(false);
+        setDeviceIP('');
+        setDeviceStatus(null);
+        Toast.show({ type: 'success', text1: 'Disconnected', text2: 'Device connection cleared', position: 'bottom' });
+      } else {
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to disconnect device', position: 'bottom' });
+      }
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to disconnect device', position: 'bottom' });
     } finally {
       setIsConnecting(false);
     }
@@ -219,6 +243,8 @@ NetworkInfo.getSSID().then(ssid => {
     }
   };
 
+  const canDisconnect = isConnected || !!deviceIP;
+
   // Rest of the component remains the same
   return (
     <SafeAreaView style={styles.container}>
@@ -233,6 +259,13 @@ NetworkInfo.getSSID().then(ssid => {
             value={deviceIP}
             onChangeText={setDeviceIP}
           />
+
+          {(!!deviceIP || isConnected) && (
+            <View style={styles.statusInline}>
+              <Text style={styles.statusTextSmall}>Current IP: {deviceIP || '—'}</Text>
+              <Text style={styles.statusTextSmall}>Status: {isConnected ? 'Connected' : 'Not connected'}</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[styles.button, isConnecting && styles.disabledButton]}
             onPress={handleConnect}
@@ -247,9 +280,45 @@ NetworkInfo.getSSID().then(ssid => {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.disableButton,
+              (!canDisconnect || isConnecting) && styles.disabledButton,
+            ]}
+            onPress={handleDisconnect}
+            disabled={isConnecting || !canDisconnect}
+          >
+            {isConnecting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Disconnect</Text>
+            )}
+          </TouchableOpacity>
+
           {isConnected && (
             <>
               <Text style={styles.sectionTitle}>WiFi Configuration</Text>
+              {isTester && (
+                <View style={{ marginBottom: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.disabledButton]}
+                    onPress={() => setShowProfiles((s) => !s)}
+                  >
+                    <Text style={styles.buttonText}>{showProfiles ? 'Hide Tester Defaults' : 'Select Tester Default WiFi'}</Text>
+                  </TouchableOpacity>
+                  {showProfiles && (
+                    <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}>
+                      {constantsV.DEFAULT_WIFI_PROFILES.map((p) => (
+                        <TouchableOpacity key={p.label} style={{ padding: 12 }} onPress={() => { setSSID(p.ssid); setPassword(p.password); setShowProfiles(false); }}>
+                          <Text style={{ color: '#333' }}>{p.label}</Text>
+                          <Text style={{ color: '#777', fontSize: 12 }}>SSID: {p.ssid}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
               <TextInput
                 style={styles.input}
                 placeholder="WiFi SSID"
@@ -405,6 +474,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
     color: '#555',
+  },
+  statusInline: {
+    marginBottom: 10,
+  },
+  statusTextSmall: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
   },
 });
 

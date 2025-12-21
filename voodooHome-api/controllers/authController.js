@@ -34,10 +34,12 @@ exports.register = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRE || '30d' }
     );
 
+    // Reload to include default flags (beta/tester)
+    const createdUser = await User.findById(user._id);
     res.status(201).json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null }
+      user: { id: createdUser.id, name: createdUser.name, email: createdUser.email, role: createdUser.role, phone: createdUser.phone || null, beta: createdUser.beta, tester: createdUser.tester }
     });
   } catch (error) {
     console.error(error);
@@ -78,7 +80,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null, beta: user.beta, tester: user.tester }
     });
   } catch (error) {
     console.error(error);

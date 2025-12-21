@@ -44,3 +44,9 @@ export const MOCK_CREDENTIALS = {
 
 // Mock token used in offline mode
 export const MOCK_TOKEN = 'mock-token-voodoo';
+
+// Default WiFi profiles (SSID/password) for tester accounts
+export const DEFAULT_WIFI_PROFILES = [
+  { label: 'Airtel_vija_6651', ssid: 'Airtel_vija_6651', password: 'air00336' },
+  { label: 'voodootech_setup (ESP SoftAP)', ssid: 'voodootech_setup', password: 'voodootech123' },
+];

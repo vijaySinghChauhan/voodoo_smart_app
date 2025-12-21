@@ -327,6 +327,43 @@ class ESP8266Service {
       };
     }
   }
+
+  // Disconnect from the ESP8266: clear stored IP and local connection state
+  async disconnectDevice(): Promise<boolean> {
+    try {
+      // Ensure base URL is set
+      if (!this.deviceHttpBaseUrl) {
+        const ip = await this.getDeviceIP();
+        if (Platform.OS === 'web') {
+          this.deviceHttpBaseUrl = '/esp';
+        } else {
+          if (!ip) throw new Error('No device IP set');
+          this.deviceHttpBaseUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+        }
+      }
+
+      // Hit the device disconnect endpoint
+      try {
+        const response = await axios.get(`${this.deviceHttpBaseUrl}/disconnect`, { timeout: 5000 });
+        // Some devices may return 200 or 204; accept both as success
+        if (!(response.status === 200 || response.status === 204)) {
+          console.warn('Disconnect endpoint responded with non-success status:', response.status);
+        }
+      } catch (err) {
+        // Even if the endpoint fails, proceed to clear local state
+        console.warn('Device disconnect request failed; clearing local state anyway:', err);
+      }
+
+      await AsyncStorage.removeItem('ESP8266_IP');
+      this.storedDeviceIP = null;
+      this.deviceHttpBaseUrl = null;
+      this.isConnected = false;
+      return true;
+    } catch (error) {
+      console.error('Failed to disconnect ESP8266:', error);
+      return false;
+    }
+  }
   
   // Get all devices (both assigned and unassigned)
   async getAllDevices(): Promise<Array<{

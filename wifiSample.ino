@@ -46,6 +46,7 @@ float getDistance();
 void connectToWiFi();
 void sendDataToServer(float brightnessValue);
 long getStableDistanceCM(int samples = 5);
+void disconnectWiFi(bool keepAP = true);
 
 // ----------------------------------------------------------
 // Globals
@@ -156,6 +157,13 @@ void setup() {
 
  // http://192.168.4.1/wifi
   server.on("/wifi", HTTP_GET, handleWiFiPage);
+
+  server.on("/disconnect", HTTP_GET, []() {
+  disconnectWiFi(true);
+ 
+  server.send(200, "text/plain", "WiFi disconnected");
+  }); 
+
   server.begin();
   Serial.println("HTTP server started");
 }
@@ -213,6 +221,24 @@ void loop() {
      }
 
   
+}
+void disconnectWiFi(bool keepAP) {
+  Serial.println("Disconnecting WiFi...");
+
+  // Disconnect from STA (router)
+  WiFi.disconnect(true);
+  delay(100);
+
+  if (keepAP) {
+    // Keep Access Point running
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(AP_SSID, AP_PASS);
+    Serial.println("STA disconnected, AP still active");
+  } else {
+    // Fully disable WiFi (STA + AP)
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WiFi fully turned off");
+  }
 }
 
 void ensureWiFiConnected() {

@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 
 class User {
-  constructor({ id, name, email, password, avatar, role, phone, created_at, last_login }) {
+  constructor({ id, name, email, password, avatar, role, phone, beta, tester, created_at, last_login }) {
     this._id = id; // keep _id for controller compatibility
     this.id = id;
     this.name = name;
@@ -11,6 +11,8 @@ class User {
     this.avatar = avatar;
     this.role = role || 'user';
     this.phone = phone || null;
+    this.beta = typeof beta === 'number' ? beta : (beta ? 1 : 0);
+    this.tester = typeof tester === 'number' ? tester : (tester ? 1 : 0);
     this.createdAt = created_at;
     this.lastLogin = last_login;
   }
@@ -31,12 +33,12 @@ class User {
   }
 
   static async findById(id) {
-    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,created_at,last_login FROM users WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,beta,tester,created_at,last_login FROM users WHERE id = ? LIMIT 1', [id]);
     return rows[0] ? new User(rows[0]) : null;
   }
 
   static async findByIdAndUpdate(id, fields) {
-    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone'].includes(k));
+    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone','beta','tester'].includes(k));
     if (keys.length === 0) {
       return await User.findById(id);
     }

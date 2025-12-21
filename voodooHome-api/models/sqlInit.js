@@ -9,6 +9,8 @@ async function initSqlSchema() {
       password VARCHAR(255) NOT NULL,
       avatar VARCHAR(255),
       phone VARCHAR(30),
+      beta TINYINT(1) NOT NULL DEFAULT 0,
+      tester TINYINT(1) NOT NULL DEFAULT 1,
       role VARCHAR(20) NOT NULL DEFAULT 'user',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME NULL
@@ -157,6 +159,17 @@ async function initSqlSchema() {
   // Add phone column to users if missing
   try {
     await pool.query("ALTER TABLE users ADD COLUMN phone VARCHAR(30) NULL");
+  } catch (e) {
+    // ignore if exists
+  }
+  // Add beta/tester columns to users if missing
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN beta TINYINT(1) NOT NULL DEFAULT 0');
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN tester TINYINT(1) NOT NULL DEFAULT 1');
   } catch (e) {
     // ignore if exists
   }

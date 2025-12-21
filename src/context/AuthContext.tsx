@@ -8,6 +8,8 @@ interface User {
   profilePicture?: string;
   role?: 'user' | 'admin';
   phone?: string;
+  beta?: number | string | boolean;
+  tester?: number | string | boolean;
   token?: string;
 }
 
