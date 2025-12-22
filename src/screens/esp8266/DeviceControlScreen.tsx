@@ -90,6 +90,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [noFlowAutoOffEnabled, setNoFlowAutoOffEnabled] = useState<boolean>(false);
   const [noFlowDelaySec, setNoFlowDelaySec] = useState<number>(40);
   const [showNoFlowDelayMenu, setShowNoFlowDelayMenu] = useState<boolean>(false);
+  // Gate automation until rules are loaded to avoid unintended toggles
+  const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
@@ -652,22 +654,39 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setNoFlowAutoOffEnabled(!!r?.noFlow?.enabled);
           const nfDelay = Number(r?.noFlow?.delaySec);
           setNoFlowDelaySec(Number.isFinite(nfDelay) ? nfDelay : 40);
+          // Mark rules as loaded to allow automation to evaluate
+          setRulesLoaded(true);
         } else {
           // Migrate old single-rule if present
           const oldJson = await AsyncStorage.getItem(`auto_rule_${selectedDeviceId}`);
           if (oldJson) {
             const r = JSON.parse(oldJson);
             if (r?.action === 'off') {
-              setOffEnabled(!!r.enabled);
+              // Do not auto-enable legacy rules on migration; require explicit opt-in
+              setOffEnabled(false);
               setOffOperator(r.operator === 'lt' ? 'lt' : 'ge');
               const t = Number(r.threshold);
               setOffThreshold(Number.isFinite(t) ? t : 80);
             } else {
-              setOnEnabled(!!r.enabled);
+              // Do not auto-enable legacy rules on migration; require explicit opt-in
+              setOnEnabled(false);
               setOnOperator(r.operator === 'ge' ? 'ge' : 'lt');
               const t = Number(r.threshold);
               setOnThreshold(Number.isFinite(t) ? t : 50);
             }
+            // Persist migrated rules with enabled=false to avoid unexpected auto toggles
+            try {
+              const payload = {
+                on: { enabled: false, operator: onOperator, threshold: onThreshold },
+                off: { enabled: false, operator: offOperator, threshold: offThreshold },
+                noFlow: { enabled: noFlowAutoOffEnabled, delaySec: noFlowDelaySec },
+              };
+              await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
+            } catch {}
+            setRulesLoaded(true);
+          } else {
+            // No rules found at all; keep defaults and mark loaded
+            setRulesLoaded(true);
           }
         }
       } catch (e) {}
@@ -698,6 +717,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
   // Automation: evaluate ON/OFF rules with a small cooldown to avoid rapid toggles
   useEffect(() => {
+    // Do not run automation until rules are loaded
+    if (!rulesLoaded) return;
     try {
       if (!selectedDeviceId) return;
       const now = Date.now();

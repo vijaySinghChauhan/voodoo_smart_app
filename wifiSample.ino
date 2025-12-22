@@ -108,8 +108,7 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
+
   // Ultrasonic
   pinMode(TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -138,9 +137,12 @@ void setup() {
   digitalWrite(WIFI_LED_PIN, LOW);
 
   // AP Mode
+    
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
-
+  WiFi.begin(); 
   Serial.println("\nAP Started");
   Serial.println(AP_SSID);
   Serial.println(WiFi.softAPIP());
@@ -194,7 +196,6 @@ void loop() {
           Serial.println(totalLiters);
           // Serial.println("lastFlowSample :");
           // Serial.println(lastFlowSample);
-          delay(1000);
   }
 
   // Ultrasonic measurement
@@ -243,7 +244,7 @@ void disconnectWiFi(bool keepAP) {
 
 void ensureWiFiConnected() {
   if (WiFi.status() == WL_CONNECTED) return;
-  if (ssid.length() == 0) return;
+if (ssid.length() == 0 && WiFi.SSID().length() == 0) return;
 
   unsigned long now = millis();
   if (now - lastWiFiRetry < WIFI_RETRY_INTERVAL) return;
@@ -253,7 +254,11 @@ void ensureWiFiConnected() {
   Serial.println("WiFi lost. Retrying connection...");
   WiFi.disconnect();
   WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(ssid.c_str(), password.c_str());
+  if (ssid.length() > 0) {
+    WiFi.begin(ssid.c_str(), password.c_str());
+  } else {
+    WiFi.begin(); // fallback to stored credentials
+}
 }
 void handleWiFiScan() {
   int n = WiFi.scanNetworks();
@@ -322,7 +327,7 @@ void connectToWiFi() {
   WiFi.disconnect(true);
   delay(200);
 
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.begin(ssid, password);
 
   int tries = 0;
