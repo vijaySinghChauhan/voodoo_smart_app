@@ -25,7 +25,7 @@ const Button: React.FC<ButtonProps> = ({
   label,
   onPress,
   variant = 'primary',
-  size = 'medium',
+  size = 'small',
   disabled = false,
   loading = false,
   style,
@@ -145,8 +145,8 @@ const styles = StyleSheet.create({
   
   // Size styles
   smallButton: {
-    paddingVertical: SIZES.base,
-    paddingHorizontal: SIZES.padding / 2,
+    paddingVertical: SIZES.base * 0.75,
+    paddingHorizontal: SIZES.padding / 3,
   },
   mediumButton: {
     paddingVertical: SIZES.base * 1.5,

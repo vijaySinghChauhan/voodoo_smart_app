@@ -1,3 +1,6 @@
+// Load environment variables
+require('dotenv').config();
+
 const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
@@ -10,8 +13,7 @@ const { JWT_SECRET } = require('./Static/constants');
 const axios = require('axios');
 const Device = require('./models/Device');
 
-// Load environment variables
-require('dotenv').config();
+
 
 // Connect to database
 connectDB();

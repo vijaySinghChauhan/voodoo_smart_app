@@ -41,7 +41,12 @@ const AdminUserDetailScreen: React.FC<{ route: any }> = ({ route }) => {
       </View>
       <View style={styles.section}><Text style={styles.sectionTitle}>Devices</Text>
         <FlatList data={devices} keyExtractor={(d)=>String(d.id)} renderItem={({item}) => (
-          <View style={styles.card}><Text style={styles.cardTitle}>{item.name}</Text><Text style={styles.cardSub}>{item.deviceType || 'Device'} • {item.isOn ? 'On' : 'Off'}</Text></View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{item.name}</Text>
+            <Text style={styles.cardSub}>{item.deviceType || 'Device'} • {item.isOn ? 'On' : 'Off'}</Text>
+            <Text style={styles.cardSub}>Subscription: {item.subscriptionActive === 1 ? 'Active' : 'Inactive'}</Text>
+            <Text style={styles.cardSub}>Expiry: {item.subscriptionEndDate ? String(item.subscriptionEndDate).slice(0,10) : 'Unknown'}</Text>
+          </View>
         )} />
       </View>
     </SafeAreaView>

@@ -116,23 +116,38 @@ function FrameSizeListenerWeb({ onChange }) {
     if (elementRef.current == null) {
       return;
     }
-    const rect = elementRef.current.getBoundingClientRect();
-    onChange({ width: rect.width, height: rect.height });
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        const { width, height } = entry.contentRect;
-        onChange({ width, height });
-      }
-    });
-    observer.observe(elementRef.current);
-    return () => {
-      observer.disconnect();
+    const measure = () => {
+      try {
+        const rect = elementRef.current.getBoundingClientRect();
+        onChange({ width: rect.width, height: rect.height });
+      } catch (_) {}
     };
+    measure();
+    const RO = typeof window !== 'undefined' ? window.ResizeObserver : undefined;
+    if (typeof RO === 'function') {
+      const observer = new RO((entries) => {
+        const entry = entries && entries[0];
+        if (entry && entry.contentRect) {
+          const { width, height } = entry.contentRect;
+          onChange({ width, height });
+        } else {
+          measure();
+        }
+      });
+      observer.observe(elementRef.current);
+      return () => {
+        try { observer.disconnect(); } catch (_) {}
+      };
+    } else {
+      const handler = () => measure();
+      window.addEventListener('resize', handler);
+      return () => {
+        window.removeEventListener('resize', handler);
+      };
+    }
   }, [onChange]);
   return /*#__PURE__*/_jsx('div', {
     ref: elementRef,
     style: { ...StyleSheet.absoluteFillObject, pointerEvents: 'none', visibility: 'hidden' }
   });
 }
-

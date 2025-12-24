@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
 
-const SubscriptionListScreen: React.FC = () => {
+const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [plans, setPlans] = useState<any[]>([]);
   const [subs, setSubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +17,9 @@ const SubscriptionListScreen: React.FC = () => {
       const ss = await subscriptionService.listMy();
       setPlans(ps);
       setSubs(ss);
+    } catch (e) {
+      setPlans([]);
+      setSubs([]);
     } finally {
       setLoading(false);
     }
@@ -40,8 +43,12 @@ const SubscriptionListScreen: React.FC = () => {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.meta}>{item.price} {item.currency} / {item.interval}</Text>
       </View>
-      <TouchableOpacity style={styles.buyBtn} onPress={() => purchase(item.id)} disabled={!!purchasing}>
-        <Text style={styles.buyTxt}>{purchasing === item.id ? 'Buying...' : 'Buy'}</Text>
+      <TouchableOpacity
+        style={styles.buyBtn}
+        onPress={() => navigation.navigate('SubscriptionCheckout', { plan: item })}
+        disabled={!!purchasing}
+      >
+        <Text style={styles.buyTxt}>{purchasing === item.id ? 'Subscribing...' : 'Subscribe'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -63,7 +70,11 @@ const SubscriptionListScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}><Text style={styles.title}>Subscriptions</Text></View>
       <View style={styles.section}><Text style={styles.sectionTitle}>Available Plans</Text>
-        <FlatList data={plans} keyExtractor={(p)=>String(p.id)} renderItem={renderPlan} />
+        {plans.length ? (
+          <FlatList data={plans} keyExtractor={(p)=>String(p.id)} renderItem={renderPlan} />
+        ) : (
+          <Text style={styles.empty}>No plans found</Text>
+        )}
       </View>
       <View style={styles.section}><Text style={styles.sectionTitle}>My Subscriptions</Text>
         {subs.length ? (

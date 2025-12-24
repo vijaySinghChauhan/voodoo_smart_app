@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   title: { ...FONTS.h2, color: COLORS.textDark },
   searchRow: { flexDirection:'row', alignItems:'center', paddingHorizontal: SIZES.padding },
   input: { flex:1, backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: 10, marginRight: 8, ...SHADOWS.small },
-  searchBtn: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingHorizontal: 14, paddingVertical: 10 },
+  searchBtn: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingHorizontal: 10, paddingVertical: 6 },
   searchTxt: { ...FONTS.body3, color: COLORS.white },
   center: { flex:1, alignItems:'center', justifyContent:'center' },
   card: { flexDirection:'row', alignItems:'center', backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.small },

@@ -53,12 +53,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   useEffect(() => {
     loadDashboardData();
 
-    // Refresh data when the screen is focused
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation?.addListener ? navigation.addListener('focus', () => {
       loadDashboardData();
-    });
+    }) : null;
 
-    return unsubscribe;
+    return unsubscribe || (() => {});
   }, [navigation]);
 
   const loadDashboardData = async () => {

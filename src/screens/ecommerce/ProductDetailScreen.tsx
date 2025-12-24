@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   addToCartButton: {
     flex: 1,
     backgroundColor: '#4a90e2',
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderRadius: 5,
     justifyContent: 'center',
     alignItems: 'center',
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   },
   addToCartButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

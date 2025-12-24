@@ -308,8 +308,8 @@ const styles = StyleSheet.create({
   scanButton: {
     backgroundColor: '#4a90e2',
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   scanButtonText: {
     color: '#fff',
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   connectButton: {
     backgroundColor: '#4a90e2',
     borderRadius: 8,
-    padding: 15,
+    padding: 10,
     alignItems: 'center',
     marginTop: 10,
   },

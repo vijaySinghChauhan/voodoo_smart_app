@@ -11,6 +11,8 @@ interface DeviceItem {
   type?: string;
   isOn?: boolean;
   isConnected?: boolean;
+  subscriptionActive?: number;
+  subscriptionEndDate?: string | null;
 }
 
 const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -37,6 +39,9 @@ const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const renderItem = ({ item }: { item: DeviceItem }) => {
     const deviceId = item._id || item.id || '';
+    const subText = item.subscriptionActive === 1
+      ? (item.subscriptionEndDate ? `Active until ${String(item.subscriptionEndDate).slice(0, 10)}` : 'Active')
+      : 'Inactive';
     return (
       <TouchableOpacity
         style={styles.deviceCard}
@@ -45,6 +50,7 @@ const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.info}>
           <Text style={styles.name}>{item.name || 'Unnamed Device'}</Text>
           <Text style={styles.type}>{item.type || 'ESP8266'}</Text>
+          <Text style={styles.subscription}>{subText}</Text>
         </View>
         <View style={[styles.statusDot, { backgroundColor: item.isConnected ? '#4CAF50' : '#9E9E9E' }]} />
       </TouchableOpacity>
@@ -97,6 +103,7 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   name: { fontSize: 16, fontWeight: '600', color: '#333' },
   type: { fontSize: 13, color: '#777', marginTop: 4 },
+  subscription: { fontSize: 12, color: '#555', marginTop: 2 },
   statusDot: { width: 12, height: 12, borderRadius: 6, marginLeft: 8 },
 });
 

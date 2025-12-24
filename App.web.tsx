@@ -37,9 +37,42 @@ import AddressListScreen from './src/screens/ecommerce/AddressListScreen';
 import AddressEditScreen from './src/screens/ecommerce/AddressEditScreen';
 
 import SubscriptionListScreen from './src/screens/subscriptions/SubscriptionListScreen';
+import SubscriptionCheckoutScreen from './src/screens/subscriptions/SubscriptionCheckoutScreen';
 import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
 import AdminUserDetailScreen from './src/screens/admin/AdminUserDetailScreen';
+// Chat & Audio
+const LazyChatScreen = React.lazy(() => import('./src/screens/chat/ChatScreen'));
+const LazyUserListScreen = React.lazy(() => import('./src/screens/chat/UserListScreen'));
+const LazyUserAudioListScreen = React.lazy(() => import('./src/screens/audio/UserAudioListScreen'));
+const LazyAudioCallScreen = React.lazy(() => import('./src/screens/audio/AudioCallScreen'));
+
+const SuspenseFallback: React.FC = () => (
+  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <Text>Loading…</Text>
+  </View>
+);
+
+const UserListWeb: React.FC<any> = (props) => (
+  <React.Suspense fallback={<SuspenseFallback />}>
+    <LazyUserListScreen {...props} />
+  </React.Suspense>
+);
+const ChatWeb: React.FC<any> = (props) => (
+  <React.Suspense fallback={<SuspenseFallback />}>
+    <LazyChatScreen {...props} />
+  </React.Suspense>
+);
+const UserAudioListWeb: React.FC<any> = (props) => (
+  <React.Suspense fallback={<SuspenseFallback />}>
+    <LazyUserAudioListScreen {...props} />
+  </React.Suspense>
+);
+const AudioCallWeb: React.FC<any> = (props) => (
+  <React.Suspense fallback={<SuspenseFallback />}>
+    <LazyAudioCallScreen {...props} />
+  </React.Suspense>
+);
 
 const Stack = createStackNavigator<any>();
 const Drawer = createDrawerNavigator<any>();
@@ -93,10 +126,31 @@ const ESP8266Stack = () => (
   </Stack.Navigator>
 );
 
+const SubscriptionsStack = () => (
+  <Stack.Navigator initialRouteName="SubscriptionList">
+    <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions' }} />
+    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen} options={{ title: 'Checkout' }} />
+  </Stack.Navigator>
+);
+
 const AdminStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'Admin Users' }} />
     <Stack.Screen name="AdminUserDetail" component={AdminUserDetailScreen} options={{ title: 'User Detail' }} />
+  </Stack.Navigator>
+);
+
+const ChatStack = () => (
+  <Stack.Navigator initialRouteName="UserList">
+    <Stack.Screen name="UserList" component={UserListWeb} options={{ title: 'Users' }} />
+    <Stack.Screen name="Chat" component={ChatWeb} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Chat: ${route.params.targetUserName}` : 'Chat' })} />
+  </Stack.Navigator>
+);
+
+const AudioStack = () => (
+  <Stack.Navigator initialRouteName="UserAudioList">
+    <Stack.Screen name="UserAudioList" component={UserAudioListWeb} options={{ title: 'Users (Audio)' }} />
+    <Stack.Screen name="AudioCall" component={AudioCallWeb as React.ComponentType<any>} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
   </Stack.Navigator>
 );
 
@@ -106,7 +160,7 @@ const AppDrawer = () => {
     <Drawer.Navigator
       initialRouteName="Dashboard"
       screenOptions={{
-        drawerType: Platform.OS === 'web' ? 'front' : 'front',
+        drawerType: Platform.OS === 'web' ? 'permanent' : 'front',
         swipeEnabled: Platform.OS === 'web' ? false : true,
         overlayColor: Platform.OS === 'web' ? 'transparent' : undefined,
       }}
@@ -115,6 +169,16 @@ const AppDrawer = () => {
         name="Dashboard"
         component={DashboardScreen}
         options={({ navigation }) => ({
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => navigation.toggleDrawer?.()}
+              style={{ marginLeft: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open menu"
+            >
+              <Text style={{ fontSize: 22 }}>☰</Text>
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <TouchableOpacity
               onPress={() => navigation.navigate('Cart')}
@@ -132,10 +196,12 @@ const AppDrawer = () => {
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
       <Drawer.Screen name="Shop" component={EcommerceStack} />
       <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-      <Drawer.Screen name="Subscriptions" component={SubscriptionListScreen} />
+      <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
+      <Drawer.Screen name="Chat" component={ChatStack} />
+      <Drawer.Screen name="Audio" component={AudioStack} options={{ title: 'Audio Calls' }} />
       <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
       <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
       <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
@@ -238,20 +304,16 @@ const AppNavigator = () => {
   // Diagnostic: render DashboardScreen directly without Drawer to isolate issues
   if (forceSimple) {
     console.log('[Web] AppNavigator: forceSimple=1, rendering DashboardScreen directly');
-    return (
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="DashboardSimple" component={DashboardScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    );
+    return <DashboardScreen />;
   }
 
-  const content = forceAuth
-    ? (console.log('[Web] AppNavigator: forceAuth=1, rendering AuthStack'), <AuthStack />)
-    : user
-    ? (console.log('[Web] AppNavigator: rendering AppDrawer'), <AppDrawer />)
-    : (console.log('[Web] AppNavigator: rendering AuthStack'), <AuthStack />);
+  const content = Platform.OS === 'web'
+    ? (console.log('[Web] AppNavigator: rendering AppDrawer (web default)'), <AppDrawer />)
+    : (forceAuth
+        ? (console.log('[Web] AppNavigator: forceAuth=1, rendering AuthStack'), <AuthStack />)
+        : (user
+            ? (console.log('[Web] AppNavigator: rendering AppDrawer'), <AppDrawer />)
+            : (console.log('[Web] AppNavigator: rendering AuthStack'), <AuthStack />)));
 
   return (
     <NavigationContainer>
@@ -261,10 +323,19 @@ const AppNavigator = () => {
 };
 
 export default function App() {
+  const initialMetricsWeb = React.useMemo(() => (
+    Platform.OS === 'web'
+      ? {
+          frame: { x: 0, y: 0, width: typeof window !== 'undefined' ? window.innerWidth : 1024, height: typeof window !== 'undefined' ? window.innerHeight : 768 },
+          insets: { top: 0, left: 0, right: 0, bottom: 0 },
+        }
+      : undefined
+  ), []);
+
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider initialMetrics={initialMetricsWeb as any}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#fff' }}>
           <AuthProvider>
             <AppNavigator />
             <Toast />

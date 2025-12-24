@@ -427,7 +427,15 @@ class ESP8266Service {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000,
       });
-      return response.data?.data || [];
+      const items = response.data?.data || [];
+      return items.map((d: any) => ({
+        ...d,
+        id: String(d.id ?? d._id ?? ''),
+        subscriptionActive: typeof d.subscriptionActive !== 'undefined' ? Number(d.subscriptionActive) : (
+          typeof d.subscription !== 'undefined' ? Number(d.subscription) : 0
+        ),
+        subscriptionEndDate: d.subscriptionEndDate ?? d.subscriptionEnd ?? d.subscription_last_date ?? null,
+      }));
     } catch (error) {
       console.error('Failed to get devices from server:', error);
       return [];
@@ -555,6 +563,13 @@ class ESP8266Service {
       );
       return false;
     }
+  }
+
+  async updateDeviceSubscription(deviceId: string, active: 0 | 1, lastDate: string): Promise<boolean> {
+    return this.updateDeviceOnServer(deviceId, {
+      subscriptionActive: active,
+      subscriptionEndDate: lastDate,
+    });
   }
 
   async unassignDeviceFromRoom(deviceId: string): Promise<boolean> {

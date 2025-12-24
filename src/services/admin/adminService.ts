@@ -32,7 +32,15 @@ class AdminService {
     const params = roomId ? { roomId } : {};
     const baseUrl = await this.getBaseUrl();
     const { data } = await axios.get(`${baseUrl}/users/${userId}/devices`, { headers, params });
-    return data.data as Array<any>;
+    const items = (data?.data || []) as Array<any>;
+    return items.map((d) => ({
+      ...d,
+      id: String(d.id ?? d._id ?? ''),
+      subscriptionActive: typeof d.subscriptionActive !== 'undefined' ? Number(d.subscriptionActive) : (
+        typeof d.subscription !== 'undefined' ? Number(d.subscription) : 0
+      ),
+      subscriptionEndDate: d.subscriptionEndDate ?? d.subscriptionEnd ?? d.subscription_last_date ?? null,
+    }));
   }
 
   async getStats() {

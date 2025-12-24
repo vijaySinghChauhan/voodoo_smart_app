@@ -23,6 +23,7 @@ import authService from '../../services/auth/authService';
 import logService from '../../services/logging/logService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from '../../services/notifications/notificationService';
+import subscriptionService from '../../services/subscriptions/subscriptionService';
 
 interface DeviceStatus {
   connected: boolean;
@@ -62,6 +63,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [flowRate, setFlowRate] = useState<number | undefined>(undefined);
   const [totalLiters, setTotalLiters] = useState<number | undefined>(undefined);
   const [showRemaining, setShowRemaining] = useState<boolean>(true);
+  const [subscriptionActive, setSubscriptionActive] = useState<0 | 1>(1);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
   const brightnessBufferRef = React.useRef<number[]>([]);
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
@@ -101,6 +104,47 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const prevWaterLevelRef = React.useRef<number>(0);
   const lastFullAlertAtRef = React.useRef<number>(0);
   const fullAlertArmedRef = React.useRef<boolean>(true); // re-arm when level drops sufficiently
+  // Subscription plan to display price on per-device buttons
+  const [billingPlan, setBillingPlan] = useState<{ id: string; name: string; price: number; currency: string; interval: string } | null>(null);
+
+  const canControl = true;
+  
+  // React.useMemo(() => {
+  //   if (subscriptionActive !== 1 ) return false;
+  //   if (!subscriptionEndDate) return false;
+  //   const exp = new Date(String(subscriptionEndDate));
+  //   if (isNaN(exp.getTime())) return false;
+  //   const now = new Date();
+  //   exp.setHours(23, 59, 59, 999);
+  //   return exp.getTime() >= now.getTime();
+  // }, [subscriptionActive, subscriptionEndDate]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const ps = await subscriptionService.getPlans();
+        const preferred = ps?.find((p) => p.id === 'monthly_99');
+        // fallback to cheapest plan if monthly not found
+        const cheapest = ps && ps.length ? ps.reduce((min, p) => (p.price < min.price ? p : min), ps[0]) : null;
+        setBillingPlan(preferred || cheapest || null);
+      } catch (_) {
+        // fallback local default
+        setBillingPlan({ id: 'monthly_99', name: 'Monthly', price: 99, currency: 'INR', interval: 'month' });
+      }
+    })();
+  }, []);
+
+  const navigateToSubscriptionCheckout = (planOverride?: { id: string; name: string; price: number; currency: string; interval: string }) => {
+    const plan = planOverride || billingPlan;
+    if (!plan) {
+      Toast.show({ type: 'error', text1: 'Plans unavailable', text2: 'Please try again later', position: 'bottom' });
+      return;
+    }
+    try { logService.logButtonClick('Subscribe Device'); } catch {}
+    const parent = navigation?.getParent?.();
+    if (parent) parent.navigate('Subscriptions', { screen: 'SubscriptionCheckout', params: { plan } });
+    else navigation.navigate('SubscriptionCheckout', { plan });
+  };
   
 // Smooth brightness to reduce jitter
 const smoothValue = (newVal: number) => {
@@ -286,7 +330,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             // Treat helper as "filled" computation (100 - normalized)
             const filled = brightnessToPercent(smoothed, Number(targetInput));
             setWaterLevel(filled);
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
+            //Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
             setLastBrightness(raw);
             setLastBrightnessAt(Date.now());
           }
@@ -612,7 +656,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     if(device2On)
       setTimeout(() => {
         setDevice2On(false);
-      }, 7000);
+      }, 3500);
   })
 
   // Re-subscribe brightness updates when IP becomes available or changes
@@ -859,13 +903,21 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           if (devDetail) {
             setDeviceName(devDetail.name || 'Device');
             setSelectedDeviceIp(devDetail.ipAddress || devDetail.ip || null);
+            const subActiveRaw = devDetail.subscriptionActive ?? devDetail.subscription ?? devDetail.isSubscribed;
+            if (typeof subActiveRaw !== 'undefined' && subActiveRaw !== null) {
+              const subActiveNum = typeof subActiveRaw === 'number'
+                ? subActiveRaw
+                : (typeof subActiveRaw === 'string' ? parseInt(subActiveRaw, 10) : (subActiveRaw ? 1 : 0));
+              setSubscriptionActive(subActiveNum === 1 ? 1 : 0);
+            }
+            const lastDate = devDetail.subscriptionEndDate ?? devDetail.subscriptionEnd ?? devDetail.subscription_last_date ?? devDetail.subscriptionLastDate ?? null;
+            setSubscriptionEndDate(lastDate || null);
             if (devDetail.target !== undefined && devDetail.target !== null) {
               const tRaw = devDetail.target;
               const tNum = typeof tRaw === 'number' ? tRaw : (typeof tRaw === 'string' ? parseFloat(tRaw) : undefined);
               if (typeof tNum === 'number' && isFinite(tNum) && tNum > 0) {
-           
-           //     setTargetValue(tNum);
-                setTargetInput(targetInput);
+                setTargetValue(tNum);
+                setTargetInput(String(tNum));
               }
             }
             // Initialize brightness from API detail if available (fallback until socket updates arrive)
@@ -932,9 +984,21 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
       const serverState = useDeviceId ? await esp8266Service.getDeviceStateFromServer(useDeviceId) : null;
       if (serverState) {
+        const device1StateRaw = (devDetail?.device1 ?? serverState.device1 ?? (serverState.isOn ? 1 : 0));
+        let device1On = false;
+        if (typeof device1StateRaw === 'number') {
+          device1On = device1StateRaw === 1;
+        } else if (typeof device1StateRaw === 'boolean') {
+          device1On = device1StateRaw;
+        } else if (typeof device1StateRaw === 'string') {
+          const s = device1StateRaw.trim().toLowerCase();
+          device1On = s === '1' || s === 'true';
+        } else {
+          device1On = !!device1StateRaw;
+        }
         const mapped: DeviceStatus = {
           connected: !!serverState.isConnected,
-          powerState: serverState.isOn ? 'on' : 'off',
+          powerState: device1On ? 'on' : 'off',
           lastUpdated: serverState.lastSeen || undefined,
           energyUsage: undefined,
           // Prefer device detail fields, fallback to server state
@@ -944,13 +1008,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           firmwareVersion: (devDetail?.firmwareVersion || serverState.firmwareVersion) || undefined,
         };
         setDeviceStatus(mapped);
-        // Show OFF by default on first load, then follow server state afterwards
-        if (!hasMappedInitialPowerRef.current) {
-          setIsPowerOn(false);
-          hasMappedInitialPowerRef.current = true;
-        } else {
-          setIsPowerOn(!!serverState.isOn);
+        const sActiveRaw = serverState.subscriptionActive ?? serverState.subscription ?? serverState.isSubscribed;
+        if (typeof sActiveRaw !== 'undefined' && sActiveRaw !== null) {
+          const sActiveNum = typeof sActiveRaw === 'number'
+            ? sActiveRaw
+            : (typeof sActiveRaw === 'string' ? parseInt(sActiveRaw, 10) : (sActiveRaw ? 1 : 0));
+          setSubscriptionActive(sActiveNum === 1 ? 1 : 0);
         }
+        const sLastDate = serverState.subscriptionEndDate ?? serverState.subscriptionEnd ?? serverState.subscription_last_date ?? serverState.subscriptionLastDate ?? null;
+        if (sLastDate) setSubscriptionEndDate(String(sLastDate));
+        // Reflect server's device1 state in the main Power switch
+        setIsPowerOn(device1On);
         // Flow data
         const frRaw = devDetail?.flowRate ?? serverState.flowRate;
         const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters;
@@ -966,6 +1034,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           const smoothed = smoothValue(sbNum);
           const filled = brightnessToPercent(smoothed, Number(targetInput));
           setWaterLevel(filled);
+        }
+        // Initialize target from server state if available (overrides detail)
+        const tRawSrv = serverState?.target ?? serverState?.targetDepth ?? serverState?.target_value;
+        const tNumSrv = typeof tRawSrv === 'number' ? tRawSrv : (typeof tRawSrv === 'string' ? parseFloat(tRawSrv) : undefined);
+        if (typeof tNumSrv === 'number' && isFinite(tNumSrv) && tNumSrv > 0) {
+          setTargetValue(tNumSrv);
+          setTargetInput(String(tNumSrv));
         }
       }
     } catch (error) {
@@ -1014,9 +1089,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Update local target and recalc using current brightness
-
-  //      setTargetValue(targetValue);
-       setTargetInput(targetInput);
+        setTargetValue(parsed);
+        setTargetInput(String(parsed));
         const smoothed = smoothValue(brightness ?? 0);
         const filled = brightnessToPercent(smoothed, Number(targetInput));
         setWaterLevel(showRemaining ? 100 - filled : filled);
@@ -1180,17 +1254,28 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <Text style={styles.sectionTitle}>Power Control</Text>
           <View style={styles.powerControl}>
             <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Power'}</Text>
-            <Switch
-              value={isPowerOn}
-              onValueChange={(val) => {
-                setIsPowerOn(val);
-                toggleDeviceField('device1', val);
-            
-              }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
-            />
+            {canControl ? (
+              <Switch
+                value={isPowerOn}
+                onValueChange={(val) => {
+                  setIsPowerOn(val);
+                  toggleDeviceField('device1', val);
+                }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
+              />
+            ) : null}
           </View>
+          {!canControl ? (
+            <TouchableOpacity
+              style={styles.subscribeMiniButton}
+              onPress={() => navigateToSubscriptionCheckout()}
+            >
+              <Text style={styles.subscribeMiniButtonText}>
+                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {/* Automation rules UI: Turn ON and Turn OFF */}
           <View style={{ marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Automation Rules: Power</Text>
@@ -1198,12 +1283,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={{ marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={styles.powerLabel}>Turn ON rule</Text>
-                <Switch
-                  value={onEnabled}
-                  onValueChange={(v) => { setOnEnabled(v); persistRules(); }}
-                  trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
-                />
+                {canControl ? (
+                  <Switch
+                    value={onEnabled}
+                    onValueChange={(v) => { setOnEnabled(v); persistRules(); }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
+                  />
+                ) : null}
               </View>
               <Text style={styles.infoLabel}>When level is</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1264,12 +1351,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={styles.powerLabel}>Turn OFF rule</Text>
-                <Switch
-                  value={offEnabled}
-                  onValueChange={(v) => { setOffEnabled(v); persistRules(); }}
-                  trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
-                />
+                {canControl ? (
+                  <Switch
+                    value={offEnabled}
+                    onValueChange={(v) => { setOffEnabled(v); persistRules(); }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
+                  />
+                ) : null}
               </View>
               <Text style={styles.infoLabel}>When level is</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1341,12 +1430,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={{ marginTop: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={styles.powerLabel}>Auto OFF when flow is 0</Text>
-                <Switch
-                  value={noFlowAutoOffEnabled}
-                  onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
-                  trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
-                />
+                {canControl ? (
+                  <Switch
+                    value={noFlowAutoOffEnabled}
+                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
+                  />
+                ) : null}
               </View>
               <Text style={styles.infoLabel}>Delay before switching OFF</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1448,51 +1539,99 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <Text style={styles.sectionTitle}>GPIO Controls</Text>
           <View style={styles.powerControl}>
           <Text style={styles.powerLabel}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
-          <Switch
-            value={device2On}
-            onValueChange={(val) => {
-              setDevice2On(val);
-              toggleDeviceField('device2', val);
-              if (val) {
-                setTimeout(() => {
-                  setDevice2On(false);
-                  toggleDeviceField('device2', false);
-                }, 7000);
-              }
-            }}
-            trackColor={{ false: '#767577', true: '#4CAF50' }}
-            thumbColor={device2On ? '#fff' : '#e0cae0ff'}
-          />
+          {canControl ? (
+            <Switch
+              value={device2On}
+              onValueChange={(val) => {
+                setDevice2On(val);
+                toggleDeviceField('device2', val);
+                if (val) {
+                  setTimeout(() => {
+                    setDevice2On(false);
+                    toggleDeviceField('device2', false);
+                  }, 7000);
+                }
+              }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device2On ? '#fff' : '#e0cae0ff'}
+            />
+          ) : null}
         </View>
+        {!canControl ? (
+          <TouchableOpacity
+            style={styles.subscribeMiniButton}
+            onPress={() => navigateToSubscriptionCheckout()}
+          >
+            <Text style={styles.subscribeMiniButtonText}>
+              {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <View style={styles.powerControl}>
           <Text style={styles.powerLabel}>{subLabels?.subdevice3 || 'Watering Plants'}</Text>
-          <Switch
-            value={device3On}
-            onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
-            trackColor={{ false: '#767577', true: '#4CAF50' }}
-            thumbColor={device3On ? '#fff' : '#e6d2e6ff'}
-          />
+          {canControl ? (
+            <Switch
+              value={device3On}
+              onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={device3On ? '#fff' : '#e6d2e6ff'}
+            />
+          ) : null}
         </View>
+        {!canControl ? (
+          <TouchableOpacity
+            style={styles.subscribeMiniButton}
+            onPress={() => navigateToSubscriptionCheckout()}
+          >
+            <Text style={styles.subscribeMiniButtonText}>
+              {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
        
          
           <View style={styles.powerControl}>
             <Text style={styles.powerLabel}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
-            <Switch
-              value={device4On}
-              onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device4On ? '#fff' : '#f4f3f4'}
-            />
+            {canControl ? (
+              <Switch
+                value={device4On}
+                onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={device4On ? '#fff' : '#f4f3f4'}
+              />
+            ) : null}
           </View>
+          {!canControl ? (
+            <TouchableOpacity
+              style={styles.subscribeMiniButton}
+              onPress={() => navigateToSubscriptionCheckout()}
+            >
+              <Text style={styles.subscribeMiniButtonText}>
+                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.powerControl}>
             <Text style={styles.powerLabel}>{subLabels?.subdevice5 || 'AC Control'}</Text>
-            <Switch
-              value={device5On}
-              onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device5On ? '#fff' : '#f4f3f4'}
-            />
+            {canControl ? (
+              <Switch
+                value={device5On}
+                onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={device5On ? '#fff' : '#f4f3f4'}
+              />
+            ) : null}
           </View>
+          {!canControl ? (
+            <TouchableOpacity
+              style={styles.subscribeMiniButton}
+              onPress={() => navigateToSubscriptionCheckout()}
+            >
+              <Text style={styles.subscribeMiniButtonText}>
+                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 20 }]}>
@@ -1521,6 +1660,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Last Updated</Text>
             <Text style={styles.infoValue}>{deviceStatus?.lastUpdated || 'Unknown'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Subscription</Text>
+            <Text style={styles.infoValue}>{subscriptionActive === 1 ? 'Active' : 'Inactive'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Expiry</Text>
+            <Text style={styles.infoValue}>{subscriptionEndDate ? String(subscriptionEndDate).slice(0, 10) : 'Unknown'}</Text>
           </View>
           
           <View style={styles.infoRow}>
@@ -1576,6 +1723,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         <View style={styles.actionSection}>
           <Text style={styles.sectionTitle}>Device Actions</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.configButton]}
+            onPress={() => {
+              try { logService.logButtonClick('Subscribe'); } catch {}
+              // Navigate to Subscriptions in the Drawer
+              const parent = navigation?.getParent?.();
+              if (parent) parent.navigate('Subscriptions');
+              else navigation.navigate('Subscriptions');
+            }}
+          >
+            <Text style={styles.buttonText}>Subscribe</Text>
+          </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.actionButton, styles.resetButton]}
@@ -1716,6 +1875,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     color: '#333',
+  },
+  subscribeButton: {
+    width: '100%',
+    backgroundColor: '#c62828',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subscribeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subscribeMiniButton: {
+    width: '100%',
+    backgroundColor: '#c62828',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subscribeMiniButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 export default DeviceControlScreen;

@@ -19,8 +19,8 @@ exports.getProducts = async (req, res) => {
 
     res.json({ success: true, count: products.length, pagination, data: products });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+     console.error("getProducts FULL ERROR:", error);
+     res.status(500).json({ message: "Database error", error: error.message });
   }
 };
 

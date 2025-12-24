@@ -57,6 +57,7 @@ import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
 import AdminUserDetailScreen from './src/screens/admin/AdminUserDetailScreen';
 import SubscriptionListScreen from './src/screens/subscriptions/SubscriptionListScreen';
+import SubscriptionCheckoutScreen from './src/screens/subscriptions/SubscriptionCheckoutScreen';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -142,6 +143,13 @@ const ESP8266Stack = () => (
   </Stack.Navigator>
 );
 
+const SubscriptionsStack = () => (
+  <Stack.Navigator initialRouteName="SubscriptionList">
+    <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions' }} />
+    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen} options={{ title: 'Checkout' }} />
+  </Stack.Navigator>
+);
+
 const AdminStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'Admin Users' }} />
@@ -187,7 +195,7 @@ const AppDrawer = () => {
           ),
         })}/>
       <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-      <Drawer.Screen name="Subscriptions" component={SubscriptionListScreen} />
+      <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
@@ -518,7 +526,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     marginHorizontal: 6,
     alignItems: 'center',
@@ -531,7 +539,7 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

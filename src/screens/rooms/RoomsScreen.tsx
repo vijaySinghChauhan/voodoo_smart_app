@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     marginTop: 10
   },
   actionButton: {
-    padding: 8,
+    padding: 6,
     borderRadius: 4
   },
   editButton: {
