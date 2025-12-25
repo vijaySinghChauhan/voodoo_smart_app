@@ -326,9 +326,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
          
           if (typeof raw === 'number' && isFinite(raw)) {
             setBrightness(raw);
-            const smoothed = smoothValue(raw);
+           // const smoothed = smoothValue(raw);
             // Treat helper as "filled" computation (100 - normalized)
-            const filled = brightnessToPercent(smoothed, Number(targetInput));
+            const filled = brightnessToPercent(raw, Number(targetInput));
             setWaterLevel(filled);
             //Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
             setLastBrightness(raw);
@@ -406,7 +406,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               if (typeof raw === 'number' && isFinite(raw)) {
                 setBrightness(raw);
                 const smoothed = smoothValue(raw);
-                const filled = brightnessToPercent(smoothed, Number(targetInput));
+                const filled = brightnessToPercent(raw, Number(targetInput));
                 setWaterLevel(filled);
               }
             });
@@ -467,7 +467,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   if (typeof raw === 'number' && isFinite(raw)) {
                     setBrightness(raw);
                     const smoothed = smoothValue(raw);
-                    const filled = brightnessToPercent(smoothed, Number(targetInput));
+                    const filled = brightnessToPercent(raw, Number(targetInput));
                     setWaterLevel(filled);
                   }
                 });
@@ -525,7 +525,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       if (typeof raw === 'number' && isFinite(raw)) {
                         setBrightness(raw);
                         const smoothed = smoothValue(raw);
-                        const filled = brightnessToPercent(smoothed, Number(targetInput));
+                        const filled = brightnessToPercent(raw, Number(targetInput));
                         setWaterLevel(filled);
                       }
                     });
@@ -583,7 +583,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           if (typeof raw === 'number' && isFinite(raw)) {
                             setBrightness(raw);
                             const smoothed = smoothValue(raw);
-                            const filled = brightnessToPercent(smoothed, Number(targetInput));
+                            const filled = brightnessToPercent(raw, Number(targetInput));
                             setWaterLevel(filled);
                           }
                         });
@@ -753,8 +753,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Recalculate water level when brightness or target changes
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
-      const smoothed = smoothValue(brightness);
-      const filled = brightnessToPercent(smoothed, Number(targetInput));
+      const filled = brightnessToPercent(brightness, Number(targetInput));
       setWaterLevel(filled);
     }
   }, [brightness, targetInput, showRemaining]);
@@ -925,8 +924,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             const bNum = typeof bRaw === 'number' ? bRaw : (typeof bRaw === 'string' ? parseFloat(bRaw) : undefined);
             if (typeof bNum === 'number' && isFinite(bNum)) {
               setBrightness(bNum);
-              const smoothed = smoothValue(bNum);
-              const filled = brightnessToPercent(smoothed, Number(targetInput));
+              const filled = brightnessToPercent(bNum, Number(targetInput));
               setWaterLevel(filled);
             }
             setDevice2On(!!devDetail.device2);
@@ -1031,8 +1029,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const sbNum = typeof sbRaw === 'number' ? sbRaw : (typeof sbRaw === 'string' ? parseFloat(sbRaw) : undefined);
         if (typeof sbNum === 'number' && isFinite(sbNum)) {
           setBrightness(sbNum);
-          const smoothed = smoothValue(sbNum);
-          const filled = brightnessToPercent(smoothed, Number(targetInput));
+          const filled = brightnessToPercent(sbNum, Number(targetInput));
           setWaterLevel(filled);
         }
         // Initialize target from server state if available (overrides detail)
@@ -1091,8 +1088,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         // Update local target and recalc using current brightness
         setTargetValue(parsed);
         setTargetInput(String(parsed));
-        const smoothed = smoothValue(brightness ?? 0);
-        const filled = brightnessToPercent(smoothed, Number(targetInput));
+        const filled = brightnessToPercent(brightness ?? 0, Number(targetInput));
         setWaterLevel(showRemaining ? 100 - filled : filled);
         await loadDeviceInfo(selectedDeviceId);
       } else {
@@ -1235,9 +1231,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? '#4CAF50' : '#ff6b6b' }]} />
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
           </View>
-          {activeSocketHost ? (
-            <Text style={{ color: '#666', marginTop: 4 }}>Socket Host: {activeSocketHost}</Text>
-          ) : null}
+      
           <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 8 }}>
             <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
@@ -1466,72 +1460,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 </View>
               )}
             </View>
-            {/* Debug Panel */}
-            <View style={{ marginTop: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, backgroundColor: '#fff' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={styles.powerLabel}>Show Debug Panel</Text>
-                <Switch
-                  value={showDebugPanel}
-                  onValueChange={(v) => setShowDebugPanel(v)}
-                  trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  thumbColor={showDebugPanel ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              {showDebugPanel && (
-                <View style={{ marginTop: 10 }}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Socket Host</Text>
-                    <Text style={styles.infoValue}>{activeSocketHost || '—'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Socket Connected</Text>
-                    <Text style={styles.infoValue}>{socketConnected ? 'Yes' : 'No'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Last Brightness</Text>
-                    <Text style={styles.infoValue}>{lastBrightness != null ? `${lastBrightness}` : '—'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Brightness Time</Text>
-                    <Text style={styles.infoValue}>{lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : '—'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Last Flow Rate</Text>
-                    <Text style={styles.infoValue}>{lastFlowRate != null ? `${lastFlowRate} L/min` : '—'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Last Total Liters</Text>
-                    <Text style={styles.infoValue}>{lastTotalLiters != null ? `${lastTotalLiters} L` : '—'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Flow Time</Text>
-                    <Text style={styles.infoValue}>{lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : '—'}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={async () => {
-                      try {
-                        // Reconnect and resubscribe
-                        const did = selectedDeviceId;
-                        const ip = selectedDeviceIp;
-                        if (socketRef) {
-                          try { socketRef.disconnect(); } catch {}
-                          try { socketRef.connect(); } catch {}
-                          if (did) {
-                            if (ip) socketRef.emit('brightness:subscribe', { deviceId: did, ip });
-                            else socketRef.emit('brightness:subscribe', { deviceId: did });
-                            socketRef.emit('flow:subscribe', { deviceId: did });
-                          }
-                        }
-                        Toast.show({ type: 'info', text1: 'Debug', text2: 'Reconnect & Resubscribe attempted', position: 'bottom' });
-                      } catch (e) {}
-                    }}
-                    style={{ marginTop: 10, backgroundColor: '#4a90e2', padding: 10, borderRadius: 8, alignItems: 'center' }}
-                  >
-                    <Text style={{ color: '#fff' }}>Reconnect & Resubscribe</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+        
           </View>
         </View>
      
@@ -1549,7 +1478,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   setTimeout(() => {
                     setDevice2On(false);
                     toggleDeviceField('device2', false);
-                  }, 7000);
+                  }, 3000);
                 }
               }}
               trackColor={{ false: '#767577', true: '#4CAF50' }}
