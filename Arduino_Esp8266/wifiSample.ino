@@ -332,7 +332,7 @@ void connectToWiFi() {
 
   int tries = 0;
   while (WiFi.status() != WL_CONNECTED && tries < 30) {
-    delay(500);
+    delay(200);
     tries++;
   }
 }

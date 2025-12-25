@@ -1,347 +1,67 @@
 import 'react-native-gesture-handler';
-import * as React from 'react';
-import { View, TouchableOpacity, Text, Platform } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import ErrorBoundary from './src/components/ErrorBoundary';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React from 'react';
+import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
-// Screens (subset mirroring native App.tsx)
-import SplashScreenWeb from './src/screens/SplashScreen.web';
+// Screens
 import LoginScreen from './src/screens/auth/LoginScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
-import ProfileScreen from './src/screens/auth/ProfileScreen';
-
 import DashboardScreen from './src/screens/dashboard/DashboardScreen';
-import WiFiConfigScreen from './src/screens/WiFiConfigScreen';
 
-import RoomsScreen from './src/screens/rooms/RoomsScreen';
-import RoomDetailScreen from './src/screens/rooms/RoomDetailScreen';
-import AddEditRoomScreen from './src/screens/rooms/AddEditRoomScreen';
-import AddDeviceToRoomScreen from './src/screens/rooms/AddDeviceToRoomScreen';
+const Stack = createStackNavigator();
+const Drawer = createDrawerNavigator();
 
-import DevicesListScreen from './src/screens/esp8266/DevicesListScreen';
-import DeviceDiscoveryScreen from './src/screens/esp8266/DeviceDiscoveryScreen';
-import DeviceControlScreen from './src/screens/esp8266/DeviceControlScreen';
-
-import ProductListScreen from './src/screens/ecommerce/ProductListScreen';
-import ProductDetailScreen from './src/screens/ecommerce/ProductDetailScreen';
-import CartScreen from './src/screens/ecommerce/CartScreen';
-import CheckoutScreen from './src/screens/ecommerce/CheckoutScreen';
-import OrderHistoryScreen from './src/screens/ecommerce/OrderHistoryScreen';
-import AddressListScreen from './src/screens/ecommerce/AddressListScreen';
-import AddressEditScreen from './src/screens/ecommerce/AddressEditScreen';
-
-import SubscriptionListScreen from './src/screens/subscriptions/SubscriptionListScreen';
-import SubscriptionCheckoutScreen from './src/screens/subscriptions/SubscriptionCheckoutScreen';
-import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
-import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
-import AdminUserDetailScreen from './src/screens/admin/AdminUserDetailScreen';
-// Chat & Audio
-const LazyChatScreen = React.lazy(() => import('./src/screens/chat/ChatScreen'));
-const LazyUserListScreen = React.lazy(() => import('./src/screens/chat/UserListScreen'));
-const LazyUserAudioListScreen = React.lazy(() => import('./src/screens/audio/UserAudioListScreen'));
-const LazyAudioCallScreen = React.lazy(() => import('./src/screens/audio/AudioCallScreen'));
-
-const SuspenseFallback: React.FC = () => (
-  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-    <Text>Loading…</Text>
-  </View>
-);
-
-const UserListWeb: React.FC<any> = (props) => (
-  <React.Suspense fallback={<SuspenseFallback />}>
-    <LazyUserListScreen {...props} />
-  </React.Suspense>
-);
-const ChatWeb: React.FC<any> = (props) => (
-  <React.Suspense fallback={<SuspenseFallback />}>
-    <LazyChatScreen {...props} />
-  </React.Suspense>
-);
-const UserAudioListWeb: React.FC<any> = (props) => (
-  <React.Suspense fallback={<SuspenseFallback />}>
-    <LazyUserAudioListScreen {...props} />
-  </React.Suspense>
-);
-const AudioCallWeb: React.FC<any> = (props) => (
-  <React.Suspense fallback={<SuspenseFallback />}>
-    <LazyAudioCallScreen {...props} />
-  </React.Suspense>
-);
-
-const Stack = createStackNavigator<any>();
-const Drawer = createDrawerNavigator<any>();
-
-// Feature stacks
-const RoomsStack = () => (
-  <Stack.Navigator>
-    <Stack.Screen
-      name="RoomsList"
-      component={RoomsScreen as React.ComponentType<any>}
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="RoomDetail"
-      component={RoomDetailScreen as React.ComponentType<any>}
-      options={{ title: 'Room Details' }}
-    />
-    <Stack.Screen
-      name="AddEditRoom"
-      component={AddEditRoomScreen}
-      options={({ route }) => ({
-        title: (route.params as { room?: any })?.room ? 'Edit Room' : 'Add Room',
-      })}
-    />
-    <Stack.Screen
-      name="AddDeviceToRoom"
-      component={AddDeviceToRoomScreen}
-      options={{ title: 'Add Device' }}
-    />
-  </Stack.Navigator>
-);
-
-const EcommerceStack = () => (
-  <Stack.Navigator initialRouteName="ProductList">
-    <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
-    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
-    <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-    <Stack.Screen name="Checkout" component={CheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
-    <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
-    <Stack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
-    <Stack.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
-  </Stack.Navigator>
-);
-
-const ESP8266Stack = () => (
-  <Stack.Navigator initialRouteName="DevicesList">
-    <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices' }} />
-    <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ title: 'Discover Devices' }} />
-    <Stack.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
-    <Stack.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
-  </Stack.Navigator>
-);
-
-const SubscriptionsStack = () => (
-  <Stack.Navigator initialRouteName="SubscriptionList">
-    <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions' }} />
-    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen} options={{ title: 'Checkout' }} />
-  </Stack.Navigator>
-);
-
-const AdminStack = () => (
-  <Stack.Navigator>
-    <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'Admin Users' }} />
-    <Stack.Screen name="AdminUserDetail" component={AdminUserDetailScreen} options={{ title: 'User Detail' }} />
-  </Stack.Navigator>
-);
-
-const ChatStack = () => (
-  <Stack.Navigator initialRouteName="UserList">
-    <Stack.Screen name="UserList" component={UserListWeb} options={{ title: 'Users' }} />
-    <Stack.Screen name="Chat" component={ChatWeb} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Chat: ${route.params.targetUserName}` : 'Chat' })} />
-  </Stack.Navigator>
-);
-
-const AudioStack = () => (
-  <Stack.Navigator initialRouteName="UserAudioList">
-    <Stack.Screen name="UserAudioList" component={UserAudioListWeb} options={{ title: 'Users (Audio)' }} />
-    <Stack.Screen name="AudioCall" component={AudioCallWeb as React.ComponentType<any>} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
-  </Stack.Navigator>
-);
-
-const AppDrawer = () => {
-  const { user } = useAuth();
+function AuthStack() {
   return (
-    <Drawer.Navigator
-      initialRouteName="Dashboard"
-      screenOptions={{
-        drawerType: Platform.OS === 'web' ? 'permanent' : 'front',
-        swipeEnabled: Platform.OS === 'web' ? false : true,
-        overlayColor: Platform.OS === 'web' ? 'transparent' : undefined,
-      }}
-    >
-      <Drawer.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={({ navigation }) => ({
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => navigation.toggleDrawer?.()}
-              style={{ marginLeft: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open menu"
-            >
-              <Text style={{ fontSize: 22 }}>☰</Text>
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{ marginRight: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open cart"
-            >
-              <Text style={{ fontSize: 20 }}>🛒</Text>
-            </TouchableOpacity>
-          ),
-        })}
-      />
-      <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
-      <Drawer.Screen name="Rooms" component={RoomsStack} />
-      <Drawer.Screen name="Devices" component={ESP8266Stack} />
-      <Drawer.Screen name="Shop" component={EcommerceStack} />
-      <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-      <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} />
-      <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
-      <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
-      <Drawer.Screen name="Profile" component={ProfileScreen} />
-      <Drawer.Screen name="Chat" component={ChatStack} />
-      <Drawer.Screen name="Audio" component={AudioStack} options={{ title: 'Audio Calls' }} />
-      <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
-      <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
-      <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
-      {user?.role === 'admin' && (
-        <>
-          <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />
-          <Drawer.Screen name="Admin" component={AdminStack} options={{ title: 'Admin Users' }} />
-        </>
-      )}
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function AppDrawer() {
+  return (
+    <Drawer.Navigator initialRouteName="Dashboard">
+      <Drawer.Screen name="Dashboard" component={DashboardScreen} />
     </Drawer.Navigator>
   );
-};
+}
 
-const RootStack = createStackNavigator<any>();
-
-const LoadingScreen: React.FC<any> = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-    <Text style={{ fontSize: 18 }}>Loading authentication…</Text>
-  </View>
-);
-
-export const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Login">
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Signup" component={SignupScreen} />
-    <Stack.Screen name="DashboardMain" component={AppDrawer} />
-  </Stack.Navigator>
-);
-
-const AppNavigator = () => {
+function AppNavigator() {
   const { user, isLoading } = useAuth();
-  const [showSplash, setShowSplash] = React.useState(true);
-  const searchParams = React.useMemo(() => {
-    try {
-      return typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    } catch {
-      return null;
-    }
-  }, []);
-  const forceAuth = !!searchParams?.has('forceAuth');
-  // In development, skip splash by default for faster iteration
-  const skipSplash = (__DEV__ ? true : false) || !!searchParams?.has('skipSplash');
-  const forcePlain = !!searchParams?.has('forcePlain');
-  const forceSimple = !!searchParams?.has('forceSimple');
-
-  React.useEffect(() => {
-    if (skipSplash) {
-      setShowSplash(false);
-      return;
-    }
-    const t = setTimeout(() => setShowSplash(false), 3000);
-    return () => clearTimeout(t);
-  }, [skipSplash]);
-
-  // Debug: reflect navigator state in the page status tag
-  React.useEffect(() => {
-    try {
-      const el = typeof document !== 'undefined' ? document.getElementById('bundle-status') : null;
-      if (el) {
-        const state = showSplash ? 'splash' : isLoading ? 'loading' : user ? 'app' : 'auth';
-        el.textContent = `App state: ${state} · user: ${user ? user.email : 'none'}`;
-      }
-    } catch {}
-  }, [showSplash, isLoading, user]);
-
-  if (showSplash) {
-    console.log('[Web] AppNavigator: showing Splash');
-    return (
-      <NavigationContainer>
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Splash">
-            {() => <SplashScreenWeb onDone={() => setShowSplash(false)} />}
-          </RootStack.Screen>
-        </RootStack.Navigator>
-      </NavigationContainer>
-    );
-  }
 
   if (isLoading) {
-    console.log('[Web] AppNavigator: auth isLoading=true, showing loading fallback');
     return (
-      <NavigationContainer>
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Loading" component={LoadingScreen} />
-        </RootStack.Navigator>
-      </NavigationContainer>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Text>Loading…</Text>
+      </View>
     );
   }
-
-  // Diagnostic: simplified auth-only flow if requested
-  if (forcePlain) {
-    console.log('[Web] AppNavigator: forcePlain=1, rendering AuthStack in NavigationContainer');
-    return (
-      <NavigationContainer>
-        <AuthStack />
-      </NavigationContainer>
-    );
-  }
-
-  // Diagnostic: render DashboardScreen directly without Drawer to isolate issues
-  if (forceSimple) {
-    console.log('[Web] AppNavigator: forceSimple=1, rendering DashboardScreen directly');
-    return <DashboardScreen />;
-  }
-
-  const content = Platform.OS === 'web'
-    ? (console.log('[Web] AppNavigator: rendering AppDrawer (web default)'), <AppDrawer />)
-    : (forceAuth
-        ? (console.log('[Web] AppNavigator: forceAuth=1, rendering AuthStack'), <AuthStack />)
-        : (user
-            ? (console.log('[Web] AppNavigator: rendering AppDrawer'), <AppDrawer />)
-            : (console.log('[Web] AppNavigator: rendering AuthStack'), <AuthStack />)));
 
   return (
     <NavigationContainer>
-      {content}
+      {user ? <AppDrawer /> : <AuthStack />}
     </NavigationContainer>
   );
-};
+}
 
 export default function App() {
-  const initialMetricsWeb = React.useMemo(() => (
-    Platform.OS === 'web'
-      ? {
-          frame: { x: 0, y: 0, width: typeof window !== 'undefined' ? window.innerWidth : 1024, height: typeof window !== 'undefined' ? window.innerHeight : 768 },
-          insets: { top: 0, left: 0, right: 0, bottom: 0 },
-        }
-      : undefined
-  ), []);
-
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider initialMetrics={initialMetricsWeb as any}>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#fff' }}>
-          <AuthProvider>
-            <AppNavigator />
-            <Toast />
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <AuthProvider>
+          <AppNavigator />
+          <Toast />
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
