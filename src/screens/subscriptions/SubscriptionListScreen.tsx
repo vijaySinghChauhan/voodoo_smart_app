@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import subscriptionService from '../../services/subscriptions/subscriptionService';
+import subscriptionService, { Subscription } from '../../services/subscriptions/subscriptionService';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
 
 const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [plans, setPlans] = useState<any[]>([]);
-  const [subs, setSubs] = useState<any[]>([]);
+  const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
 

@@ -115,6 +115,18 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.infoText}>{user.email}</Text>
           </View>
 
+          {user.subscriptionType && (
+            <View style={styles.infoContainer}>
+              <Text style={styles.label}>Subscription</Text>
+              <Text style={styles.infoText}>{user.subscriptionType}</Text>
+              {user.subscriptionExpiryDate && (
+                <Text style={[styles.label, { marginTop: 5, fontSize: 12 }]}>
+                  Expires: {user.subscriptionExpiryDate}
+                </Text>
+              )}
+            </View>
+          )}
+
           {isEditing ? (
             <View style={styles.buttonRow}>
               <TouchableOpacity

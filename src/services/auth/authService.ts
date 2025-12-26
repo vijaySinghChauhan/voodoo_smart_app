@@ -13,6 +13,9 @@ interface User {
   phone?: string;
   beta?: number | string | boolean;
   tester?: number | string | boolean;
+  subscriptionType?: string;
+  subscriptionStartDate?: string;
+  subscriptionExpiryDate?: string;
 }
 
 interface AuthResponse {

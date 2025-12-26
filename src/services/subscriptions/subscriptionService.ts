@@ -1,6 +1,16 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from '../../constants/constatantsV';
+import { BASE_URL, OFFLINE_MODE } from '../../constants/constatantsV';
+import { mockSubscriptions } from '../mock/mockData';
+
+export interface Subscription {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  interval: string;
+  status: string;
+}
 
 class SubscriptionService {
   private baseUrl = `${BASE_URL}/subscriptions`;
@@ -16,9 +26,12 @@ class SubscriptionService {
   }
 
   async listMy() {
+    if (OFFLINE_MODE) {
+      return mockSubscriptions as unknown as Array<Subscription>;
+    }
     const headers = await this.getAuthHeader();
     const { data } = await axios.get(`${this.baseUrl}/`, { headers });
-    return data.data as Array<any>;
+    return data.data as Array<Subscription>;
   }
 
   async purchase(planId: string) {

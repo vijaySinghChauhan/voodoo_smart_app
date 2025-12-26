@@ -1639,7 +1639,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
         <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
         <TouchableOpacity
-          style={{ }}
+          style={{ marginTop: 10 }}
           onLongPress={() => {
             setShowDebugPanel(!showDebugPanel);
             Vibration.vibrate(50);
@@ -2400,6 +2400,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
 
         <View style={[styles.controlSection, { marginTop: 20 }]}>
+          {/* <View style={{ }}>
           <Text style={styles.sectionTitle}>Device Information</Text>
           
           <View style={styles.infoRow}>
@@ -2439,7 +2440,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={styles.infoLabel}>Energy Usage</Text>
             <Text style={styles.infoValue}>{deviceStatus?.energyUsage ? `${deviceStatus.energyUsage} kWh` : 'Unknown'}</Text>
           </View>
-
+        </View> */}
         
           <View style={{ marginTop: 15 }}>
             <Text style={styles.sectionTitle}>Target Depth (100%)</Text>

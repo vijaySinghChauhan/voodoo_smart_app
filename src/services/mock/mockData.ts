@@ -8,6 +8,9 @@ export const mockUser = {
   role: 'user' as const,
   phone: '+1-555-0100',
   profilePicture: undefined,
+  subscriptionType: 'Premium',
+  subscriptionStartDate: '2025-01-01',
+  subscriptionExpiryDate: '2025-12-31',
 };
 
 export const mockUsers = [
@@ -84,5 +87,17 @@ export const mockAddresses = [
 
 export const mockOrders = [
   { id: 'o1', total: 44.98, items: [{ productId: 'product_2', qty: 1 }, { productId: 'product_3', qty: 1 }], placedAt: new Date().toISOString() },
+];
+
+export const mockSubscriptions = [
+  {
+    id: 'sub_1',
+    userId: 'u001',
+    subscriptionType: 'Premium',
+    startDate: '2025-01-01',
+    expiryDate: '2025-12-31',
+    status: 'active',
+    planId: 'plan_premium'
+  }
 ];
 
