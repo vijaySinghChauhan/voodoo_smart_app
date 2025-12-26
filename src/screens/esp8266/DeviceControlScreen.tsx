@@ -893,6 +893,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     } catch (e) {}
   };
 
+  // Auto-persist rules when state changes to ensure latest state is saved
+  useEffect(() => {
+    if (rulesLoaded && selectedDeviceId) {
+      persistRules();
+    }
+  }, [
+    rulesLoaded, selectedDeviceId,
+    onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, noFlowAutoOffEnabled, noFlowDelaySec,
+    supplyWaterTimerEnabled, supplyWaterFrequency, morningScheduleEnabled, morningStartTime, morningEndTime, eveningScheduleEnabled, eveningStartTime, eveningEndTime,
+    wateringPlantsTimerEnabled, wateringPlantsFrequency, wateringPlantsMorningEnabled, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningEnabled, wateringPlantsEveningStart, wateringPlantsEveningEnd,
+    dogFeedTimerEnabled, dogFeedFrequency, dogFeedMorningEnabled, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningEnabled, dogFeedEveningStart, dogFeedEveningEnd,
+    acControlTimerEnabled, acControlFrequency, acControlMorningEnabled, acControlMorningStart, acControlMorningEnd, acControlEveningEnabled, acControlEveningStart, acControlEveningEnd
+  ]);
+
   // Recalculate water level when target changes (or brightness updates via state)
   // Note: Socket updates also set waterLevel directly using targetValueRef to ensure realtime accuracy without stale state.
   useEffect(() => {
