@@ -414,11 +414,30 @@ class ESP8266Service {
   }
 
   // ===== Backend API helpers =====
+  private async _getOfflineDevices(): Promise<any[]> {
+    const key = 'devices_offline';
+    try {
+      const existingJson = await AsyncStorage.getItem(key);
+      if (existingJson) {
+        return JSON.parse(existingJson);
+      }
+    } catch (e) {}
+    // Fallback to mock data (clone it)
+    return JSON.parse(JSON.stringify(mockDevices));
+  }
+
+  private async _saveOfflineDevices(devices: any[]): Promise<void> {
+    const key = 'devices_offline';
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify(devices));
+    } catch (e) {
+      console.warn('Failed to save offline devices:', e);
+    }
+  }
+
   async getDevicesFromServer(): Promise<any[]> {
     if ((constantsV as any).OFFLINE_MODE) {
-      const key = 'devices_offline';
-      const existingJson = await AsyncStorage.getItem(key);
-      return existingJson ? JSON.parse(existingJson) : (mockDevices as any[]);
+      return this._getOfflineDevices();
     }
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -533,6 +552,16 @@ class ESP8266Service {
   }
 
   async updateDeviceOnServer(deviceId: string, payload: Record<string, any>): Promise<boolean> {
+    if ((constantsV as any).OFFLINE_MODE) {
+       const devices = await this._getOfflineDevices();
+       const devIndex = devices.findIndex((d: any) => d.id === deviceId);
+       if (devIndex !== -1) {
+         devices[devIndex] = { ...devices[devIndex], ...payload };
+         await this._saveOfflineDevices(devices);
+         return true;
+       }
+       return false;
+    }
     try {
       if (!deviceId) {
         console.error('Failed to update device on server: missing deviceId');
@@ -571,6 +600,9 @@ class ESP8266Service {
   }
 
   async unassignDeviceFromRoom(deviceId: string): Promise<boolean> {
+    if ((constantsV as any).OFFLINE_MODE) {
+       return this.updateDeviceOnServer(deviceId, { room: null });
+    }
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const response = await axios.put(`${this.apiBaseUrl}/devices/${deviceId}`, { room: null }, {
@@ -580,6 +612,127 @@ class ESP8266Service {
       return response.status === 200;
     } catch (error) {
       console.error('Failed to unassign device from room:', error);
+      return false;
+    }
+  }
+
+  // Subscribe to a specific sub-device
+  async subscribeToSubDevice(deviceId: string, subDeviceKey: string, planId: string): Promise<boolean> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      const devices = await this._getOfflineDevices();
+      const devIndex = devices.findIndex((d: any) => d.id === deviceId);
+      
+      if (devIndex !== -1) {
+        const dev = devices[devIndex];
+        if (!dev.subDeviceSubscriptions) dev.subDeviceSubscriptions = {};
+        
+        const now = new Date();
+        const expiry = new Date(now);
+        expiry.setMonth(expiry.getMonth() + 1); // 1 month validity
+
+        // If bundle (plan_all), activate all
+        if (planId === 'plan_all') {
+             ['device1', 'device2', 'device3', 'device4', 'device5'].forEach(key => {
+                 dev.subDeviceSubscriptions[key] = {
+                    active: true,
+                    expiry: expiry.toISOString(),
+                    planId: planId,
+                    purchasedAt: now.toISOString()
+                 };
+             });
+        } else {
+            // Activate specific
+            dev.subDeviceSubscriptions[subDeviceKey] = {
+                active: true,
+                expiry: expiry.toISOString(),
+                planId: planId,
+                purchasedAt: now.toISOString()
+            };
+        }
+
+        devices[devIndex] = dev;
+        await this._saveOfflineDevices(devices);
+        return true;
+      }
+      return false;
+    }
+    // Online implementation (stub)
+    return true;
+  }
+
+  // Share device with another user
+  async shareDevice(deviceId: string, email: string): Promise<boolean> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      // Mock sharing in offline mode
+      console.log(`[Offline] Sharing device ${deviceId} with ${email}`);
+      const devices = await this._getOfflineDevices();
+      const dev = devices.find((d: any) => d.id === deviceId);
+      if (dev) {
+        if (!dev.sharedWith) dev.sharedWith = [];
+        // Prevent duplicates
+        if (!dev.sharedWith.some((u: any) => u.email === email)) {
+           dev.sharedWith.push({ email, role: 'user', addedAt: new Date().toISOString() });
+           await this._saveOfflineDevices(devices);
+        }
+      }
+      return true;
+    }
+
+    try {
+      const token = await authService.getToken();
+      const response = await axios.post(`${this.apiBaseUrl}/devices/${deviceId}/share`, { email }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to share device:', error);
+      return false;
+    }
+  }
+
+  // Get users who have access to this device
+  async getDeviceUsers(deviceId: string): Promise<Array<{ email: string; role: string; addedAt?: string }>> {
+    if ((constantsV as any).OFFLINE_MODE) {
+       const devices = await this._getOfflineDevices();
+       const dev = devices.find((d: any) => d.id === deviceId);
+       return dev?.sharedWith || [];
+    }
+
+    try {
+      const token = await authService.getToken();
+      const response = await axios.get(`${this.apiBaseUrl}/devices/${deviceId}/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Failed to get device users:', error);
+      return [];
+    }
+  }
+
+  // Remove user access
+  async removeDeviceUser(deviceId: string, email: string): Promise<boolean> {
+    if ((constantsV as any).OFFLINE_MODE) {
+      const devices = await this._getOfflineDevices();
+      const dev = devices.find((d: any) => d.id === deviceId);
+      if (dev && dev.sharedWith) {
+        dev.sharedWith = dev.sharedWith.filter((u: any) => u.email !== email);
+        await this._saveOfflineDevices(devices);
+      }
+      return true;
+    }
+
+    try {
+      const token = await authService.getToken();
+      const response = await axios.delete(`${this.apiBaseUrl}/devices/${deviceId}/users/${email}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to remove device user:', error);
       return false;
     }
   }

@@ -64,6 +64,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import WifiConnection from './src/services/esp8266/wifiConnection';
 import orderService from './src/services/ecommerce/orderService';
 import cartService from './src/services/ecommerce/cartService';
+import DeviceAccessScreen from './src/screens/esp8266/DeviceAccessScreen';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -139,6 +140,7 @@ const ESP8266Stack = () => (
     <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices' }} />
     <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ title: 'Discover Devices' }} />
     <Stack.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
+    <Stack.Screen name="DeviceAccess" component={DeviceAccessScreen} options={{ title: 'Manage Access' }} />
     <Stack.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
   </Stack.Navigator>
 );

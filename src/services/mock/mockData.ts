@@ -62,14 +62,52 @@ export const mockRooms = [
   { id: 'r3', name: 'Kitchen', deviceCount: 2 },
 ];
 
+export const mockSubscriptionPlans = [
+  { id: 'plan_d1', name: 'Motor Control Premium', price: 99, interval: 'month', deviceIndex: 1 },
+  { id: 'plan_d2', name: 'Smart Plug Pro', price: 49, interval: 'month', deviceIndex: 2 },
+  { id: 'plan_d3', name: 'Plant Care Plus', price: 79, interval: 'month', deviceIndex: 3 },
+  { id: 'plan_d4', name: 'Pet Feeder Smart', price: 89, interval: 'month', deviceIndex: 4 },
+  { id: 'plan_d5', name: 'AC Master', price: 149, interval: 'month', deviceIndex: 5 },
+  { id: 'plan_all', name: 'Home Automation Bundle', price: 299, interval: 'month', deviceIndex: 0 }, // 0 = all
+];
+
 export const mockDevices = [
-  { id: 'd1', name: 'Ceiling Light', deviceType: 'light', isOn: true, room: 'r1' },
-  { id: 'd2', name: 'Smart Plug TV', deviceType: 'plug', isOn: false, room: 'r1' },
-  { id: 'd3', name: 'AC', deviceType: 'switch', isOn: false, room: 'r1' },
-  { id: 'd4', name: 'Bed Lamp', deviceType: 'light', isOn: true, room: 'r2' },
-  { id: 'd5', name: 'Heater', deviceType: 'switch', isOn: false, room: 'r2' },
-  { id: 'd6', name: 'Kitchen Light', deviceType: 'light', isOn: true, room: 'r3' },
-  { id: 'd7', name: 'Water Pump', deviceType: 'switch', isOn: false, room: 'r3' },
+  { 
+    id: 'd1', 
+    name: 'Ceiling Light', 
+    deviceType: 'light', 
+    isOn: true, 
+    room: 'r1', 
+    sharedWith: [],
+    // Subscriptions for sub-devices (1-5)
+    subDeviceSubscriptions: {
+      device1: { active: false, expiry: null },
+      device2: { active: false, expiry: null },
+      device3: { active: false, expiry: null },
+      device4: { active: false, expiry: null },
+      device5: { active: false, expiry: null }
+    }
+  },
+  { 
+    id: 'd2', 
+    name: 'Smart Plug TV', 
+    deviceType: 'plug', 
+    isOn: false, 
+    room: 'r1', 
+    sharedWith: [],
+    subDeviceSubscriptions: {
+      device1: { active: true, expiry: '2025-12-31' }, // Example: active
+      device2: { active: false, expiry: null },
+      device3: { active: false, expiry: null },
+      device4: { active: false, expiry: null },
+      device5: { active: false, expiry: null }
+    }
+  },
+  { id: 'd3', name: 'AC', deviceType: 'switch', isOn: false, room: 'r1', sharedWith: [] },
+  { id: 'd4', name: 'Bed Lamp', deviceType: 'light', isOn: true, room: 'r2', sharedWith: [] },
+  { id: 'd5', name: 'Heater', deviceType: 'switch', isOn: false, room: 'r2', sharedWith: [] },
+  { id: 'd6', name: 'Kitchen Light', deviceType: 'light', isOn: true, room: 'r3', sharedWith: [] },
+  { id: 'd7', name: 'Water Pump', deviceType: 'switch', isOn: false, room: 'r3', sharedWith: [] },
 ];
 
 // Chat demo messages per room id (or user-to-user room key)
