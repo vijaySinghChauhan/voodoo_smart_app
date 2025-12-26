@@ -362,7 +362,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             // Treat helper as "filled" computation (100 - normalized)
             const filled = brightnessToPercent(smoothed, targetValueRef.current);
             setWaterLevel(filled);
-            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
+            //Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
             setLastBrightness(raw);
             setLastBrightnessAt(Date.now());
           }
@@ -1363,7 +1363,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <Text style={{ color: '#333', fontWeight: '600' }}>Tank Filled %</Text>
         </View>
-        <WaterTank percentage={waterLevel ?? 0} />
+        <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
         <TouchableOpacity
           style={{ marginTop: 10 }}
           onLongPress={() => {
