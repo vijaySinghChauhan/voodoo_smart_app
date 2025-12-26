@@ -63,20 +63,9 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
     setIsModalVisible(true);
   };
 
-  const openEditModal = (room: Room) => {
-    setRoomName(room.name);
-    setEditingRoom(room);
-    setIsModalVisible(true);
-  };
-
   const handleSaveRoom = async () => {
     if (!roomName.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Room name cannot be empty',
-        position: 'bottom'
-      });
+      Alert.alert('Error', 'Room name cannot be empty');
       return;
     }
 
@@ -282,11 +271,6 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   headerTitle: { fontSize: 22, fontWeight: '700' },
-  roomActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10
-  },
   actionButton: {
     padding: 6,
     borderRadius: 4

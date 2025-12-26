@@ -38,7 +38,7 @@ import SubscriptionCheckoutScreen from './src/screens/subscriptions/Subscription
 import SubscriptionListScreen from './src/screens/subscriptions/SubscriptionListScreen';
 import WiFiConfigScreen from './src/screens/WiFiConfigScreen';
 import ProfileScreen from './src/screens/auth/ProfileScreen';
-import wifiConnection from './src/services/esp8266/wifiConnection';
+import WifiConnection from './src/services/esp8266/wifiConnection';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -157,7 +157,7 @@ function AppDrawer() {
         })}
       />
       <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
-      <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
+      <Drawer.Screen name="WiFiConf" component={WifiConnection} options={{ title: 'WiFi Test' }} />
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
       <Drawer.Screen name="Shop" component={EcommerceStack} 

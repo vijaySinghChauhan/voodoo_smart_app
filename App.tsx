@@ -61,7 +61,7 @@ import SubscriptionCheckoutScreen from './src/screens/subscriptions/Subscription
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import wifiConnection from './src/services/esp8266/wifiConnection';
+import WifiConnection from './src/services/esp8266/wifiConnection';
 import orderService from './src/services/ecommerce/orderService';
 import cartService from './src/services/ecommerce/cartService';
 
@@ -178,7 +178,7 @@ const AppDrawer = () => {
         })}
       />
       <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
-      <Drawer.Screen name="WiFiConf" component={wifiConnection} options={{ title: 'WiFi Test' }} />
+      <Drawer.Screen name="WiFiConf" component={WifiConnection} options={{ title: 'WiFi Test' }} />
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
       <Drawer.Screen name="Shop" component={EcommerceStack} 

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -67,7 +66,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     return unsubscribe;
   }, [navigation]);
 
-  const loadRoomDetails = async () => {
+  const loadRoomDetails = useCallback(async () => {
     setIsLoading(true);
     try {
       const roomData = await roomService.getRoomById(roomId);
@@ -94,9 +93,9 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [roomId]);
 
-  const loadRoomDevices = async () => {
+  const loadRoomDevices = useCallback(async () => {
     try {
       const devices = await esp8266Service.getDevicesByRoom(roomId);
       setRoomDevices(devices);
@@ -104,7 +103,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
       console.error('Failed to load room devices:', error);
       setRoomDevices([]);
     }
-  };
+  }, [roomId]);
 
   const handleAddDevice = async () => {
     try { await logService.logButtonClick('Add Device To Room', { roomId }); } catch (e) {}

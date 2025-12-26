@@ -7,49 +7,6 @@ type WaterTankProps = {
 };
 
 const WaterTank = ({ percentage }: WaterTankProps) => {
-  const pourAnim = useRef(new Animated.Value(0)).current;
-  const waveAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pourAnim, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.linear,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(pourAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: Platform.OS !== 'web',
-        })
-      ])
-    ).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(waveAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(waveAnim, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: Platform.OS !== 'web',
-        })
-      ])
-    ).start();
-  }, [pourAnim, waveAnim]);
-
-  // Pouring water drop animation
-  const dropTranslateY = pourAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 60]
-  });
-
   const clamped = Math.max(0, Math.min(100, percentage));
   // Dimensions for the 3D tank drawing
   const width = 160;
@@ -62,11 +19,6 @@ const WaterTank = ({ percentage }: WaterTankProps) => {
   const ry = 16; // ellipse y-radius
   const bodyWidth = rx * 2; // ~96
   const waterLevelY = bodyBottomY - ((clamped / 100) * (bodyBottomY - bodyTopY));
-
-  const waveTranslateY = waveAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-2, 2]
-  });
 
   return (
     <View style={styles.container}>
@@ -148,7 +100,7 @@ const AnimatedSvgWave = ({ y, cx, rx, ry }: { y: number; cx: number; rx: number;
     ).start();
   }, [waveAnim]);
 
-  const translateY = waveAnim.interpolate({ inputRange: [0, 1], outputRange: [-2, 2] });
+  const translateY = waveAnim.interpolate({ inputRange: [0, 1], outputRange: [-0.5, 0.5] });
   const AnimatedRect = Animated.createAnimatedComponent(Rect);
   const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 

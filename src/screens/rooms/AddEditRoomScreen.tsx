@@ -11,11 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
 
-interface Room {
-  id: string;
-  name: string;
-}
-
 const AddEditRoomScreen = ({ route, navigation }) => {
   const { room } = route.params || {};
   const [roomName, setRoomName] = useState('');

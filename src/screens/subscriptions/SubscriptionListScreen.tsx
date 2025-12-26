@@ -27,16 +27,6 @@ const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) =
 
   useEffect(() => { load(); }, []);
 
-  const purchase = async (planId: string) => {
-    setPurchasing(planId);
-    try {
-      await subscriptionService.purchase(planId);
-      await load();
-    } finally {
-      setPurchasing(null);
-    }
-  };
-
   const renderPlan = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <View style={{ flex:1 }}>
@@ -46,9 +36,8 @@ const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) =
       <TouchableOpacity
         style={styles.buyBtn}
         onPress={() => navigation.navigate('SubscriptionCheckout', { plan: item })}
-        disabled={!!purchasing}
       >
-        <Text style={styles.buyTxt}>{purchasing === item.id ? 'Subscribing...' : 'Subscribe'}</Text>
+        <Text style={styles.buyTxt}>Subscribe</Text>
       </TouchableOpacity>
     </View>
   );

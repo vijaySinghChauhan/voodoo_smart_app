@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 import RazorpayCheckout from 'react-native-razorpay';
 import paymentService from '../../services/ecommerce/paymentService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
 
@@ -22,6 +21,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
     return `${plan.name} • ${plan.price} ${plan.currency}/${plan.interval}`;
   }, [plan]);
 
+  /*
   const handleConfirm = async () => {
     if (!plan) return;
     setIsProcessing(true);
@@ -35,6 +35,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
       setIsProcessing(false);
     }
   };
+  */
 
   const handleRazorpaySubscribe = async () => {
     if (!plan) return;
@@ -58,7 +59,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
       } as any;
 
       RazorpayCheckout.open(options)
-        .then(async (data: any) => {
+        .then(async (_data: any) => {
           try {
             await subscriptionService.purchase(plan.id);
             Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
@@ -105,7 +106,6 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
           {
             text: 'Confirm',
             onPress: async () => {
-              const storedTxn = await AsyncStorage.getItem('last_phonepe_txn_id');
               try {
                 await subscriptionService.purchase(plan.id);
                 Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });

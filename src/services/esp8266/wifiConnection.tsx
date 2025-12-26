@@ -3,7 +3,7 @@ import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import * as constantsV from '../../constants/constatantsV';
 
-const wifiConnection = () => {
+const WifiConnection = () => {
   const [ssid, setSsid] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
@@ -14,8 +14,8 @@ const wifiConnection = () => {
       await WifiManager.connectToProtectedSSID('voodootech_setup', 'voodootech123', false, false);
       
       // Send credentials to ESP
-      const response = await fetch(constantsV.BASE_URL + '/connect', {
-        method: 'POST',
+    await fetch(constantsV.BASE_URL + '/connect', {
+      method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -65,4 +65,4 @@ const styles = StyleSheet.create({
   status: { marginTop: 20, textAlign: 'center' }
 });
 
-export default wifiConnection;
+export default WifiConnection;

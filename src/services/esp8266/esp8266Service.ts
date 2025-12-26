@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message';
 import authService from '../auth/authService';
 import * as constantsV from '../../constants/constatantsV';
 import { mockDevices } from '../mock/mockData';
@@ -465,7 +464,6 @@ class ESP8266Service {
       });
       const data = response.data?.data;
       if (typeof data?.brightness === 'number' && isFinite(data.brightness)) {
-        const clamped = Math.max(0, Math.min(100, data.brightness));
         return data?.brightness;
       }
       return null;

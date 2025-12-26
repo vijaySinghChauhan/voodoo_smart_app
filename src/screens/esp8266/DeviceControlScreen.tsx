@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,7 +44,13 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState<number>(1000);
+  const targetValueRef = useRef<number>(1000);
   const [targetInput, setTargetInput] = useState<string>("");
+
+  useEffect(() => {
+    targetValueRef.current = targetValue;
+  }, [targetValue]);
+
 
   const [waterLevel, setWaterLevel] = useState(0); // Example water level in pixels
   const [brightness, setBrightness] = useState<number | undefined>(0);
@@ -93,13 +99,24 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [noFlowAutoOffEnabled, setNoFlowAutoOffEnabled] = useState<boolean>(false);
   const [noFlowDelaySec, setNoFlowDelaySec] = useState<number>(40);
   const [showNoFlowDelayMenu, setShowNoFlowDelayMenu] = useState<boolean>(false);
+
+  // Supply Water Timer State
+  const [supplyWaterTimerEnabled, setSupplyWaterTimerEnabled] = useState<boolean>(false);
+  const [supplyWaterFrequency, setSupplyWaterFrequency] = useState<'once' | 'everyday'>('everyday');
+  const [morningScheduleEnabled, setMorningScheduleEnabled] = useState<boolean>(true);
+  const [morningStartTime, setMorningStartTime] = useState<string>('07:00');
+  const [morningEndTime, setMorningEndTime] = useState<string>('08:00');
+  const [eveningScheduleEnabled, setEveningScheduleEnabled] = useState<boolean>(true);
+  const [eveningStartTime, setEveningStartTime] = useState<string>('18:00');
+  const [eveningEndTime, setEveningEndTime] = useState<string>('19:00');
+  const [lastTimerCheck, setLastTimerCheck] = useState<number>(0);
+
   // Gate automation until rules are loaded to avoid unintended toggles
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
   // Ensure UI shows power OFF by default on first load
-  const hasMappedInitialPowerRef = React.useRef<boolean>(false);
   // Full tank alert state
   const prevWaterLevelRef = React.useRef<number>(0);
   const lastFullAlertAtRef = React.useRef<number>(0);
@@ -162,10 +179,25 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   if (!Number.isFinite(rawBrightness)) {
     return 0;
   }
-  const val = Math.max(0, rawBrightness);
+  // Offset correction: user indicates that when sensor reads 25, the actual distance is 10.
+  // This implies an offset of 15 (25 - 10 = 15).
+  // Corrected Distance = Sensor Reading - 15.
+  const SENSOR_OFFSET = 15;
+  const correctedDistance = Math.max(0, rawBrightness - SENSOR_OFFSET);
+  
   const t = Number.isFinite(target) && target > 0 ? target : 100;
-  const filled = Math.min(100, Math.max(0, (val / t) * 100));
-  return 100-Math.round(filled);
+  
+  // Percentage = ((Target - CorrectedDistance) / Target) * 100
+  // Note: if CorrectedDistance > Target (empty), result is near 0%.
+  // If CorrectedDistance is 0 (full), result is 100%.
+  
+  // Calculate percentage of EMPTY space
+  const emptyPercent = (correctedDistance / t) * 100;
+  
+  // Fill percent is 100 - emptyPercent
+  const filled = 100 - emptyPercent;
+  
+  return Math.max(0, Math.min(100, Math.round(filled)));
 };
 
   
@@ -325,12 +357,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           }
          
           if (typeof raw === 'number' && isFinite(raw)) {
-            setBrightness(raw);
-           // const smoothed = smoothValue(raw);
+            const smoothed = smoothValue(raw);
+            setBrightness(smoothed);
             // Treat helper as "filled" computation (100 - normalized)
-            const filled = brightnessToPercent(raw, Number(targetInput));
+            const filled = brightnessToPercent(smoothed, targetValueRef.current);
             setWaterLevel(filled);
-            //Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
+            Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
             setLastBrightness(raw);
             setLastBrightnessAt(Date.now());
           }
@@ -404,9 +436,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
               else if (typeof payload === 'number') raw = payload;
               if (typeof raw === 'number' && isFinite(raw)) {
-                setBrightness(raw);
                 const smoothed = smoothValue(raw);
-                const filled = brightnessToPercent(raw, Number(targetInput));
+                setBrightness(smoothed);
+                const filled = brightnessToPercent(smoothed, targetValueRef.current);
                 setWaterLevel(filled);
               }
             });
@@ -465,9 +497,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
                   else if (typeof payload === 'number') raw = payload;
                   if (typeof raw === 'number' && isFinite(raw)) {
-                    setBrightness(raw);
                     const smoothed = smoothValue(raw);
-                    const filled = brightnessToPercent(raw, Number(targetInput));
+                    setBrightness(smoothed);
+                    const filled = brightnessToPercent(smoothed, targetValueRef.current);
                     setWaterLevel(filled);
                   }
                 });
@@ -523,9 +555,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
                       else if (typeof payload === 'number') raw = payload;
                       if (typeof raw === 'number' && isFinite(raw)) {
-                        setBrightness(raw);
                         const smoothed = smoothValue(raw);
-                        const filled = brightnessToPercent(raw, Number(targetInput));
+                        setBrightness(smoothed);
+                        const filled = brightnessToPercent(smoothed, targetValueRef.current);
                         setWaterLevel(filled);
                       }
                     });
@@ -581,9 +613,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
                           else if (typeof payload === 'number') raw = payload;
                           if (typeof raw === 'number' && isFinite(raw)) {
-                            setBrightness(raw);
                             const smoothed = smoothValue(raw);
-                            const filled = brightnessToPercent(raw, Number(targetInput));
+                            setBrightness(smoothed);
+                            const filled = brightnessToPercent(smoothed, targetValueRef.current);
                             setWaterLevel(filled);
                           }
                         });
@@ -698,6 +730,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setNoFlowAutoOffEnabled(!!r?.noFlow?.enabled);
           const nfDelay = Number(r?.noFlow?.delaySec);
           setNoFlowDelaySec(Number.isFinite(nfDelay) ? nfDelay : 40);
+          
+          // Supply Water Timer
+          setSupplyWaterTimerEnabled(!!r?.supplyWater?.enabled);
+          setSupplyWaterFrequency(r?.supplyWater?.frequency === 'once' ? 'once' : 'everyday');
+          setMorningScheduleEnabled(r?.supplyWater?.morningEnabled !== false); // Default true if undefined
+          setMorningStartTime(r?.supplyWater?.morningStart || '07:00');
+          setMorningEndTime(r?.supplyWater?.morningEnd || '08:00');
+          setEveningScheduleEnabled(r?.supplyWater?.eveningEnabled !== false); // Default true if undefined
+          setEveningStartTime(r?.supplyWater?.eveningStart || '18:00');
+          setEveningEndTime(r?.supplyWater?.eveningEnd || '19:00');
+
           // Mark rules as loaded to allow automation to evaluate
           setRulesLoaded(true);
         } else {
@@ -745,15 +788,27 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         on: { enabled: onEnabled, operator: onOperator, threshold: onThreshold },
         off: { enabled: offEnabled, operator: offOperator, threshold: offThreshold },
         noFlow: { enabled: noFlowAutoOffEnabled, delaySec: noFlowDelaySec },
+        supplyWater: {
+          enabled: supplyWaterTimerEnabled,
+          frequency: supplyWaterFrequency,
+          morningEnabled: morningScheduleEnabled,
+          morningStart: morningStartTime,
+          morningEnd: morningEndTime,
+          eveningEnabled: eveningScheduleEnabled,
+          eveningStart: eveningStartTime,
+          eveningEnd: eveningEndTime,
+        },
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
     } catch (e) {}
   };
 
-  // Recalculate water level when brightness or target changes
+  // Recalculate water level when target changes (or brightness updates via state)
+  // Note: Socket updates also set waterLevel directly using targetValueRef to ensure realtime accuracy without stale state.
   useEffect(() => {
     if (typeof brightness === 'number' && isFinite(brightness)) {
-      const filled = brightnessToPercent(brightness, Number(targetInput));
+      const t = Number(targetInput) > 0 ? Number(targetInput) : targetValueRef.current;
+      const filled = brightnessToPercent(brightness, t);
       setWaterLevel(filled);
     }
   }, [brightness, targetInput, showRemaining]);
@@ -848,6 +903,65 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     };
   }, [isPowerOn, noFlowAutoOffEnabled, noFlowDelaySec]);
 
+  // Supply Water Timer Logic
+  useEffect(() => {
+    if (!rulesLoaded || !supplyWaterTimerEnabled || !selectedDeviceId) return;
+
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      const mStart = parseTime(morningStartTime);
+      const mEnd = parseTime(morningEndTime);
+      const eStart = parseTime(eveningStartTime);
+      const eEnd = parseTime(eveningEndTime);
+
+      const inMorning = morningScheduleEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
+      const inEvening = eveningScheduleEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+
+      if (inMorning || inEvening) {
+        if (!isPowerOn) {
+           toggleDeviceField('device1', true);
+           setIsPowerOn(true);
+           Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water ON', position: 'bottom' });
+        }
+      } else {
+        // Turn OFF at the end of the window (allow 1 minute buffer)
+        if (isPowerOn) {
+             // Check if we just finished morning or evening slot
+             // Note: if schedule disabled mid-run, it might not turn off automatically if not careful, 
+             // but here we check if we are in the "OFF window" (just past end time) AND the schedule WAS enabled for that slot effectively
+             // Actually simplified: if NOT in window, we should be OFF? No, only if we just exited a window.
+             // But if user disables schedule while ON, should it turn OFF? Probably safer to only turn off at scheduled end times.
+             
+             const morningFinished = morningScheduleEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
+             const eveningFinished = eveningScheduleEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
+
+             if (morningFinished || eveningFinished) {
+                 toggleDeviceField('device1', false);
+                 setIsPowerOn(false);
+                 Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water OFF', position: 'bottom' });
+                 
+                 // Handle 'once' frequency
+                 if (supplyWaterFrequency === 'once') {
+                     // If we finished the evening slot, OR we finished morning slot and evening is disabled
+                     if (eveningFinished || (morningFinished && !eveningScheduleEnabled)) {
+                        setSupplyWaterTimerEnabled(false);
+                     }
+                 }
+             }
+        }
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(interval);
+  }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled]);
+
   // Alert when tank reaches 100%
   useEffect(() => {
     try {
@@ -895,6 +1009,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     try {
       let useDeviceId = preferredDeviceId || selectedDeviceId;
       let devDetail: any | null = null;
+      let effectiveTarget = targetValueRef.current;
       if (useDeviceId) {
         // fetch device info for name and ip
         const dev = await esp8266Service.getDeviceFromServer(useDeviceId);
@@ -917,14 +1032,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               if (typeof tNum === 'number' && isFinite(tNum) && tNum > 0) {
                 setTargetValue(tNum);
                 setTargetInput(String(tNum));
+                effectiveTarget = tNum;
               }
             }
             // Initialize brightness from API detail if available (fallback until socket updates arrive)
             const bRaw = devDetail?.brightness;
             const bNum = typeof bRaw === 'number' ? bRaw : (typeof bRaw === 'string' ? parseFloat(bRaw) : undefined);
             if (typeof bNum === 'number' && isFinite(bNum)) {
+              // Seed buffer with initial value
+              brightnessBufferRef.current = Array(SMOOTH_WINDOW).fill(bNum);
               setBrightness(bNum);
-              const filled = brightnessToPercent(bNum, Number(targetInput));
+              const filled = brightnessToPercent(bNum, effectiveTarget);
               setWaterLevel(filled);
             }
             setDevice2On(!!devDetail.device2);
@@ -1024,20 +1142,25 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
         if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
         if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-        // Initialize brightness from server state if present (fallback until socket updates arrive)
-        const sbRaw = serverState?.brightness;
-        const sbNum = typeof sbRaw === 'number' ? sbRaw : (typeof sbRaw === 'string' ? parseFloat(sbRaw) : undefined);
-        if (typeof sbNum === 'number' && isFinite(sbNum)) {
-          setBrightness(sbNum);
-          const filled = brightnessToPercent(sbNum, Number(targetInput));
-          setWaterLevel(filled);
-        }
+        
         // Initialize target from server state if available (overrides detail)
         const tRawSrv = serverState?.target ?? serverState?.targetDepth ?? serverState?.target_value;
         const tNumSrv = typeof tRawSrv === 'number' ? tRawSrv : (typeof tRawSrv === 'string' ? parseFloat(tRawSrv) : undefined);
         if (typeof tNumSrv === 'number' && isFinite(tNumSrv) && tNumSrv > 0) {
           setTargetValue(tNumSrv);
           setTargetInput(String(tNumSrv));
+          effectiveTarget = tNumSrv;
+        }
+
+        // Initialize brightness from server state if present (fallback until socket updates arrive)
+        const sbRaw = serverState?.brightness;
+        const sbNum = typeof sbRaw === 'number' ? sbRaw : (typeof sbRaw === 'string' ? parseFloat(sbRaw) : undefined);
+        if (typeof sbNum === 'number' && isFinite(sbNum)) {
+          // Seed buffer with initial value
+          brightnessBufferRef.current = Array(SMOOTH_WINDOW).fill(sbNum);
+          setBrightness(sbNum);
+          const filled = brightnessToPercent(sbNum, effectiveTarget);
+          setWaterLevel(filled);
         }
       }
     } catch (error) {
@@ -1241,9 +1364,28 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <Text style={{ color: '#333', fontWeight: '600' }}>Tank Filled %</Text>
         </View>
         <WaterTank percentage={waterLevel ?? 0} />
-        <View style={{ marginTop: 10 }}>
+        <TouchableOpacity
+          style={{ marginTop: 10 }}
+          onLongPress={() => {
+            setShowDebugPanel(!showDebugPanel);
+            Vibration.vibrate(50);
+            Toast.show({ type: 'info', text1: 'Debug Mode', text2: !showDebugPanel ? 'Enabled' : 'Disabled', position: 'bottom' });
+          }}
+        >
           <Text style={{ color: '#666' }}>Exact Data: {brightness ?? '—'}</Text>
-        </View>
+        </TouchableOpacity>
+
+        {showDebugPanel && (
+          <View style={{ marginTop: 10, padding: 10, backgroundColor: '#333', borderRadius: 8 }}>
+            <Text style={{ fontWeight: 'bold', marginBottom: 5, color: '#fff' }}>Socket Diagnostics</Text>
+            <Text style={{ fontSize: 12, color: '#ddd' }}>Status: {socketConnected ? 'Connected' : 'Disconnected'}</Text>
+            <Text style={{ fontSize: 12, color: '#ddd' }}>Host: {activeSocketHost || 'None'}</Text>
+            <Text style={{ fontSize: 12, marginTop: 5, color: '#ddd' }}>Last Brightness: {lastBrightness ?? 'None'}</Text>
+            <Text style={{ fontSize: 12, color: '#ddd' }}>Received At: {lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : 'Never'}</Text>
+            <Text style={{ fontSize: 12, marginTop: 5, color: '#ddd' }}>Last Flow: {lastFlowRate ?? 'None'}</Text>
+            <Text style={{ fontSize: 12, color: '#ddd' }}>Received At: {lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : 'Never'}</Text>
+          </View>
+        )}
         <View style={styles.controlSection}>
           <Text style={styles.sectionTitle}>Power Control</Text>
           <View style={styles.powerControl}>
@@ -1324,7 +1466,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               )}
               {showOnPercentMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => (
+                  {[ 70, 80, 90, 100].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => {
@@ -1392,7 +1534,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               )}
               {showOffPercentMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => (
+                  {[10, 20, 30, 40].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => {
@@ -1464,6 +1606,111 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           </View>
         </View>
      
+        <View style={[styles.controlSection, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>Supply Water</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+             <Text style={styles.powerLabel}>Enable Timer</Text>
+             <Switch
+               value={supplyWaterTimerEnabled}
+               onValueChange={(v) => { setSupplyWaterTimerEnabled(v); persistRules(); }}
+               trackColor={{ false: '#767577', true: '#4CAF50' }}
+               thumbColor={supplyWaterTimerEnabled ? '#fff' : '#f4f3f4'}
+             />
+          </View>
+
+          {supplyWaterTimerEnabled && (
+             <View>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.infoLabel}>Frequency</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
+                    <TouchableOpacity
+                      onPress={() => { setSupplyWaterFrequency('everyday'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: supplyWaterFrequency === 'everyday' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: supplyWaterFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setSupplyWaterFrequency('once'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: supplyWaterFrequency === 'once' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: supplyWaterFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Morning Schedule</Text>
+                      <Switch
+                        value={morningScheduleEnabled}
+                        onValueChange={(v) => { setMorningScheduleEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={morningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {morningScheduleEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={morningStartTime}
+                         onChangeText={setMorningStartTime}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={morningEndTime}
+                         onChangeText={setMorningEndTime}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+
+                <View style={{ marginBottom: 8 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Evening Schedule</Text>
+                      <Switch
+                        value={eveningScheduleEnabled}
+                        onValueChange={(v) => { setEveningScheduleEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={eveningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {eveningScheduleEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={eveningStartTime}
+                         onChangeText={setEveningStartTime}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={eveningEndTime}
+                         onChangeText={setEveningEndTime}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+             </View>
+          )}
+        </View>
+
         <View style={[styles.controlSection, { marginTop: 10 }] }>
           <Text style={styles.sectionTitle}>GPIO Controls</Text>
           <View style={styles.powerControl}>

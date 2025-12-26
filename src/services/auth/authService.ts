@@ -1,6 +1,5 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
 import * as constantsV from '../../constants/constatantsV';
 import configService from '../config/configService';
 import { mockUser } from '../mock/mockData';

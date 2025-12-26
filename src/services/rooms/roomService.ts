@@ -20,7 +20,7 @@ interface Room {
 class RoomService {
   storageKey: any;
   createRoom(room: String) {
-  
+    console.log("Room created", room);
   }
   // private baseUrl: string = 'http://localhost:3001/api/rooms';
   private baseUrl: string = constantsV.BASE_URL+'/rooms';
