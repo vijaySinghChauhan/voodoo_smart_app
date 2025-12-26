@@ -143,7 +143,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
 
   // Gate automation until rules are loaded to avoid unintended toggles
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
-  const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const noFlowTimerRef = React.useRef<any>(null);
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
   // Ensure UI shows power OFF by default on first load
@@ -233,7 +233,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   
   // Track whether we've received brightness via socket; used for failover
   const brightnessReceivedRef = React.useRef<boolean>(false);
-  const fallbackTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const fallbackTimerRef = React.useRef<any>(null);
   const fallbackPathRetriedRef = React.useRef<boolean>(false);
   const fallbackNoAuthRetriedRef = React.useRef<boolean>(false);
   const fallbackHttpRetriedRef = React.useRef<boolean>(false);
@@ -258,7 +258,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     (async () => {
       try {
         const token = (await authService.getToken()) || '';
-        const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (process.env.NODE_ENV !== 'production'));
+        const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : false);
         const transportList = Platform.OS === 'android' ? ['polling'] : (isDev ? ['polling'] : ['websocket', 'polling']);
         const socketPath = '/voodoo/socket.io';
         brightnessReceivedRef.current = false;
@@ -306,8 +306,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setSocketConnected(false);
           // If custom path fails, retry once with default Socket.IO path on primary host
           try {
-            if (!(global as any).__primaryPathRetried) {
-              (global as any).__primaryPathRetried = true;
+            if (!(globalThis as any).__primaryPathRetried) {
+              (globalThis as any).__primaryPathRetried = true;
               try { socket.disconnect(); } catch {}
               const tokenRetry = (async () => (await authService.getToken()) || '')();
               Promise.resolve(tokenRetry).then((tkn) => {
@@ -1300,6 +1300,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 effectiveTarget = tNum;
               }
             }
+            // Parse sub-device subscriptions
             // Initialize brightness from API detail if available (fallback until socket updates arrive)
             const bRaw = devDetail?.brightness;
             const bNum = typeof bRaw === 'number' ? bRaw : (typeof bRaw === 'string' ? parseFloat(bRaw) : undefined);
@@ -1610,6 +1611,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   };
 
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -1686,6 +1688,59 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               </Text>
             </TouchableOpacity>
           ) : null}
+
+           <View style={{ marginTop: 12 }}>
+            <Text style={styles.sectionTitle}>Flow Data </Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Flow Rate</Text>
+              <Text style={styles.infoValue}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '—'}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Total Liters</Text>
+              <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
+            </View>
+            {/* No Flow Auto-OFF Rule */}
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.powerLabel}>Auto OFF when flow is 0</Text>
+                {canControl ? (
+                  <Switch
+                    value={noFlowAutoOffEnabled}
+                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
+                  />
+                ) : null}
+              </View>
+              <Text style={styles.infoLabel}>Delay before switching OFF</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setShowNoFlowDelayMenu((s) => !s)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1 }}
+                >
+                  <Text style={{ color: '#333' }}>{noFlowDelaySec}s</Text>
+                </TouchableOpacity>
+              </View>
+              {showNoFlowDelayMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                  {[10, 20, 30, 40, 60, 120].map((sec) => (
+                    <TouchableOpacity
+                      key={sec}
+                      onPress={() => {
+                        setNoFlowDelaySec(sec);
+                        setShowNoFlowDelayMenu(false);
+                        persistRules();
+                      }}
+                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#333' }}>{sec}s</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+        
+          </View>
           {/* Automation rules UI: Turn ON and Turn OFF */}
           <View style={{ marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Automation Rules: Motor</Text>
@@ -1826,58 +1881,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
             <Text style={{ marginTop: 8, color: '#666' }}>Current level: {waterLevel}%</Text>
           </View>
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Flow Data </Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Flow Rate</Text>
-              <Text style={styles.infoValue}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '—'}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Total Liters</Text>
-              <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
-            </View>
-            {/* No Flow Auto-OFF Rule */}
-            <View style={{ marginTop: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={styles.powerLabel}>Auto OFF when flow is 0</Text>
-                {canControl ? (
-                  <Switch
-                    value={noFlowAutoOffEnabled}
-                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
-                  />
-                ) : null}
-              </View>
-              <Text style={styles.infoLabel}>Delay before switching OFF</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity
-                  onPress={() => setShowNoFlowDelayMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1 }}
-                >
-                  <Text style={{ color: '#333' }}>{noFlowDelaySec}s</Text>
-                </TouchableOpacity>
-              </View>
-              {showNoFlowDelayMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[10, 20, 30, 40, 60, 120].map((sec) => (
-                    <TouchableOpacity
-                      key={sec}
-                      onPress={() => {
-                        setNoFlowDelaySec(sec);
-                        setShowNoFlowDelayMenu(false);
-                        persistRules();
-                      }}
-                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
-                    >
-                      <Text style={{ color: '#333' }}>{sec}s</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-        
-          </View>
+         
         </View>
      
         <View style={[styles.controlSection, { marginTop: 10 }]}>
@@ -2041,7 +2045,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
        
          
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
+          <Text style={styles.powerLabel}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
             {canControl ? (
               <Switch
                 value={device4On}
@@ -2676,6 +2680,41 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#455a64',
+  },
+  subscriptionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  subscriptionContent: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  subscriptionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  subscriptionDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  overlaySubscribeButton: {
+    backgroundColor: '#4a90e2',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  overlaySubscribeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 export default DeviceControlScreen;

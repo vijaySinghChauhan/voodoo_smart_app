@@ -656,8 +656,22 @@ class ESP8266Service {
       }
       return false;
     }
-    // Online implementation (stub)
-    return true;
+    
+    // Online implementation
+    try {
+      const token = await authService.getToken();
+      const response = await axios.post(`${this.apiBaseUrl}/devices/${deviceId}/subscribe-subdevice`, {
+        subDeviceKey,
+        planId
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Failed to subscribe to sub-device:', error);
+      return false;
+    }
   }
 
   // Share device with another user
