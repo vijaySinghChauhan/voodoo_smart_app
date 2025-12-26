@@ -111,6 +111,36 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [eveningEndTime, setEveningEndTime] = useState<string>('19:00');
   const [lastTimerCheck, setLastTimerCheck] = useState<number>(0);
 
+  // Watering Plants Timer State
+  const [wateringPlantsTimerEnabled, setWateringPlantsTimerEnabled] = useState<boolean>(false);
+  const [wateringPlantsFrequency, setWateringPlantsFrequency] = useState<'once' | 'everyday'>('everyday');
+  const [wateringPlantsMorningEnabled, setWateringPlantsMorningEnabled] = useState<boolean>(true);
+  const [wateringPlantsMorningStart, setWateringPlantsMorningStart] = useState<string>('07:00');
+  const [wateringPlantsMorningEnd, setWateringPlantsMorningEnd] = useState<string>('08:00');
+  const [wateringPlantsEveningEnabled, setWateringPlantsEveningEnabled] = useState<boolean>(true);
+  const [wateringPlantsEveningStart, setWateringPlantsEveningStart] = useState<string>('18:00');
+  const [wateringPlantsEveningEnd, setWateringPlantsEveningEnd] = useState<string>('19:00');
+
+  // Dog Feed Timer State
+  const [dogFeedTimerEnabled, setDogFeedTimerEnabled] = useState<boolean>(false);
+  const [dogFeedFrequency, setDogFeedFrequency] = useState<'once' | 'everyday'>('everyday');
+  const [dogFeedMorningEnabled, setDogFeedMorningEnabled] = useState<boolean>(true);
+  const [dogFeedMorningStart, setDogFeedMorningStart] = useState<string>('07:00');
+  const [dogFeedMorningEnd, setDogFeedMorningEnd] = useState<string>('08:00');
+  const [dogFeedEveningEnabled, setDogFeedEveningEnabled] = useState<boolean>(true);
+  const [dogFeedEveningStart, setDogFeedEveningStart] = useState<string>('18:00');
+  const [dogFeedEveningEnd, setDogFeedEveningEnd] = useState<string>('19:00');
+
+  // AC Control Timer State
+  const [acControlTimerEnabled, setAcControlTimerEnabled] = useState<boolean>(false);
+  const [acControlFrequency, setAcControlFrequency] = useState<'once' | 'everyday'>('everyday');
+  const [acControlMorningEnabled, setAcControlMorningEnabled] = useState<boolean>(true);
+  const [acControlMorningStart, setAcControlMorningStart] = useState<string>('07:00');
+  const [acControlMorningEnd, setAcControlMorningEnd] = useState<string>('08:00');
+  const [acControlEveningEnabled, setAcControlEveningEnabled] = useState<boolean>(true);
+  const [acControlEveningStart, setAcControlEveningStart] = useState<string>('18:00');
+  const [acControlEveningEnd, setAcControlEveningEnd] = useState<string>('19:00');
+
   // Gate automation until rules are loaded to avoid unintended toggles
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -741,6 +771,36 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setEveningStartTime(r?.supplyWater?.eveningStart || '18:00');
           setEveningEndTime(r?.supplyWater?.eveningEnd || '19:00');
 
+          // Watering Plants Timer
+          setWateringPlantsTimerEnabled(!!r?.wateringPlants?.enabled);
+          setWateringPlantsFrequency(r?.wateringPlants?.frequency === 'once' ? 'once' : 'everyday');
+          setWateringPlantsMorningEnabled(r?.wateringPlants?.morningEnabled !== false);
+          setWateringPlantsMorningStart(r?.wateringPlants?.morningStart || '07:00');
+          setWateringPlantsMorningEnd(r?.wateringPlants?.morningEnd || '08:00');
+          setWateringPlantsEveningEnabled(r?.wateringPlants?.eveningEnabled !== false);
+          setWateringPlantsEveningStart(r?.wateringPlants?.eveningStart || '18:00');
+          setWateringPlantsEveningEnd(r?.wateringPlants?.eveningEnd || '19:00');
+
+          // Dog Feed Timer
+          setDogFeedTimerEnabled(!!r?.dogFeed?.enabled);
+          setDogFeedFrequency(r?.dogFeed?.frequency === 'once' ? 'once' : 'everyday');
+          setDogFeedMorningEnabled(r?.dogFeed?.morningEnabled !== false);
+          setDogFeedMorningStart(r?.dogFeed?.morningStart || '07:00');
+          setDogFeedMorningEnd(r?.dogFeed?.morningEnd || '08:00');
+          setDogFeedEveningEnabled(r?.dogFeed?.eveningEnabled !== false);
+          setDogFeedEveningStart(r?.dogFeed?.eveningStart || '18:00');
+          setDogFeedEveningEnd(r?.dogFeed?.eveningEnd || '19:00');
+
+          // AC Control Timer
+          setAcControlTimerEnabled(!!r?.acControl?.enabled);
+          setAcControlFrequency(r?.acControl?.frequency === 'once' ? 'once' : 'everyday');
+          setAcControlMorningEnabled(r?.acControl?.morningEnabled !== false);
+          setAcControlMorningStart(r?.acControl?.morningStart || '07:00');
+          setAcControlMorningEnd(r?.acControl?.morningEnd || '08:00');
+          setAcControlEveningEnabled(r?.acControl?.eveningEnabled !== false);
+          setAcControlEveningStart(r?.acControl?.eveningStart || '18:00');
+          setAcControlEveningEnd(r?.acControl?.eveningEnd || '19:00');
+
           // Mark rules as loaded to allow automation to evaluate
           setRulesLoaded(true);
         } else {
@@ -797,6 +857,36 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           eveningEnabled: eveningScheduleEnabled,
           eveningStart: eveningStartTime,
           eveningEnd: eveningEndTime,
+        },
+        wateringPlants: {
+          enabled: wateringPlantsTimerEnabled,
+          frequency: wateringPlantsFrequency,
+          morningEnabled: wateringPlantsMorningEnabled,
+          morningStart: wateringPlantsMorningStart,
+          morningEnd: wateringPlantsMorningEnd,
+          eveningEnabled: wateringPlantsEveningEnabled,
+          eveningStart: wateringPlantsEveningStart,
+          eveningEnd: wateringPlantsEveningEnd,
+        },
+        dogFeed: {
+          enabled: dogFeedTimerEnabled,
+          frequency: dogFeedFrequency,
+          morningEnabled: dogFeedMorningEnabled,
+          morningStart: dogFeedMorningStart,
+          morningEnd: dogFeedMorningEnd,
+          eveningEnabled: dogFeedEveningEnabled,
+          eveningStart: dogFeedEveningStart,
+          eveningEnd: dogFeedEveningEnd,
+        },
+        acControl: {
+          enabled: acControlTimerEnabled,
+          frequency: acControlFrequency,
+          morningEnabled: acControlMorningEnabled,
+          morningStart: acControlMorningStart,
+          morningEnd: acControlMorningEnd,
+          eveningEnabled: acControlEveningEnabled,
+          eveningStart: acControlEveningStart,
+          eveningEnd: acControlEveningEnd,
         },
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
@@ -961,6 +1051,161 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
     return () => clearInterval(interval);
   }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled]);
+
+  // Watering Plants Timer Logic
+  useEffect(() => {
+    if (!rulesLoaded || !wateringPlantsTimerEnabled || !selectedDeviceId) return;
+
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      const mStart = parseTime(wateringPlantsMorningStart);
+      const mEnd = parseTime(wateringPlantsMorningEnd);
+      const eStart = parseTime(wateringPlantsEveningStart);
+      const eEnd = parseTime(wateringPlantsEveningEnd);
+
+      const inMorning = wateringPlantsMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
+      const inEvening = wateringPlantsEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+
+      if (inMorning || inEvening) {
+        if (!device3On) {
+           toggleDeviceField('device3', true);
+           setDevice3On(true);
+           Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants ON', position: 'bottom' });
+        }
+      } else {
+        // Turn OFF at the end of the window (allow 1 minute buffer)
+        if (device3On) {
+             const morningFinished = wateringPlantsMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
+             const eveningFinished = wateringPlantsEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
+
+             if (morningFinished || eveningFinished) {
+                 toggleDeviceField('device3', false);
+                 setDevice3On(false);
+                 Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants OFF', position: 'bottom' });
+                 
+                 // Handle 'once' frequency
+                 if (wateringPlantsFrequency === 'once') {
+                     // If we finished the evening slot, OR we finished morning slot and evening is disabled
+                     if (eveningFinished || (morningFinished && !wateringPlantsEveningEnabled)) {
+                        setWateringPlantsTimerEnabled(false);
+                     }
+                 }
+             }
+        }
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(interval);
+  }, [rulesLoaded, wateringPlantsTimerEnabled, selectedDeviceId, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningStart, wateringPlantsEveningEnd, device3On, wateringPlantsFrequency, wateringPlantsMorningEnabled, wateringPlantsEveningEnabled]);
+
+  // Dog Feed Timer Logic
+  useEffect(() => {
+    if (!rulesLoaded || !dogFeedTimerEnabled || !selectedDeviceId) return;
+
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      const mStart = parseTime(dogFeedMorningStart);
+      const mEnd = parseTime(dogFeedMorningEnd);
+      const eStart = parseTime(dogFeedEveningStart);
+      const eEnd = parseTime(dogFeedEveningEnd);
+
+      const inMorning = dogFeedMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
+      const inEvening = dogFeedEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+
+      // Note: device4 is Dog Feed
+      if (inMorning || inEvening) {
+        if (!device4On) {
+           toggleDeviceField('device4', true);
+           setDevice4On(true);
+           Toast.show({ type: 'success', text1: 'Timer', text2: 'Dog Feed ON', position: 'bottom' });
+        }
+      } else {
+        if (device4On) {
+             const morningFinished = dogFeedMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
+             const eveningFinished = dogFeedEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
+
+             if (morningFinished || eveningFinished) {
+                 toggleDeviceField('device4', false);
+                 setDevice4On(false);
+                 Toast.show({ type: 'success', text1: 'Timer', text2: 'Dog Feed OFF', position: 'bottom' });
+                 
+                 if (dogFeedFrequency === 'once') {
+                     if (eveningFinished || (morningFinished && !dogFeedEveningEnabled)) {
+                        setDogFeedTimerEnabled(false);
+                     }
+                 }
+             }
+        }
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(interval);
+  }, [rulesLoaded, dogFeedTimerEnabled, selectedDeviceId, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningStart, dogFeedEveningEnd, device4On, dogFeedFrequency, dogFeedMorningEnabled, dogFeedEveningEnabled]);
+
+  // AC Control Timer Logic
+  useEffect(() => {
+    if (!rulesLoaded || !acControlTimerEnabled || !selectedDeviceId) return;
+
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      const mStart = parseTime(acControlMorningStart);
+      const mEnd = parseTime(acControlMorningEnd);
+      const eStart = parseTime(acControlEveningStart);
+      const eEnd = parseTime(acControlEveningEnd);
+
+      const inMorning = acControlMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
+      const inEvening = acControlEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+
+      // Note: device5 is AC Control
+      if (inMorning || inEvening) {
+        if (!device5On) {
+           toggleDeviceField('device5', true);
+           setDevice5On(true);
+           Toast.show({ type: 'success', text1: 'Timer', text2: 'AC Control ON', position: 'bottom' });
+        }
+      } else {
+        if (device5On) {
+             const morningFinished = acControlMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
+             const eveningFinished = acControlEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
+
+             if (morningFinished || eveningFinished) {
+                 toggleDeviceField('device5', false);
+                 setDevice5On(false);
+                 Toast.show({ type: 'success', text1: 'Timer', text2: 'AC Control OFF', position: 'bottom' });
+                 
+                 if (acControlFrequency === 'once') {
+                     if (eveningFinished || (morningFinished && !acControlEveningEnabled)) {
+                        setAcControlTimerEnabled(false);
+                     }
+                 }
+             }
+        }
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(interval);
+  }, [rulesLoaded, acControlTimerEnabled, selectedDeviceId, acControlMorningStart, acControlMorningEnd, acControlEveningStart, acControlEveningEnd, device5On, acControlFrequency, acControlMorningEnabled, acControlEveningEnabled]);
 
   // Alert when tank reaches 100%
   useEffect(() => {
@@ -1808,6 +2053,321 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               </Text>
             </TouchableOpacity>
           ) : null}
+        </View>
+
+        <View style={[styles.controlSection, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>Watering Plants Timer</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+             <Text style={styles.powerLabel}>Enable Timer</Text>
+             <Switch
+               value={wateringPlantsTimerEnabled}
+               onValueChange={(v) => { setWateringPlantsTimerEnabled(v); persistRules(); }}
+               trackColor={{ false: '#767577', true: '#4CAF50' }}
+               thumbColor={wateringPlantsTimerEnabled ? '#fff' : '#f4f3f4'}
+             />
+          </View>
+
+          {wateringPlantsTimerEnabled && (
+             <View>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.infoLabel}>Frequency</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
+                    <TouchableOpacity
+                      onPress={() => { setWateringPlantsFrequency('everyday'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setWateringPlantsFrequency('once'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: wateringPlantsFrequency === 'once' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: wateringPlantsFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Morning Schedule</Text>
+                      <Switch
+                        value={wateringPlantsMorningEnabled}
+                        onValueChange={(v) => { setWateringPlantsMorningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={wateringPlantsMorningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {wateringPlantsMorningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={wateringPlantsMorningStart}
+                         onChangeText={setWateringPlantsMorningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={wateringPlantsMorningEnd}
+                         onChangeText={setWateringPlantsMorningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+
+                <View style={{ marginBottom: 8 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Evening Schedule</Text>
+                      <Switch
+                        value={wateringPlantsEveningEnabled}
+                        onValueChange={(v) => { setWateringPlantsEveningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={wateringPlantsEveningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {wateringPlantsEveningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={wateringPlantsEveningStart}
+                         onChangeText={setWateringPlantsEveningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={wateringPlantsEveningEnd}
+                         onChangeText={setWateringPlantsEveningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+             </View>
+          )}
+        </View>
+
+        <View style={[styles.controlSection, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>Dog Feed Timer</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+             <Text style={styles.powerLabel}>Enable Timer</Text>
+             <Switch
+               value={dogFeedTimerEnabled}
+               onValueChange={(v) => { setDogFeedTimerEnabled(v); persistRules(); }}
+               trackColor={{ false: '#767577', true: '#4CAF50' }}
+               thumbColor={dogFeedTimerEnabled ? '#fff' : '#f4f3f4'}
+             />
+          </View>
+
+          {dogFeedTimerEnabled && (
+             <View>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.infoLabel}>Frequency</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
+                    <TouchableOpacity
+                      onPress={() => { setDogFeedFrequency('everyday'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: dogFeedFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: dogFeedFrequency === 'everyday' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: dogFeedFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setDogFeedFrequency('once'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: dogFeedFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: dogFeedFrequency === 'once' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: dogFeedFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Morning Schedule</Text>
+                      <Switch
+                        value={dogFeedMorningEnabled}
+                        onValueChange={(v) => { setDogFeedMorningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={dogFeedMorningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {dogFeedMorningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={dogFeedMorningStart}
+                         onChangeText={setDogFeedMorningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={dogFeedMorningEnd}
+                         onChangeText={setDogFeedMorningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+
+                <View style={{ marginBottom: 8 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Evening Schedule</Text>
+                      <Switch
+                        value={dogFeedEveningEnabled}
+                        onValueChange={(v) => { setDogFeedEveningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={dogFeedEveningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {dogFeedEveningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={dogFeedEveningStart}
+                         onChangeText={setDogFeedEveningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={dogFeedEveningEnd}
+                         onChangeText={setDogFeedEveningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+             </View>
+          )}
+        </View>
+
+        <View style={[styles.controlSection, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>AC Control Timer</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+             <Text style={styles.powerLabel}>Enable Timer</Text>
+             <Switch
+               value={acControlTimerEnabled}
+               onValueChange={(v) => { setAcControlTimerEnabled(v); persistRules(); }}
+               trackColor={{ false: '#767577', true: '#4CAF50' }}
+               thumbColor={acControlTimerEnabled ? '#fff' : '#f4f3f4'}
+             />
+          </View>
+
+          {acControlTimerEnabled && (
+             <View>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.infoLabel}>Frequency</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
+                    <TouchableOpacity
+                      onPress={() => { setAcControlFrequency('everyday'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: acControlFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: acControlFrequency === 'everyday' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: acControlFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setAcControlFrequency('once'); persistRules(); }}
+                      style={{ padding: 8, backgroundColor: acControlFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: acControlFrequency === 'once' ? '#00796b' : '#ddd' }}
+                    >
+                       <Text style={{ color: acControlFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Morning Schedule</Text>
+                      <Switch
+                        value={acControlMorningEnabled}
+                        onValueChange={(v) => { setAcControlMorningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={acControlMorningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {acControlMorningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={acControlMorningStart}
+                         onChangeText={setAcControlMorningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={acControlMorningEnd}
+                         onChangeText={setAcControlMorningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+
+                <View style={{ marginBottom: 8 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={styles.infoLabel}>Evening Schedule</Text>
+                      <Switch
+                        value={acControlEveningEnabled}
+                        onValueChange={(v) => { setAcControlEveningEnabled(v); persistRules(); }}
+                        trackColor={{ false: '#767577', true: '#4CAF50' }}
+                        thumbColor={acControlEveningEnabled ? '#fff' : '#f4f3f4'}
+                      />
+                   </View>
+                   {acControlEveningEnabled && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                         value={acControlEveningStart}
+                         onChangeText={setAcControlEveningStart}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                      <Text style={{ color: '#666' }}>to</Text>
+                      <TextInput
+                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                         value={acControlEveningEnd}
+                         onChangeText={setAcControlEveningEnd}
+                         onEndEditing={persistRules}
+                         placeholder="HH:MM"
+                         placeholderTextColor="#999"
+                         maxLength={5}
+                      />
+                   </View>
+                   )}
+                </View>
+             </View>
+          )}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 20 }]}>
