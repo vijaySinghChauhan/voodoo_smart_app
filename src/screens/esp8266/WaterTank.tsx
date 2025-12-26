@@ -158,7 +158,6 @@ const WaterTank = ({ percentage, flowRate }: WaterTankProps) => {
          ) : null}
 
       </Svg>
-      <Text style={styles.percentageText}>{clamped}%</Text>
     </View>
   );
 };
@@ -258,14 +257,9 @@ const AnimatedSvgWave = ({ y, cx, rx, ry, bodyTopY, bodyBottomY }: { y: number; 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: 4,
   },
-  percentageText: {
-    marginTop: 0,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#455a64',
-  },
+
 });
 
 export default WaterTank;

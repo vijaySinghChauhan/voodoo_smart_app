@@ -718,7 +718,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     if(device2On)
       setTimeout(() => {
         setDevice2On(false);
-      }, 3500);
+      }, 2500);
   })
 
   // Re-subscribe brightness updates when IP becomes available or changes
@@ -739,6 +739,64 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   }, [selectedDeviceIp, selectedDeviceId, socketRef]);
 
+  const applyRules = (r: any) => {
+    if (!r) return;
+    setOnEnabled(!!r?.on?.enabled);
+    setOnOperator(r?.on?.operator === 'ge' ? 'ge' : 'lt');
+    const onThr = Number(r?.on?.threshold);
+    setOnThreshold(Number.isFinite(onThr) ? onThr : 50);
+    setOffEnabled(!!r?.off?.enabled);
+    setOffOperator(r?.off?.operator === 'lt' ? 'lt' : 'ge');
+    const offThr = Number(r?.off?.threshold);
+    setOffThreshold(Number.isFinite(offThr) ? offThr : 80);
+    // No-flow rule
+    setNoFlowAutoOffEnabled(!!r?.noFlow?.enabled);
+    const nfDelay = Number(r?.noFlow?.delaySec);
+    setNoFlowDelaySec(Number.isFinite(nfDelay) ? nfDelay : 40);
+    
+    // Supply Water Timer
+    setSupplyWaterTimerEnabled(!!r?.supplyWater?.enabled);
+    setSupplyWaterFrequency(r?.supplyWater?.frequency === 'once' ? 'once' : 'everyday');
+    setMorningScheduleEnabled(r?.supplyWater?.morningEnabled !== false);
+    setMorningStartTime(r?.supplyWater?.morningStart || '07:00');
+    setMorningEndTime(r?.supplyWater?.morningEnd || '08:00');
+    setEveningScheduleEnabled(r?.supplyWater?.eveningEnabled !== false);
+    setEveningStartTime(r?.supplyWater?.eveningStart || '18:00');
+    setEveningEndTime(r?.supplyWater?.eveningEnd || '19:00');
+
+    // Watering Plants Timer
+    setWateringPlantsTimerEnabled(!!r?.wateringPlants?.enabled);
+    setWateringPlantsFrequency(r?.wateringPlants?.frequency === 'once' ? 'once' : 'everyday');
+    setWateringPlantsMorningEnabled(r?.wateringPlants?.morningEnabled !== false);
+    setWateringPlantsMorningStart(r?.wateringPlants?.morningStart || '07:00');
+    setWateringPlantsMorningEnd(r?.wateringPlants?.morningEnd || '08:00');
+    setWateringPlantsEveningEnabled(r?.wateringPlants?.eveningEnabled !== false);
+    setWateringPlantsEveningStart(r?.wateringPlants?.eveningStart || '18:00');
+    setWateringPlantsEveningEnd(r?.wateringPlants?.eveningEnd || '19:00');
+
+    // Dog Feed Timer
+    setDogFeedTimerEnabled(!!r?.dogFeed?.enabled);
+    setDogFeedFrequency(r?.dogFeed?.frequency === 'once' ? 'once' : 'everyday');
+    setDogFeedMorningEnabled(r?.dogFeed?.morningEnabled !== false);
+    setDogFeedMorningStart(r?.dogFeed?.morningStart || '07:00');
+    setDogFeedMorningEnd(r?.dogFeed?.morningEnd || '08:00');
+    setDogFeedEveningEnabled(r?.dogFeed?.eveningEnabled !== false);
+    setDogFeedEveningStart(r?.dogFeed?.eveningStart || '18:00');
+    setDogFeedEveningEnd(r?.dogFeed?.eveningEnd || '19:00');
+
+    // AC Control Timer
+    setAcControlTimerEnabled(!!r?.acControl?.enabled);
+    setAcControlFrequency(r?.acControl?.frequency === 'once' ? 'once' : 'everyday');
+    setAcControlMorningEnabled(r?.acControl?.morningEnabled !== false);
+    setAcControlMorningStart(r?.acControl?.morningStart || '07:00');
+    setAcControlMorningEnd(r?.acControl?.morningEnd || '08:00');
+    setAcControlEveningEnabled(r?.acControl?.eveningEnabled !== false);
+    setAcControlEveningStart(r?.acControl?.eveningStart || '18:00');
+    setAcControlEveningEnd(r?.acControl?.eveningEnd || '19:00');
+
+    setRulesLoaded(true);
+  };
+
   // Load saved automation rules for selected device
   useEffect(() => {
     const loadRules = async () => {
@@ -748,61 +806,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const json = await AsyncStorage.getItem(key);
         if (json) {
           const r = JSON.parse(json);
-          setOnEnabled(!!r?.on?.enabled);
-          setOnOperator(r?.on?.operator === 'ge' ? 'ge' : 'lt');
-          const onThr = Number(r?.on?.threshold);
-          setOnThreshold(Number.isFinite(onThr) ? onThr : 50);
-          setOffEnabled(!!r?.off?.enabled);
-          setOffOperator(r?.off?.operator === 'lt' ? 'lt' : 'ge');
-          const offThr = Number(r?.off?.threshold);
-          setOffThreshold(Number.isFinite(offThr) ? offThr : 80);
-          // No-flow rule
-          setNoFlowAutoOffEnabled(!!r?.noFlow?.enabled);
-          const nfDelay = Number(r?.noFlow?.delaySec);
-          setNoFlowDelaySec(Number.isFinite(nfDelay) ? nfDelay : 40);
-          
-          // Supply Water Timer
-          setSupplyWaterTimerEnabled(!!r?.supplyWater?.enabled);
-          setSupplyWaterFrequency(r?.supplyWater?.frequency === 'once' ? 'once' : 'everyday');
-          setMorningScheduleEnabled(r?.supplyWater?.morningEnabled !== false); // Default true if undefined
-          setMorningStartTime(r?.supplyWater?.morningStart || '07:00');
-          setMorningEndTime(r?.supplyWater?.morningEnd || '08:00');
-          setEveningScheduleEnabled(r?.supplyWater?.eveningEnabled !== false); // Default true if undefined
-          setEveningStartTime(r?.supplyWater?.eveningStart || '18:00');
-          setEveningEndTime(r?.supplyWater?.eveningEnd || '19:00');
-
-          // Watering Plants Timer
-          setWateringPlantsTimerEnabled(!!r?.wateringPlants?.enabled);
-          setWateringPlantsFrequency(r?.wateringPlants?.frequency === 'once' ? 'once' : 'everyday');
-          setWateringPlantsMorningEnabled(r?.wateringPlants?.morningEnabled !== false);
-          setWateringPlantsMorningStart(r?.wateringPlants?.morningStart || '07:00');
-          setWateringPlantsMorningEnd(r?.wateringPlants?.morningEnd || '08:00');
-          setWateringPlantsEveningEnabled(r?.wateringPlants?.eveningEnabled !== false);
-          setWateringPlantsEveningStart(r?.wateringPlants?.eveningStart || '18:00');
-          setWateringPlantsEveningEnd(r?.wateringPlants?.eveningEnd || '19:00');
-
-          // Dog Feed Timer
-          setDogFeedTimerEnabled(!!r?.dogFeed?.enabled);
-          setDogFeedFrequency(r?.dogFeed?.frequency === 'once' ? 'once' : 'everyday');
-          setDogFeedMorningEnabled(r?.dogFeed?.morningEnabled !== false);
-          setDogFeedMorningStart(r?.dogFeed?.morningStart || '07:00');
-          setDogFeedMorningEnd(r?.dogFeed?.morningEnd || '08:00');
-          setDogFeedEveningEnabled(r?.dogFeed?.eveningEnabled !== false);
-          setDogFeedEveningStart(r?.dogFeed?.eveningStart || '18:00');
-          setDogFeedEveningEnd(r?.dogFeed?.eveningEnd || '19:00');
-
-          // AC Control Timer
-          setAcControlTimerEnabled(!!r?.acControl?.enabled);
-          setAcControlFrequency(r?.acControl?.frequency === 'once' ? 'once' : 'everyday');
-          setAcControlMorningEnabled(r?.acControl?.morningEnabled !== false);
-          setAcControlMorningStart(r?.acControl?.morningStart || '07:00');
-          setAcControlMorningEnd(r?.acControl?.morningEnd || '08:00');
-          setAcControlEveningEnabled(r?.acControl?.eveningEnabled !== false);
-          setAcControlEveningStart(r?.acControl?.eveningStart || '18:00');
-          setAcControlEveningEnd(r?.acControl?.eveningEnd || '19:00');
-
-          // Mark rules as loaded to allow automation to evaluate
-          setRulesLoaded(true);
+          applyRules(r);
         } else {
           // Migrate old single-rule if present
           const oldJson = await AsyncStorage.getItem(`auto_rule_${selectedDeviceId}`);
@@ -890,6 +894,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         },
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
+      // Sync rules to server
+      await esp8266Service.updateDeviceOnServer(selectedDeviceId, { automationRules: payload });
     } catch (e) {}
   };
 
@@ -1308,6 +1314,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             setDevice3On(!!devDetail.device3);
             setDevice4On(!!devDetail.device4);
             setDevice5On(!!devDetail.device5);
+            
+            // Sync automation rules from server if available
+            if (devDetail.automationRules) {
+              const r = devDetail.automationRules;
+              applyRules(r);
+              // Update local storage to keep in sync
+              AsyncStorage.setItem(`auto_rules_${useDeviceId}`, JSON.stringify(r)).catch(() => {});
+            }
+
             // Resolve subdevice labels from API or stored values
             try {
               const storedLabels = await esp8266Service.getSubdeviceLabels();
@@ -1620,11 +1635,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
         {/* Display: Tank Filled percent */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={{ color: '#333', fontWeight: '600' }}>Tank Filled %</Text>
+          <Text style={styles.percentageText}>Tank Filled %: {waterLevel ?? '—'}         Water Flow: {flowRate ?? '—'}</Text>
         </View>
         <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
         <TouchableOpacity
-          style={{ marginTop: 10 }}
+          style={{ }}
           onLongPress={() => {
             setShowDebugPanel(!showDebugPanel);
             Vibration.vibrate(50);
@@ -1646,9 +1661,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           </View>
         )}
         <View style={styles.controlSection}>
-          <Text style={styles.sectionTitle}>Power Control</Text>
+          <Text style={styles.sectionTitle}>Motor Control</Text>
           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Power'}</Text>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor'}</Text>
             {canControl ? (
               <Switch
                 value={isPowerOn}
@@ -1673,7 +1688,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           ) : null}
           {/* Automation rules UI: Turn ON and Turn OFF */}
           <View style={{ marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Automation Rules: Power</Text>
+            <Text style={styles.sectionTitle}>Automation Rules: Motor</Text>
             {/* Turn ON Rule */}
             <View style={{ marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2654,6 +2669,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+    percentageText: {
+    marginTop: 0,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#455a64',
   },
 });
 export default DeviceControlScreen;
