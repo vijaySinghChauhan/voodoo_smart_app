@@ -43,8 +43,8 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceIp, setSelectedDeviceIp] = useState<string | null>(null);
-  const [targetValue, setTargetValue] = useState<number>(1000);
-  const targetValueRef = useRef<number>(1000);
+  const [targetValue, setTargetValue] = useState<number>(0);
+  const targetValueRef = useRef<number>(0);
   const [targetInput, setTargetInput] = useState<string>("");
 
   useEffect(() => {
@@ -718,7 +718,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     if(device2On)
       setTimeout(() => {
         setDevice2On(false);
-      }, 2500);
+      }, 2000);
   })
 
   // Re-subscribe brightness updates when IP becomes available or changes
@@ -1639,7 +1639,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <Text style={styles.percentageText}>Tank Filled %: {waterLevel ?? '—'}         Water Flow: {flowRate ?? '—'}</Text>
         </View>
-        <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
+        <WaterTank percentage={80} flowRate={flowRate ?? 0} />
         <TouchableOpacity
           style={{ marginTop: 10 }}
           onLongPress={() => {
@@ -1776,7 +1776,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
                   {[
                     { key: 'lt', label: 'Less than' },
-                    { key: 'ge', label: 'More than or equal' },
+                    // { key: 'ge', label: 'More than or equal' },
                   ].map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
@@ -1795,7 +1795,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               )}
               {showOnPercentMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[ 70, 80, 90, 100].map((p) => (
+                  {[ 10, 20, 30, 40].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => {
@@ -1843,7 +1843,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               {showOffOperatorMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
                   {[
-                    { key: 'lt', label: 'Less than' },
+                    // { key: 'lt', label: 'Less than' },
                     { key: 'ge', label: 'More than or equal' },
                   ].map((opt) => (
                     <TouchableOpacity
@@ -1863,7 +1863,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               )}
               {showOffPercentMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[10, 20, 30, 40].map((p) => (
+                  {[ 70, 80, 90, 100].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => {
@@ -2003,7 +2003,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   setTimeout(() => {
                     setDevice2On(false);
                     toggleDeviceField('device2', false);
-                  }, 3000);
+                  }, 2000);
                 }
               }}
               trackColor={{ false: '#767577', true: '#4CAF50' }}

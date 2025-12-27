@@ -360,7 +360,7 @@ exports.getDeviceState = async (req, res) => {
 // @access  Public
 exports.registerESPDevicePublic = async (req, res) => {
   try {
-    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, isOn, brightness, flowRate, totalLiters } = req.body || {};
+    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, device2, brightness, flowRate, totalLiters } = req.body || {};
     if (!macAddress) {
       return res.status(400).json({ message: 'macAddress is required' });
     }
@@ -374,10 +374,12 @@ exports.registerESPDevicePublic = async (req, res) => {
         ssid: ssid !== undefined ? ssid : existing.ssid,
         isConnected: true,
         isOn: typeof isOn === 'boolean' ? isOn : existing.isOn,
+        
         brightness: typeof brightness === 'number' ? brightness : existing.brightness,
         flowRate: typeof flowRate === 'number' ? flowRate : existing.flowRate,
         totalLiters: typeof totalLiters === 'number' ? totalLiters : existing.totalLiters,
         firmwareVersion: firmwareVersion !== undefined ? firmwareVersion : existing.firmwareVersion,
+        device2: typeof device2 === 'number' ? device2 : existing.device2,
         lastSeen: new Date()
       });
       // Emit socket updates for flow data and brightness

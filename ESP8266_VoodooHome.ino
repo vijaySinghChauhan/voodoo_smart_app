@@ -610,7 +610,14 @@ void sendDataToServer(float brightnessValue) {
           Serial.println(d5);
   //  ACTIVE-LOW RELAY LOGIC FIXED
     digitalWrite(Device1, d1 ? HIGH : LOW);
-    digitalWrite(Device2, d2 ? HIGH : LOW);
+    if (d2) {
+          digitalWrite(Device2, HIGH);
+          delay(500);
+           digitalWrite(Device2, LOW);
+           sendDataToServer(lastDistance);
+      } else {
+          digitalWrite(Device2, LOW);
+      }
     digitalWrite(Device3, d3 ? HIGH : LOW);
     digitalWrite(Device4, d4 ? HIGH : LOW);
     digitalWrite(Device5, d5 ? HIGH : LOW);
