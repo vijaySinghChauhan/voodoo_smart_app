@@ -25,6 +25,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from '../../services/notifications/notificationService';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 
+import DateTimePicker from '@react-native-community/datetimepicker';
+
 interface DeviceStatus {
   connected: boolean;
   ssid?: string;
@@ -35,6 +37,162 @@ interface DeviceStatus {
   lastUpdated?: string;
   energyUsage?: number;
 }
+
+const DateTimePickerInput = ({ 
+  value, 
+  onChange, 
+  onEndEditing,
+  frequency, 
+  placeholder 
+}: { 
+  value: string, 
+  onChange: (val: string) => void, 
+  onEndEditing?: () => void,
+  frequency: 'once' | 'everyday',
+  placeholder?: string
+}) => {
+  const [show, setShow] = useState(false);
+  const [mode, setMode] = useState<'date' | 'time'>('time');
+  
+  const getDate = () => {
+     const now = new Date();
+     if (!value) return now;
+     
+     if (frequency === 'everyday') {
+        const [h, m] = value.split(':').map(Number);
+        if (!isNaN(h) && !isNaN(m)) {
+           now.setHours(h, m, 0, 0);
+           return now;
+        }
+     } else {
+        // "YYYY-MM-DD HH:MM"
+        if (value.length <= 5) {
+             const [h, m] = value.split(':').map(Number);
+             if (!isNaN(h) && !isNaN(m)) {
+                now.setHours(h, m, 0, 0);
+                return now;
+             }
+        }
+        // Replace space with T for parsing
+        const d = new Date(value.replace(' ', 'T'));
+        if (!isNaN(d.getTime())) return d;
+     }
+     return now;
+  };
+
+  const handleChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+        setShow(false);
+    }
+    
+    if (event.type === 'dismissed') return;
+    if (!selectedDate) return;
+
+    if (frequency === 'everyday') {
+        const h = selectedDate.getHours().toString().padStart(2, '0');
+        const m = selectedDate.getMinutes().toString().padStart(2, '0');
+        onChange(`${h}:${m}`);
+        if (onEndEditing) onEndEditing();
+    } else {
+        // 'once'
+        if (Platform.OS === 'android') {
+             if (mode === 'date') {
+                 const year = selectedDate.getFullYear();
+                 const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                 const day = selectedDate.getDate().toString().padStart(2, '0');
+                 
+                 // Prepare for time selection
+                 // We preserve the date in value temporarily or just append default time
+                 // Let's grab current time from value if exists
+                 let timePart = "00:00";
+                 if (value && value.includes(' ')) {
+                     timePart = value.split(' ')[1];
+                 }
+                 
+                 onChange(`${year}-${month}-${day} ${timePart}`);
+                 
+                 // Open time picker
+                 setMode('time');
+                 // Must wait a tick for Android dialog to close/reopen? 
+                 // React Native Android DatePicker is imperative usually? No, it's component based now.
+                 // But showing immediately might conflict. 
+                 setTimeout(() => setShow(true), 100); 
+             } else {
+                 const h = selectedDate.getHours().toString().padStart(2, '0');
+                 const m = selectedDate.getMinutes().toString().padStart(2, '0');
+                 
+                 let datePart = '';
+                 if (value && value.includes(' ')) {
+                     datePart = value.split(' ')[0];
+                 } else {
+                     const now = new Date();
+                     const year = now.getFullYear();
+                     const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                     const day = now.getDate().toString().padStart(2, '0');
+                     datePart = `${year}-${month}-${day}`;
+                 }
+                 
+                 onChange(`${datePart} ${h}:${m}`);
+                 if (onEndEditing) onEndEditing();
+             }
+        } else {
+             // iOS
+             const year = selectedDate.getFullYear();
+             const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+             const day = selectedDate.getDate().toString().padStart(2, '0');
+             const h = selectedDate.getHours().toString().padStart(2, '0');
+             const m = selectedDate.getMinutes().toString().padStart(2, '0');
+             onChange(`${year}-${month}-${day} ${h}:${m}`);
+             if (onEndEditing) onEndEditing();
+        }
+    }
+  };
+
+  const handlePress = () => {
+      if (frequency === 'once') {
+          if (Platform.OS === 'android') {
+              setMode('date'); // Start with date
+          } else {
+              setMode('datetime' as any); // iOS datetime
+          }
+      } else {
+          setMode('time');
+      }
+      setShow(true);
+  };
+
+  if (Platform.OS === 'web') {
+    return (
+      <View>
+        <TextInput
+          style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, minWidth: 80, textAlign: 'center', color: '#333' }}
+          value={value}
+          onChangeText={onChange}
+          onEndEditing={onEndEditing}
+          placeholder={placeholder || (frequency === 'once' ? "YYYY-MM-DD HH:MM" : "HH:MM")}
+          placeholderTextColor="#999"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <TouchableOpacity onPress={handlePress} style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, minWidth: 80, alignItems: 'center', justifyContent: 'center' }}>
+         <Text style={{ color: '#333', fontSize: 14 }}>{value || placeholder || 'Select'}</Text>
+      </TouchableOpacity>
+      {show && (
+        <DateTimePicker
+          value={getDate()}
+          mode={mode as any}
+          is24Hour={true}
+          display="default"
+          onChange={handleChange}
+        />
+      )}
+    </View>
+  );
+};
 
 const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string, fromDiscovery?: boolean } } }> = ({ navigation, route }) => {
   const [deviceName, setDeviceName] = useState('');
@@ -110,6 +268,13 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [eveningStartTime, setEveningStartTime] = useState<string>('18:00');
   const [eveningEndTime, setEveningEndTime] = useState<string>('19:00');
   const [lastTimerCheck, setLastTimerCheck] = useState<number>(0);
+  const [debugCurrentTime, setDebugCurrentTime] = useState<Date>(new Date());
+  const [supplyWaterTimerStatus, setSupplyWaterTimerStatus] = useState<string>('Idle');
+
+  useEffect(() => {
+    const timer = setInterval(() => setDebugCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Watering Plants Timer State
   const [wateringPlantsTimerEnabled, setWateringPlantsTimerEnabled] = useState<boolean>(false);
@@ -718,7 +883,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     if(device2On)
       setTimeout(() => {
         setDevice2On(false);
-      }, 2000);
+      }, 3000);
   })
 
   // Re-subscribe brightness updates when IP becomes available or changes
@@ -1017,49 +1182,71 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (!rulesLoaded || !supplyWaterTimerEnabled || !selectedDeviceId) return;
 
-    const parseTime = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-
     const interval = setInterval(() => {
       const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      const mStart = parseTime(morningStartTime);
-      const mEnd = parseTime(morningEndTime);
-      const eStart = parseTime(eveningStartTime);
-      const eEnd = parseTime(eveningEndTime);
+      setLastTimerCheck(now.getTime());
+      let inMorning = false;
+      let inEvening = false;
+      let morningFinished = false;
+      let eveningFinished = false;
 
-      const inMorning = morningScheduleEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
-      const inEvening = eveningScheduleEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+      if (supplyWaterFrequency === 'once') {
+          if (morningScheduleEnabled && morningStartTime.length > 5 && morningEndTime.length > 5) {
+               const start = new Date(morningStartTime.replace(' ', 'T'));
+               const end = new Date(morningEndTime.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inMorning = now >= start && now < end;
+                   // 5 min buffer for finished detection
+                   morningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+          if (eveningScheduleEnabled && eveningStartTime.length > 5 && eveningEndTime.length > 5) {
+               const start = new Date(eveningStartTime.replace(' ', 'T'));
+               const end = new Date(eveningEndTime.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inEvening = now >= start && now < end;
+                   eveningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+      } else {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const parseTime = (t: string) => {
+              if (!t || !t.includes(':')) return -1;
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
+          };
+          
+          const mStart = parseTime(morningStartTime);
+          const mEnd = parseTime(morningEndTime);
+          const eStart = parseTime(eveningStartTime);
+          const eEnd = parseTime(eveningEndTime);
+          
+          if (morningScheduleEnabled && mStart !== -1 && mEnd !== -1) {
+              inMorning = currentMinutes >= mStart && currentMinutes < mEnd;
+              morningFinished = currentMinutes >= mEnd && currentMinutes < mEnd + 5;
+          }
+          if (eveningScheduleEnabled && eStart !== -1 && eEnd !== -1) {
+              inEvening = currentMinutes >= eStart && currentMinutes < eEnd;
+              eveningFinished = currentMinutes >= eEnd && currentMinutes < eEnd + 5;
+          }
+      }
 
       if (inMorning || inEvening) {
+        setSupplyWaterTimerStatus(`Active (${inMorning ? 'Morning' : 'Evening'})`);
         if (!isPowerOn) {
            toggleDeviceField('device1', true);
            setIsPowerOn(true);
            Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water ON', position: 'bottom' });
         }
       } else {
-        // Turn OFF at the end of the window (allow 1 minute buffer)
+        setSupplyWaterTimerStatus('Waiting');
         if (isPowerOn) {
-             // Check if we just finished morning or evening slot
-             // Note: if schedule disabled mid-run, it might not turn off automatically if not careful, 
-             // but here we check if we are in the "OFF window" (just past end time) AND the schedule WAS enabled for that slot effectively
-             // Actually simplified: if NOT in window, we should be OFF? No, only if we just exited a window.
-             // But if user disables schedule while ON, should it turn OFF? Probably safer to only turn off at scheduled end times.
-             
-             const morningFinished = morningScheduleEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
-             const eveningFinished = eveningScheduleEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
-
              if (morningFinished || eveningFinished) {
                  toggleDeviceField('device1', false);
                  setIsPowerOn(false);
                  Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water OFF', position: 'bottom' });
                  
-                 // Handle 'once' frequency
                  if (supplyWaterFrequency === 'once') {
-                     // If we finished the evening slot, OR we finished morning slot and evening is disabled
                      if (eveningFinished || (morningFinished && !eveningScheduleEnabled)) {
                         setSupplyWaterTimerEnabled(false);
                      }
@@ -1067,7 +1254,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              }
         }
       }
-    }, 10000); // Check every 10s
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled]);
@@ -1076,22 +1263,52 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (!rulesLoaded || !wateringPlantsTimerEnabled || !selectedDeviceId) return;
 
-    const parseTime = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-
     const interval = setInterval(() => {
       const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      const mStart = parseTime(wateringPlantsMorningStart);
-      const mEnd = parseTime(wateringPlantsMorningEnd);
-      const eStart = parseTime(wateringPlantsEveningStart);
-      const eEnd = parseTime(wateringPlantsEveningEnd);
+      let inMorning = false;
+      let inEvening = false;
+      let morningFinished = false;
+      let eveningFinished = false;
 
-      const inMorning = wateringPlantsMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
-      const inEvening = wateringPlantsEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+      if (wateringPlantsFrequency === 'once') {
+          if (wateringPlantsMorningEnabled && wateringPlantsMorningStart.length > 5 && wateringPlantsMorningEnd.length > 5) {
+               const start = new Date(wateringPlantsMorningStart.replace(' ', 'T'));
+               const end = new Date(wateringPlantsMorningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inMorning = now >= start && now < end;
+                   morningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+          if (wateringPlantsEveningEnabled && wateringPlantsEveningStart.length > 5 && wateringPlantsEveningEnd.length > 5) {
+               const start = new Date(wateringPlantsEveningStart.replace(' ', 'T'));
+               const end = new Date(wateringPlantsEveningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inEvening = now >= start && now < end;
+                   eveningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+      } else {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const parseTime = (t: string) => {
+              if (!t || !t.includes(':')) return -1;
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
+          };
+          
+          const mStart = parseTime(wateringPlantsMorningStart);
+          const mEnd = parseTime(wateringPlantsMorningEnd);
+          const eStart = parseTime(wateringPlantsEveningStart);
+          const eEnd = parseTime(wateringPlantsEveningEnd);
+          
+          if (wateringPlantsMorningEnabled && mStart !== -1 && mEnd !== -1) {
+              inMorning = currentMinutes >= mStart && currentMinutes < mEnd;
+              morningFinished = currentMinutes >= mEnd && currentMinutes < mEnd + 5;
+          }
+          if (wateringPlantsEveningEnabled && eStart !== -1 && eEnd !== -1) {
+              inEvening = currentMinutes >= eStart && currentMinutes < eEnd;
+              eveningFinished = currentMinutes >= eEnd && currentMinutes < eEnd + 5;
+          }
+      }
 
       if (inMorning || inEvening) {
         if (!device3On) {
@@ -1100,19 +1317,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
            Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants ON', position: 'bottom' });
         }
       } else {
-        // Turn OFF at the end of the window (allow 1 minute buffer)
         if (device3On) {
-             const morningFinished = wateringPlantsMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
-             const eveningFinished = wateringPlantsEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
-
              if (morningFinished || eveningFinished) {
                  toggleDeviceField('device3', false);
                  setDevice3On(false);
                  Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants OFF', position: 'bottom' });
                  
-                 // Handle 'once' frequency
                  if (wateringPlantsFrequency === 'once') {
-                     // If we finished the evening slot, OR we finished morning slot and evening is disabled
                      if (eveningFinished || (morningFinished && !wateringPlantsEveningEnabled)) {
                         setWateringPlantsTimerEnabled(false);
                      }
@@ -1120,7 +1331,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              }
         }
       }
-    }, 10000); // Check every 10s
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [rulesLoaded, wateringPlantsTimerEnabled, selectedDeviceId, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningStart, wateringPlantsEveningEnd, device3On, wateringPlantsFrequency, wateringPlantsMorningEnabled, wateringPlantsEveningEnabled]);
@@ -1129,22 +1340,52 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (!rulesLoaded || !dogFeedTimerEnabled || !selectedDeviceId) return;
 
-    const parseTime = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-
     const interval = setInterval(() => {
       const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      const mStart = parseTime(dogFeedMorningStart);
-      const mEnd = parseTime(dogFeedMorningEnd);
-      const eStart = parseTime(dogFeedEveningStart);
-      const eEnd = parseTime(dogFeedEveningEnd);
+      let inMorning = false;
+      let inEvening = false;
+      let morningFinished = false;
+      let eveningFinished = false;
 
-      const inMorning = dogFeedMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
-      const inEvening = dogFeedEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+      if (dogFeedFrequency === 'once') {
+          if (dogFeedMorningEnabled && dogFeedMorningStart.length > 5 && dogFeedMorningEnd.length > 5) {
+               const start = new Date(dogFeedMorningStart.replace(' ', 'T'));
+               const end = new Date(dogFeedMorningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inMorning = now >= start && now < end;
+                   morningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+          if (dogFeedEveningEnabled && dogFeedEveningStart.length > 5 && dogFeedEveningEnd.length > 5) {
+               const start = new Date(dogFeedEveningStart.replace(' ', 'T'));
+               const end = new Date(dogFeedEveningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inEvening = now >= start && now < end;
+                   eveningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+      } else {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const parseTime = (t: string) => {
+              if (!t || !t.includes(':')) return -1;
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
+          };
+          
+          const mStart = parseTime(dogFeedMorningStart);
+          const mEnd = parseTime(dogFeedMorningEnd);
+          const eStart = parseTime(dogFeedEveningStart);
+          const eEnd = parseTime(dogFeedEveningEnd);
+          
+          if (dogFeedMorningEnabled && mStart !== -1 && mEnd !== -1) {
+              inMorning = currentMinutes >= mStart && currentMinutes < mEnd;
+              morningFinished = currentMinutes >= mEnd && currentMinutes < mEnd + 5;
+          }
+          if (dogFeedEveningEnabled && eStart !== -1 && eEnd !== -1) {
+              inEvening = currentMinutes >= eStart && currentMinutes < eEnd;
+              eveningFinished = currentMinutes >= eEnd && currentMinutes < eEnd + 5;
+          }
+      }
 
       // Note: device4 is Dog Feed
       if (inMorning || inEvening) {
@@ -1155,9 +1396,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         }
       } else {
         if (device4On) {
-             const morningFinished = dogFeedMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
-             const eveningFinished = dogFeedEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
-
              if (morningFinished || eveningFinished) {
                  toggleDeviceField('device4', false);
                  setDevice4On(false);
@@ -1171,7 +1409,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              }
         }
       }
-    }, 10000); // Check every 10s
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [rulesLoaded, dogFeedTimerEnabled, selectedDeviceId, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningStart, dogFeedEveningEnd, device4On, dogFeedFrequency, dogFeedMorningEnabled, dogFeedEveningEnabled]);
@@ -1180,22 +1418,52 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (!rulesLoaded || !acControlTimerEnabled || !selectedDeviceId) return;
 
-    const parseTime = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-
     const interval = setInterval(() => {
       const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      const mStart = parseTime(acControlMorningStart);
-      const mEnd = parseTime(acControlMorningEnd);
-      const eStart = parseTime(acControlEveningStart);
-      const eEnd = parseTime(acControlEveningEnd);
+      let inMorning = false;
+      let inEvening = false;
+      let morningFinished = false;
+      let eveningFinished = false;
 
-      const inMorning = acControlMorningEnabled && currentMinutes >= mStart && currentMinutes < mEnd;
-      const inEvening = acControlEveningEnabled && currentMinutes >= eStart && currentMinutes < eEnd;
+      if (acControlFrequency === 'once') {
+          if (acControlMorningEnabled && acControlMorningStart.length > 5 && acControlMorningEnd.length > 5) {
+               const start = new Date(acControlMorningStart.replace(' ', 'T'));
+               const end = new Date(acControlMorningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inMorning = now >= start && now < end;
+                   morningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+          if (acControlEveningEnabled && acControlEveningStart.length > 5 && acControlEveningEnd.length > 5) {
+               const start = new Date(acControlEveningStart.replace(' ', 'T'));
+               const end = new Date(acControlEveningEnd.replace(' ', 'T'));
+               if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                   inEvening = now >= start && now < end;
+                   eveningFinished = now >= end && (now.getTime() - end.getTime() < 300000);
+               }
+          }
+      } else {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const parseTime = (t: string) => {
+              if (!t || !t.includes(':')) return -1;
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
+          };
+          
+          const mStart = parseTime(acControlMorningStart);
+          const mEnd = parseTime(acControlMorningEnd);
+          const eStart = parseTime(acControlEveningStart);
+          const eEnd = parseTime(acControlEveningEnd);
+
+          if (acControlMorningEnabled && mStart !== -1 && mEnd !== -1) {
+              inMorning = currentMinutes >= mStart && currentMinutes < mEnd;
+              morningFinished = currentMinutes >= mEnd && currentMinutes < mEnd + 5;
+          }
+          if (acControlEveningEnabled && eStart !== -1 && eEnd !== -1) {
+              inEvening = currentMinutes >= eStart && currentMinutes < eEnd;
+              eveningFinished = currentMinutes >= eEnd && currentMinutes < eEnd + 5;
+          }
+      }
 
       // Note: device5 is AC Control
       if (inMorning || inEvening) {
@@ -1206,9 +1474,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         }
       } else {
         if (device5On) {
-             const morningFinished = acControlMorningEnabled && currentMinutes >= mEnd && currentMinutes < mEnd + 1;
-             const eveningFinished = acControlEveningEnabled && currentMinutes >= eEnd && currentMinutes < eEnd + 1;
-
              if (morningFinished || eveningFinished) {
                  toggleDeviceField('device5', false);
                  setDevice5On(false);
@@ -1886,6 +2151,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
      
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Supply Water</Text>
+          <View style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 4, marginBottom: 10 }}>
+               <Text style={{ fontSize: 12, color: '#555' }}>Current Time: {debugCurrentTime.toLocaleTimeString()}</Text>
+               <Text style={{ fontSize: 12, color: '#555' }}>Status: {supplyWaterTimerStatus}</Text>
+               <Text style={{ fontSize: 12, color: '#555' }}>Last Check: {lastTimerCheck ? new Date(lastTimerCheck).toLocaleTimeString() : 'Never'}</Text>
+           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
              <Text style={styles.powerLabel}>Enable Timer</Text>
              <Switch
@@ -1928,24 +2198,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {morningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={morningStartTime}
-                         onChangeText={setMorningStartTime}
+                         onChange={setMorningStartTime}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={supplyWaterFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={morningEndTime}
-                         onChangeText={setMorningEndTime}
+                         onChange={setMorningEndTime}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={supplyWaterFrequency}
                       />
                    </View>
                    )}
@@ -1963,24 +2227,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {eveningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={eveningStartTime}
-                         onChangeText={setEveningStartTime}
+                         onChange={setEveningStartTime}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={supplyWaterFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={eveningEndTime}
-                         onChangeText={setEveningEndTime}
+                         onChange={setEveningEndTime}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={supplyWaterFrequency}
                       />
                    </View>
                    )}
@@ -2003,7 +2261,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   setTimeout(() => {
                     setDevice2On(false);
                     toggleDeviceField('device2', false);
-                  }, 2000);
+                  },3000);
                 }
               }}
               trackColor={{ false: '#767577', true: '#4CAF50' }}
@@ -2132,24 +2390,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {wateringPlantsMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={wateringPlantsMorningStart}
-                         onChangeText={setWateringPlantsMorningStart}
+                         onChange={setWateringPlantsMorningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={wateringPlantsFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={wateringPlantsMorningEnd}
-                         onChangeText={setWateringPlantsMorningEnd}
+                         onChange={setWateringPlantsMorningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={wateringPlantsFrequency}
                       />
                    </View>
                    )}
@@ -2167,24 +2419,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {wateringPlantsEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={wateringPlantsEveningStart}
-                         onChangeText={setWateringPlantsEveningStart}
+                         onChange={setWateringPlantsEveningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={wateringPlantsFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={wateringPlantsEveningEnd}
-                         onChangeText={setWateringPlantsEveningEnd}
+                         onChange={setWateringPlantsEveningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={wateringPlantsFrequency}
                       />
                    </View>
                    )}
@@ -2237,24 +2483,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {dogFeedMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={dogFeedMorningStart}
-                         onChangeText={setDogFeedMorningStart}
+                         onChange={setDogFeedMorningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={dogFeedFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={dogFeedMorningEnd}
-                         onChangeText={setDogFeedMorningEnd}
+                         onChange={setDogFeedMorningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={dogFeedFrequency}
                       />
                    </View>
                    )}
@@ -2272,24 +2512,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {dogFeedEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={dogFeedEveningStart}
-                         onChangeText={setDogFeedEveningStart}
+                         onChange={setDogFeedEveningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={dogFeedFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={dogFeedEveningEnd}
-                         onChangeText={setDogFeedEveningEnd}
+                         onChange={setDogFeedEveningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={dogFeedFrequency}
                       />
                    </View>
                    )}
@@ -2342,24 +2576,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {acControlMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={acControlMorningStart}
-                         onChangeText={setAcControlMorningStart}
+                         onChange={setAcControlMorningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={acControlFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={acControlMorningEnd}
-                         onChangeText={setAcControlMorningEnd}
+                         onChange={setAcControlMorningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={acControlFrequency}
                       />
                    </View>
                    )}
@@ -2377,24 +2605,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {acControlEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginRight: 8, color: '#333' }}
+                      <DateTimePickerInput
                          value={acControlEveningStart}
-                         onChangeText={setAcControlEveningStart}
+                         onChange={setAcControlEveningStart}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={acControlFrequency}
                       />
-                      <Text style={{ color: '#666' }}>to</Text>
-                      <TextInput
-                         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, width: 80, textAlign: 'center', marginLeft: 8, color: '#333' }}
+                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
+                      <DateTimePickerInput
                          value={acControlEveningEnd}
-                         onChangeText={setAcControlEveningEnd}
+                         onChange={setAcControlEveningEnd}
                          onEndEditing={persistRules}
-                         placeholder="HH:MM"
-                         placeholderTextColor="#999"
-                         maxLength={5}
+                         frequency={acControlFrequency}
                       />
                    </View>
                    )}
