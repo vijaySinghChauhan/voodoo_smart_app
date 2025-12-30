@@ -327,6 +327,7 @@ const smoothValue = (newVal: number) => {
 // filled = clamp((brightness/target) * 100, 0, 100)
 
 const brightnessToPercent = (rawBrightness: number, target: number) => {
+  if (rawBrightness === -1) return 0; // Handle specific error code for empty tank
   if (!Number.isFinite(rawBrightness)) {
     return 0;
   }
@@ -507,8 +508,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           } else if (typeof payload === 'number') {
             raw = payload;
           }
-            raw = 180;
-          Toast.show({ type: 'info', text1: 'Data Update dummy', text2: `Received: ${raw}`, position: 'bottom' });
+            
+         
         
           if (typeof raw === 'number' && isFinite(raw)) {
             const smoothed = smoothValue(raw);
@@ -516,7 +517,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             // Treat helper as "filled" computation (100 - normalized)
             const filled = brightnessToPercent(smoothed, targetValueRef.current);
             setWaterLevel(filled);
-            //Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
+            // Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
             setLastBrightness(raw);
             setLastBrightnessAt(Date.now());
           }
