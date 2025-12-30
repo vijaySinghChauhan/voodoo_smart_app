@@ -11,6 +11,7 @@ import {
   Vibration,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -26,6 +27,8 @@ import { notificationService } from '../../services/notifications/notificationSe
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { DateTime } from '../../components/DateTime';
+
 
 interface DeviceStatus {
   connected: boolean;
@@ -38,161 +41,7 @@ interface DeviceStatus {
   energyUsage?: number;
 }
 
-const DateTimePickerInput = ({ 
-  value, 
-  onChange, 
-  onEndEditing,
-  frequency, 
-  placeholder 
-}: { 
-  value: string, 
-  onChange: (val: string) => void, 
-  onEndEditing?: () => void,
-  frequency: 'once' | 'everyday',
-  placeholder?: string
-}) => {
-  const [show, setShow] = useState(false);
-  const [mode, setMode] = useState<'date' | 'time'>('time');
-  
-  const getDate = () => {
-     const now = new Date();
-     if (!value) return now;
-     
-     if (frequency === 'everyday') {
-        const [h, m] = value.split(':').map(Number);
-        if (!isNaN(h) && !isNaN(m)) {
-           now.setHours(h, m, 0, 0);
-           return now;
-        }
-     } else {
-        // "YYYY-MM-DD HH:MM"
-        if (value.length <= 5) {
-             const [h, m] = value.split(':').map(Number);
-             if (!isNaN(h) && !isNaN(m)) {
-                now.setHours(h, m, 0, 0);
-                return now;
-             }
-        }
-        // Replace space with T for parsing
-        const d = new Date(value.replace(' ', 'T'));
-        if (!isNaN(d.getTime())) return d;
-     }
-     return now;
-  };
 
-  const handleChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-        setShow(false);
-    }
-    
-    if (event.type === 'dismissed') return;
-    if (!selectedDate) return;
-
-    if (frequency === 'everyday') {
-        const h = selectedDate.getHours().toString().padStart(2, '0');
-        const m = selectedDate.getMinutes().toString().padStart(2, '0');
-        onChange(`${h}:${m}`);
-        if (onEndEditing) onEndEditing();
-    } else {
-        // 'once'
-        if (Platform.OS === 'android') {
-             if (mode === 'date') {
-                 const year = selectedDate.getFullYear();
-                 const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-                 const day = selectedDate.getDate().toString().padStart(2, '0');
-                 
-                 // Prepare for time selection
-                 // We preserve the date in value temporarily or just append default time
-                 // Let's grab current time from value if exists
-                 let timePart = "00:00";
-                 if (value && value.includes(' ')) {
-                     timePart = value.split(' ')[1];
-                 }
-                 
-                 onChange(`${year}-${month}-${day} ${timePart}`);
-                 
-                 // Open time picker
-                 setMode('time');
-                 // Must wait a tick for Android dialog to close/reopen? 
-                 // React Native Android DatePicker is imperative usually? No, it's component based now.
-                 // But showing immediately might conflict. 
-                 setTimeout(() => setShow(true), 100); 
-             } else {
-                 const h = selectedDate.getHours().toString().padStart(2, '0');
-                 const m = selectedDate.getMinutes().toString().padStart(2, '0');
-                 
-                 let datePart = '';
-                 if (value && value.includes(' ')) {
-                     datePart = value.split(' ')[0];
-                 } else {
-                     const now = new Date();
-                     const year = now.getFullYear();
-                     const month = (now.getMonth() + 1).toString().padStart(2, '0');
-                     const day = now.getDate().toString().padStart(2, '0');
-                     datePart = `${year}-${month}-${day}`;
-                 }
-                 
-                 onChange(`${datePart} ${h}:${m}`);
-                 if (onEndEditing) onEndEditing();
-             }
-        } else {
-             // iOS
-             const year = selectedDate.getFullYear();
-             const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-             const day = selectedDate.getDate().toString().padStart(2, '0');
-             const h = selectedDate.getHours().toString().padStart(2, '0');
-             const m = selectedDate.getMinutes().toString().padStart(2, '0');
-             onChange(`${year}-${month}-${day} ${h}:${m}`);
-             if (onEndEditing) onEndEditing();
-        }
-    }
-  };
-
-  const handlePress = () => {
-      if (frequency === 'once') {
-          if (Platform.OS === 'android') {
-              setMode('date'); // Start with date
-          } else {
-              setMode('datetime' as any); // iOS datetime
-          }
-      } else {
-          setMode('time');
-      }
-      setShow(true);
-  };
-
-  if (Platform.OS === 'web') {
-    return (
-      <View>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, minWidth: 80, textAlign: 'center', color: '#333' }}
-          value={value}
-          onChangeText={onChange}
-          onEndEditing={onEndEditing}
-          placeholder={placeholder || (frequency === 'once' ? "YYYY-MM-DD HH:MM" : "HH:MM")}
-          placeholderTextColor="#999"
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View>
-      <TouchableOpacity onPress={handlePress} style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 8, minWidth: 80, alignItems: 'center', justifyContent: 'center' }}>
-         <Text style={{ color: '#333', fontSize: 14 }}>{value || placeholder || 'Select'}</Text>
-      </TouchableOpacity>
-      {show && (
-        <DateTimePicker
-          value={getDate()}
-          mode={mode as any}
-          is24Hour={true}
-          display="default"
-          onChange={handleChange}
-        />
-      )}
-    </View>
-  );
-};
 
 const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string, fromDiscovery?: boolean } } }> = ({ navigation, route }) => {
   const [deviceName, setDeviceName] = useState('');
@@ -262,7 +111,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [supplyWaterTimerEnabled, setSupplyWaterTimerEnabled] = useState<boolean>(false);
   const [supplyWaterFrequency, setSupplyWaterFrequency] = useState<'once' | 'everyday'>('everyday');
   const [morningScheduleEnabled, setMorningScheduleEnabled] = useState<boolean>(true);
-  const [morningStartTime, setMorningStartTime] = useState<string>('07:00');
+  const [morningStartTime, setMorningStartTime] = React.useState<Date | null>(null);
   const [morningEndTime, setMorningEndTime] = useState<string>('08:00');
   const [eveningScheduleEnabled, setEveningScheduleEnabled] = useState<boolean>(true);
   const [eveningStartTime, setEveningStartTime] = useState<string>('18:00');
@@ -904,8 +753,42 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   }, [selectedDeviceIp, selectedDeviceId, socketRef]);
 
+  // Helper to safely parse date/time strings
+  const getSafeDate = (val: string) => {
+    if (!val) return new Date();
+    // Handle legacy space-separated dates
+    const cleanVal = typeof val === 'string' ? val.replace(' ', 'T') : val;
+    
+    // Try as ISO or full date
+    const d = new Date(cleanVal);
+    if (!isNaN(d.getTime())) return d;
+    
+    // Try as HH:MM
+    if (typeof val === 'string' && val.includes(':')) {
+        const parts = val.split(':');
+        if (parts.length >= 2) {
+             const now = new Date();
+             const h = parseInt(parts[0], 10);
+             const m = parseInt(parts[1], 10);
+             if (!isNaN(h) && !isNaN(m)) {
+                now.setHours(h, m, 0, 0);
+                return now;
+             }
+        }
+    }
+    return new Date();
+  };
+
   const applyRules = (r: any) => {
     if (!r) return;
+
+    // Helper to sanitize time strings
+    const sanitize = (val: any, fallback: string) => {
+        if (!val || typeof val !== 'string') return fallback;
+        if (val.includes('Invalid') || val.includes('NaN')) return fallback;
+        return val;
+    };
+
     setOnEnabled(!!r?.on?.enabled);
     setOnOperator(r?.on?.operator === 'ge' ? 'ge' : 'lt');
     const onThr = Number(r?.on?.threshold);
@@ -923,41 +806,41 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     setSupplyWaterTimerEnabled(!!r?.supplyWater?.enabled);
     setSupplyWaterFrequency(r?.supplyWater?.frequency === 'once' ? 'once' : 'everyday');
     setMorningScheduleEnabled(r?.supplyWater?.morningEnabled !== false);
-    setMorningStartTime(r?.supplyWater?.morningStart || '07:00');
-    setMorningEndTime(r?.supplyWater?.morningEnd || '08:00');
+    setMorningStartTime(getSafeDate(r?.supplyWater?.morningStart));
+    setMorningEndTime(sanitize(r?.supplyWater?.morningEnd, '08:00'));
     setEveningScheduleEnabled(r?.supplyWater?.eveningEnabled !== false);
-    setEveningStartTime(r?.supplyWater?.eveningStart || '18:00');
-    setEveningEndTime(r?.supplyWater?.eveningEnd || '19:00');
+    setEveningStartTime(sanitize(r?.supplyWater?.eveningStart, '18:00'));
+    setEveningEndTime(sanitize(r?.supplyWater?.eveningEnd, '19:00'));
 
     // Watering Plants Timer
     setWateringPlantsTimerEnabled(!!r?.wateringPlants?.enabled);
     setWateringPlantsFrequency(r?.wateringPlants?.frequency === 'once' ? 'once' : 'everyday');
     setWateringPlantsMorningEnabled(r?.wateringPlants?.morningEnabled !== false);
-    setWateringPlantsMorningStart(r?.wateringPlants?.morningStart || '07:00');
-    setWateringPlantsMorningEnd(r?.wateringPlants?.morningEnd || '08:00');
+    setWateringPlantsMorningStart(sanitize(r?.wateringPlants?.morningStart, '07:00'));
+    setWateringPlantsMorningEnd(sanitize(r?.wateringPlants?.morningEnd, '08:00'));
     setWateringPlantsEveningEnabled(r?.wateringPlants?.eveningEnabled !== false);
-    setWateringPlantsEveningStart(r?.wateringPlants?.eveningStart || '18:00');
-    setWateringPlantsEveningEnd(r?.wateringPlants?.eveningEnd || '19:00');
+    setWateringPlantsEveningStart(sanitize(r?.wateringPlants?.eveningStart, '18:00'));
+    setWateringPlantsEveningEnd(sanitize(r?.wateringPlants?.eveningEnd, '19:00'));
 
     // Dog Feed Timer
     setDogFeedTimerEnabled(!!r?.dogFeed?.enabled);
     setDogFeedFrequency(r?.dogFeed?.frequency === 'once' ? 'once' : 'everyday');
     setDogFeedMorningEnabled(r?.dogFeed?.morningEnabled !== false);
-    setDogFeedMorningStart(r?.dogFeed?.morningStart || '07:00');
-    setDogFeedMorningEnd(r?.dogFeed?.morningEnd || '08:00');
+    setDogFeedMorningStart(sanitize(r?.dogFeed?.morningStart, '07:00'));
+    setDogFeedMorningEnd(sanitize(r?.dogFeed?.morningEnd, '08:00'));
     setDogFeedEveningEnabled(r?.dogFeed?.eveningEnabled !== false);
-    setDogFeedEveningStart(r?.dogFeed?.eveningStart || '18:00');
-    setDogFeedEveningEnd(r?.dogFeed?.eveningEnd || '19:00');
+    setDogFeedEveningStart(sanitize(r?.dogFeed?.eveningStart, '18:00'));
+    setDogFeedEveningEnd(sanitize(r?.dogFeed?.eveningEnd, '19:00'));
 
     // AC Control Timer
     setAcControlTimerEnabled(!!r?.acControl?.enabled);
     setAcControlFrequency(r?.acControl?.frequency === 'once' ? 'once' : 'everyday');
     setAcControlMorningEnabled(r?.acControl?.morningEnabled !== false);
-    setAcControlMorningStart(r?.acControl?.morningStart || '07:00');
-    setAcControlMorningEnd(r?.acControl?.morningEnd || '08:00');
+    setAcControlMorningStart(sanitize(r?.acControl?.morningStart, '07:00'));
+    setAcControlMorningEnd(sanitize(r?.acControl?.morningEnd, '08:00'));
     setAcControlEveningEnabled(r?.acControl?.eveningEnabled !== false);
-    setAcControlEveningStart(r?.acControl?.eveningStart || '18:00');
-    setAcControlEveningEnd(r?.acControl?.eveningEnd || '19:00');
+    setAcControlEveningStart(sanitize(r?.acControl?.eveningStart, '18:00'));
+    setAcControlEveningEnd(sanitize(r?.acControl?.eveningEnd, '19:00'));
 
     setRulesLoaded(true);
   };
@@ -1191,8 +1074,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       let eveningFinished = false;
 
       if (supplyWaterFrequency === 'once') {
-          if (morningScheduleEnabled && morningStartTime.length > 5 && morningEndTime.length > 5) {
-               const start = new Date(morningStartTime.replace(' ', 'T'));
+          if (morningScheduleEnabled && morningStartTime && morningEndTime && morningEndTime.length > 5) {
+               const start = new Date(morningStartTime.toString().replace(' ', 'T'));
                const end = new Date(morningEndTime.replace(' ', 'T'));
                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
                    inMorning = now >= start && now < end;
@@ -1216,7 +1099,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               return h * 60 + m;
           };
           
-          const mStart = parseTime(morningStartTime);
+          const mStart = parseTime(morningStartTime?.toDateString() || '');
           const mEnd = parseTime(morningEndTime);
           const eStart = parseTime(eveningStartTime);
           const eEnd = parseTime(eveningEndTime);
@@ -2198,19 +2081,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {morningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
-                         value={morningStartTime}
-                         onChange={setMorningStartTime}
-                         onEndEditing={persistRules}
-                         frequency={supplyWaterFrequency}
-                      />
+                                                <DateTime
+                                label="Morning Time"
+                                value={morningStartTime}
+                                type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
+                                onChange={(d) => setMorningStartTime(d)}
+                              />
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={morningEndTime}
                          onChange={setMorningEndTime}
                          onEndEditing={persistRules}
                          frequency={supplyWaterFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2227,19 +2110,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {eveningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={eveningStartTime}
                          onChange={setEveningStartTime}
                          onEndEditing={persistRules}
                          frequency={supplyWaterFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={eveningEndTime}
                          onChange={setEveningEndTime}
                          onEndEditing={persistRules}
                          frequency={supplyWaterFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2390,19 +2273,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {wateringPlantsMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={wateringPlantsMorningStart}
                          onChange={setWateringPlantsMorningStart}
                          onEndEditing={persistRules}
                          frequency={wateringPlantsFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={wateringPlantsMorningEnd}
                          onChange={setWateringPlantsMorningEnd}
                          onEndEditing={persistRules}
                          frequency={wateringPlantsFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2419,19 +2302,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {wateringPlantsEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={wateringPlantsEveningStart}
                          onChange={setWateringPlantsEveningStart}
                          onEndEditing={persistRules}
                          frequency={wateringPlantsFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={wateringPlantsEveningEnd}
                          onChange={setWateringPlantsEveningEnd}
                          onEndEditing={persistRules}
                          frequency={wateringPlantsFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2483,19 +2366,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {dogFeedMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={dogFeedMorningStart}
                          onChange={setDogFeedMorningStart}
                          onEndEditing={persistRules}
                          frequency={dogFeedFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={dogFeedMorningEnd}
                          onChange={setDogFeedMorningEnd}
                          onEndEditing={persistRules}
                          frequency={dogFeedFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2512,19 +2395,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {dogFeedEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={dogFeedEveningStart}
                          onChange={setDogFeedEveningStart}
                          onEndEditing={persistRules}
                          frequency={dogFeedFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={dogFeedEveningEnd}
                          onChange={setDogFeedEveningEnd}
                          onEndEditing={persistRules}
                          frequency={dogFeedFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2576,19 +2459,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {acControlMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={acControlMorningStart}
                          onChange={setAcControlMorningStart}
                          onEndEditing={persistRules}
                          frequency={acControlFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={acControlMorningEnd}
                          onChange={setAcControlMorningEnd}
                          onEndEditing={persistRules}
                          frequency={acControlFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>
@@ -2605,19 +2488,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    </View>
                    {acControlEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={acControlEveningStart}
                          onChange={setAcControlEveningStart}
                          onEndEditing={persistRules}
                          frequency={acControlFrequency}
-                      />
+                      /> */}
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <DateTimePickerInput
+                      {/* <DateTimePickerInput
                          value={acControlEveningEnd}
                          onChange={setAcControlEveningEnd}
                          onEndEditing={persistRules}
                          frequency={acControlFrequency}
-                      />
+                      /> */}
                    </View>
                    )}
                 </View>

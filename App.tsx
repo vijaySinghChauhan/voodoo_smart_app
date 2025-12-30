@@ -65,6 +65,7 @@ import WifiConnection from './src/services/esp8266/wifiConnection';
 import orderService from './src/services/ecommerce/orderService';
 import cartService from './src/services/ecommerce/cartService';
 import DeviceAccessScreen from './src/screens/esp8266/DeviceAccessScreen';
+import { PaperProvider } from 'react-native-paper';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -481,10 +482,14 @@ const AppNavigator = () => {
 function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
+      <PaperProvider>
       <AuthProvider>
+         
         <AppNavigator />
         <Toast />
+  
       </AuthProvider>
+            </PaperProvider>
     </SafeAreaProvider>
   );
 }

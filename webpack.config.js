@@ -30,9 +30,7 @@ module.exports = {
       'react-native-webrtc': path.resolve(__dirname, 'src/shims/webrtcShim.web.ts'),
       'react-native-webrtc/lib/commonjs': path.resolve(__dirname, 'src/shims/webrtcShim.web.ts'),
       'react-native-network-info': path.resolve(__dirname, 'src/shims/networkInfoShim.web.ts'),
-      '@react-navigation/native': path.resolve(__dirname, 'node_modules/@react-navigation/native/lib/module/index.js'),
-      '@react-navigation/drawer': path.resolve(__dirname, 'node_modules/@react-navigation/drawer/lib/module/index.js'),
-      '@react-navigation/stack': path.resolve(__dirname, 'node_modules/@react-navigation/stack/lib/module/index.js'),
+      '@react-native-community/datetimepicker': path.resolve(__dirname, 'src/shims/datetimepickerShim.web.js'),
     },
   },
 
@@ -46,7 +44,10 @@ module.exports = {
 
       {
         test: /\.(ts|tsx|js|jsx)$/,
-        exclude: /node_modules\/((?!(react-native|@react-navigation|react-native-safe-area-context|react-native-svg|react-native-gesture-handler|react-native-toast-message)).)*/,
+        exclude: (modulePath) => {
+          return /node_modules/.test(modulePath) &&
+            !/node_modules\/(react-native\/|react-native-safe-area-context|react-native-svg|react-native-gesture-handler|react-native-toast-message|@react-native-community\/datetimepicker)/.test(modulePath);
+        },
         use: {
           loader: 'babel-loader',
           options: {
