@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  Switch,
   TextInput,
   Vibration,
   Platform,
@@ -27,6 +26,7 @@ import { notificationService } from '../../services/notifications/notificationSe
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 
 import { SimpleDateTime } from '../../components/SimpleDateTime';
+import { AppSwitch } from '../../components/AppSwitch';
 import { DatePickerModal, TimePickerModal } from 'react-native-paper-dates';
 
 
@@ -1952,14 +1952,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <View style={styles.powerControl}>
             <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor'}</Text>
             {canControl ? (
-              <Switch
+              <AppSwitch
                 value={isPowerOn}
                 onValueChange={(val) => {
                   setIsPowerOn(val);
                   toggleDeviceField('device1', val);
                 }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={isPowerOn ? '#fff' : '#f4f3f4'}
               />
             ) : null}
           </View>
@@ -1982,14 +1980,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 <Text style={styles.sectionTitle}>Flow Control</Text>
                 {canControl && (
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ marginRight: 8, color: noFlowAutoOffEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
-                      {noFlowAutoOffEnabled ? 'ON' : 'OFF'}
-                    </Text>
-                    <Switch
+                    <AppSwitch
                       value={noFlowAutoOffEnabled}
                       onValueChange={(v) => { setNoFlowAutoOffEnabled(v) }}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
+                      
+                      
                     />
                   </View>
                 )}
@@ -2044,14 +2039,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN ON rule</Text>
                   {canControl && (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                       <Text style={{ marginRight: 8, color: onEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
-                          {onEnabled ? 'ON' : 'OFF'}
-                       </Text>
-                       <Switch
+                       <AppSwitch
                           value={onEnabled}
                           onValueChange={(v) => { setOnEnabled(v) }}
-                          trackColor={{ false: '#767577', true: '#4CAF50' }}
-                          thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
+                          
+                          
                        />
                     </View>
                   )}
@@ -2107,14 +2099,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN OFF rule</Text>
                   {canControl && (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                       <Text style={{ marginRight: 8, color: offEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
-                          {offEnabled ? 'ON' : 'OFF'}
-                       </Text>
-                       <Switch
+                       <AppSwitch
                           value={offEnabled}
                           onValueChange={(v) => { setOffEnabled(v) }}
-                          trackColor={{ false: '#767577', true: '#4CAF50' }}
-                          thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
+                          
+                          
                        />
                     </View>
                   )}
@@ -2174,11 +2163,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             {/* Timer Switch */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
-              <Switch
+              <AppSwitch
                 value={supplyWaterTimerEnabled}
                 onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={supplyWaterTimerEnabled ? '#fff' : '#f4f3f4'}
+                
+                
               />
             </View>
 
@@ -2232,11 +2221,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       </TouchableOpacity>
                   </View>
 
-                  <Switch
+                  <AppSwitch
                     value={morningScheduleEnabled}
                     onValueChange={(v) => { setMorningScheduleEnabled(v) }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={morningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                    
+                    
                   />
                </View>
 
@@ -2267,11 +2256,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       </TouchableOpacity>
                   </View>
 
-                  <Switch
+                  <AppSwitch
                     value={eveningScheduleEnabled}
                     onValueChange={(v) => { setEveningScheduleEnabled(v) }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={eveningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                    
+                    
                   />
                </View>
             </View>
@@ -2288,7 +2277,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
                 <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
                 {canControl ? (
-                    <Switch
+                    <AppSwitch
                       value={device2On}
                       onValueChange={(val) => {
                         setDevice2On(val);
@@ -2300,8 +2289,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           }, 3000);
                         }
                       }}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={device2On ? '#fff' : '#f4f3f4'}
+                      
+                      
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
@@ -2314,11 +2303,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
                 <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
                  {canControl ? (
-                    <Switch
+                    <AppSwitch
                       value={device4On}
                       onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={device4On ? '#fff' : '#f4f3f4'}
+                      
+                      
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
@@ -2337,11 +2326,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
                 <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice3 || 'Watering'}</Text>
                  {canControl ? (
-                    <Switch
+                    <AppSwitch
                       value={device3On}
                       onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={device3On ? '#fff' : '#f4f3f4'}
+                      
+                      
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
@@ -2354,11 +2343,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
                 <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice5 || 'AC Control'}</Text>
                  {canControl ? (
-                    <Switch
+                    <AppSwitch
                       value={device5On}
                       onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={device5On ? '#fff' : '#f4f3f4'}
+                      
+                      
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
@@ -2375,11 +2364,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
-              <Switch
+              <AppSwitch
                 value={wateringPlantsTimerEnabled}
                 onValueChange={(v) => { setWateringPlantsTimerEnabled(v) }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={wateringPlantsTimerEnabled ? '#fff' : '#f4f3f4'}
+                
+                
               />
             </View>
             <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
@@ -2413,7 +2402,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={wateringPlantsMorningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled}   />
                </View>
 
                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
@@ -2430,7 +2419,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={wateringPlantsEveningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled}   />
                </View>
             </View>
           )}
@@ -2441,11 +2430,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
-              <Switch
+              <AppSwitch
                 value={dogFeedTimerEnabled}
                 onValueChange={(v) => { setDogFeedTimerEnabled(v) }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={dogFeedTimerEnabled ? '#fff' : '#f4f3f4'}
+                
+                
               />
             </View>
             <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
@@ -2479,7 +2468,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={dogFeedMorningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled}   />
                </View>
 
                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
@@ -2496,7 +2485,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={dogFeedEveningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled}   />
                </View>
             </View>
           )}
@@ -2507,11 +2496,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
-              <Switch
+              <AppSwitch
                 value={acControlTimerEnabled}
                 onValueChange={(v) => { setAcControlTimerEnabled(v) }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={acControlTimerEnabled ? '#fff' : '#f4f3f4'}
+                
+                
               />
             </View>
             <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
@@ -2545,7 +2534,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={acControlMorningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled}   />
                </View>
 
                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
@@ -2562,7 +2551,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
-                  <Switch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={acControlEveningEnabled ? '#fff' : '#f4f3f4'} />
+                  <AppSwitch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled}   />
                </View>
             </View>
           )}

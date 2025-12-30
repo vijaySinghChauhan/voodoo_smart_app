@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -14,6 +13,7 @@ import { RouteProp } from '@react-navigation/native';
 import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
+import { AppSwitch } from '../../components/AppSwitch';
 
 interface Device {
   id: string;
@@ -175,7 +175,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
         <Text style={styles.deviceType}>{item.deviceType || 'Device'}</Text>
       </View>
       <View style={styles.deviceControls}>
-        <Switch
+        <AppSwitch
           value={!!item.isOn}
           onValueChange={() => toggleDeviceStatus(item)}
         />
