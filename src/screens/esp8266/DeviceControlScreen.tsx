@@ -27,7 +27,7 @@ import subscriptionService from '../../services/subscriptions/subscriptionServic
 
 import { SimpleDateTime } from '../../components/SimpleDateTime';
 import { AppSwitch } from '../../components/AppSwitch';
-import { DatePickerModal, TimePickerModal } from 'react-native-paper-dates';
+import { DateTimePickerManager, DateTimePickerManagerRef } from '../../components/DateTimePickerManager';
 
 
 interface DeviceStatus {
@@ -42,6 +42,16 @@ interface DeviceStatus {
 }
 
 
+
+
+const formatOneTimeDate = (date: Date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
 
 const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { deviceId?: string, fromDiscovery?: boolean } } }> = ({ navigation, route }) => {
   const [deviceName, setDeviceName] = useState('');
@@ -157,18 +167,11 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [acControlEveningEnd, setAcControlEveningEnd] = React.useState<Date | null>(null);
 
   // Gate automation until rules are loaded to avoid unintended toggles
+  const rulesLoadedRef = React.useRef<boolean>(false);
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<any>(null);
-
-  // Shared DateTimePicker State
-  const [pickerVisible, setPickerVisible] = useState(false); // for DatePicker
-  const [timePickerVisible, setTimePickerVisible] = useState(false); // for TimePicker
-  const [pickerConfig, setPickerConfig] = useState<{
-      value: Date | null;
-      onChange: (d: Date) => void;
-      type: 'date' | 'time' | 'datetime';
-  } | null>(null);
-  const [tempDate, setTempDate] = useState<Date>(new Date());
+  
+  const pickerRef = useRef<DateTimePickerManagerRef>(null);
 
   const validateTimeSelection = (
     newDate: Date,
@@ -219,52 +222,9 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   };
 
   const openPicker = (config: { value: Date | null, onChange: (d: Date) => void, type: 'date'|'time'|'datetime' }) => {
-      setPickerConfig(config);
-      const initialDate = config.value ? new Date(config.value) : new Date();
-      setTempDate(initialDate);
-      
-      if (config.type === 'time') {
-          setTimePickerVisible(true);
-      } else {
-          setPickerVisible(true);
-      }
+      pickerRef.current?.open(config);
   };
 
-  const onConfirmDate = ({ date }: any) => {
-      setPickerVisible(false);
-      if (!pickerConfig) return;
-
-      const baseDate = date || tempDate;
-      const prev = tempDate;
-      
-      const newDate = new Date(baseDate);
-      // Keep previous time
-      newDate.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
-      setTempDate(newDate);
-
-      if (pickerConfig.type === 'datetime') {
-          // Proceed to time picker
-          setTimeout(() => setTimePickerVisible(true), 300);
-      } else {
-          // Done (type='date')
-          pickerConfig.onChange(newDate);
-          setPickerConfig(null);
-      }
-  };
-
-  const onConfirmTime = ({ hours, minutes }: any) => {
-      setTimePickerVisible(false);
-      if (!pickerConfig) return;
-
-      const newDate = new Date(tempDate);
-      newDate.setHours(hours);
-      newDate.setMinutes(minutes);
-      newDate.setSeconds(0);
-      newDate.setMilliseconds(0);
-      
-      pickerConfig.onChange(newDate);
-      setPickerConfig(null);
-  };
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
   // Ensure UI shows power OFF by default on first load
@@ -2206,8 +2166,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, morningEndTime, setMorningStartTime); } })}
                       >
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
-                           {morningStartTime instanceof Date ? morningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                         </Text>
+                           {morningStartTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? morningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(morningStartTime)) : '--:--'}
+                        </Text>
                       </TouchableOpacity>
                       
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
@@ -2216,8 +2176,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, morningStartTime, setMorningEndTime); } })}
                       >
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
-                           {morningEndTime instanceof Date ? morningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                         </Text>
+                           {morningEndTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? morningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(morningEndTime)) : '--:--'}
+                        </Text>
                       </TouchableOpacity>
                   </View>
 
@@ -2241,8 +2201,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, eveningEndTime, setEveningStartTime); } })}
                       >
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
-                           {eveningStartTime instanceof Date ? eveningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                         </Text>
+                           {eveningStartTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? eveningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(eveningStartTime)) : '--:--'}
+                        </Text>
                       </TouchableOpacity>
                       
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
@@ -2251,8 +2211,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, eveningStartTime, setEveningEndTime); } })}
                       >
                          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
-                           {eveningEndTime instanceof Date ? eveningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                         </Text>
+                           {eveningEndTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? eveningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(eveningEndTime)) : '--:--'}
+                        </Text>
                       </TouchableOpacity>
                   </View>
 
@@ -2395,11 +2355,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsMorningEnd, setWateringPlantsMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningStart instanceof Date ? wateringPlantsMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsMorningStart, setWateringPlantsMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled}   />
@@ -2412,11 +2372,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsEveningEnd, setWateringPlantsEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningStart instanceof Date ? wateringPlantsEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsEveningStart, setWateringPlantsEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled}   />
@@ -2461,11 +2421,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedMorningEnd, setDogFeedMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningStart instanceof Date ? dogFeedMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedMorningStart, setDogFeedMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled}   />
@@ -2478,11 +2438,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedEveningEnd, setDogFeedEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningStart instanceof Date ? dogFeedEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedEveningStart, setDogFeedEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled}   />
@@ -2527,11 +2487,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlMorningEnd, setAcControlMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningStart instanceof Date ? acControlMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlMorningStart, setAcControlMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled}   />
@@ -2544,11 +2504,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlEveningEnd, setAcControlEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningStart instanceof Date ? acControlEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
                       <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlEveningStart, setAcControlEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   <AppSwitch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled}   />
@@ -2689,21 +2649,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
       </ScrollView>
       
-      <DatePickerModal
-        locale="en"
-        mode="single"
-        visible={pickerVisible}
-        onDismiss={() => setPickerVisible(false)}
-        date={tempDate}
-        onConfirm={onConfirmDate}
-      />
-      <TimePickerModal
-        visible={timePickerVisible}
-        onDismiss={() => setTimePickerVisible(false)}
-        onConfirm={onConfirmTime}
-        hours={tempDate.getHours()}
-        minutes={tempDate.getMinutes()}
-      />
+      <DateTimePickerManager ref={pickerRef} />
     </SafeAreaView>
   );
 };
