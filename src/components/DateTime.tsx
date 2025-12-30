@@ -74,7 +74,9 @@ const onConfirmDate = ({ date }: any) => {
         style={{ backgroundColor: 'transparent' }}
         underlineColor="transparent"
         activeUnderlineColor="transparent"
-        value={value ? (type === 'time' ? value.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : value.toLocaleString()) : ''}
+        multiline={true}
+        numberOfLines={2}
+        value={value ? (type === 'time' ? value.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : value.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) + ' ' + value.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})) : ''}
       />
       </TouchableOpacity>
 
