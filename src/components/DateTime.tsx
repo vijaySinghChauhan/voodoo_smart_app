@@ -71,9 +71,10 @@ const onConfirmDate = ({ date }: any) => {
       <TextInput
         editable={false}
         label={label}
+        style={{ backgroundColor: 'transparent' }}
+        underlineColor="transparent"
+        activeUnderlineColor="transparent"
         value={value ? (type === 'time' ? value.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : value.toLocaleString()) : ''}
-        backgroundColor="transparent"
-        right={<TextInput.Icon icon={type === 'time' ? "clock" : "calendar"} onPress={showPicker} />}
       />
       </TouchableOpacity>
 
