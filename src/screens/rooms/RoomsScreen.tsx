@@ -281,7 +281,17 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#e74c3c'
   },
-  cardWrap: { width: '48%', marginBottom: 14 },
+  cardWrap: {
+    width: '48%',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 6,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+  },
   cardImage: { width: '100%', height: 140, justifyContent: 'flex-end' },
   cardImageInner: { borderRadius: 12 },
   cardFooter: { backgroundColor: 'rgba(255,255,255,0.95)', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, padding: 10 },

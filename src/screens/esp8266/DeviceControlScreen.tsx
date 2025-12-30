@@ -1974,39 +1974,48 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </TouchableOpacity>
           ) : null}
 
-           <View style={{ marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Flow Data </Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Flow Rate</Text>
-              <Text style={styles.infoValue}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '—'}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Total Liters</Text>
-              <Text style={styles.infoValue}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '—'}</Text>
-            </View>
-            {/* No Flow Auto-OFF Rule */}
-            <View style={{ marginTop: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={styles.powerLabel}>Auto OFF when flow is 0</Text>
-                {canControl ? (
-                  <Switch
-                    value={noFlowAutoOffEnabled}
-                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v) }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
-                  />
-                ) : null}
-              </View>
-              <Text style={styles.infoLabel}>Delay before switching OFF</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity
+        </View>
+
+        {/* Flow Control Card */}
+        <View style={styles.controlSection}>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 }}>
+                <Text style={styles.sectionTitle}>Flow Control</Text>
+                {canControl && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ marginRight: 8, color: noFlowAutoOffEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
+                      {noFlowAutoOffEnabled ? 'ON' : 'OFF'}
+                    </Text>
+                    <Switch
+                      value={noFlowAutoOffEnabled}
+                      onValueChange={(v) => { setNoFlowAutoOffEnabled(v) }}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
+                    />
+                  </View>
+                )}
+             </View>
+
+             <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 }}>Flow Data</Text>
+             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                   <Text style={{ fontSize: 14, color: '#666' }}>Flow Rate</Text>
+                   <Text style={{ fontSize: 18, color: '#333', marginTop: 4 }}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '0 L/min'}</Text>
+                </View>
+                <View style={{ width: 1, height: 40, backgroundColor: '#ddd', marginHorizontal: 15 }} />
+                <View style={{ flex: 1 }}>
+                   <Text style={{ fontSize: 14, color: '#666' }}>Total Liters</Text>
+                   <Text style={{ fontSize: 18, color: '#333', marginTop: 4 }}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '0 L'}</Text>
+                </View>
+             </View>
+
+             <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>Auto OFF Delay when flow is 0</Text>
+             <TouchableOpacity
                   onPress={() => setShowNoFlowDelayMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1 }}
+                  style={{ padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa' }}
                 >
                   <Text style={{ color: '#333' }}>{noFlowDelaySec}s</Text>
-                </TouchableOpacity>
-              </View>
-              {showNoFlowDelayMenu && (
+             </TouchableOpacity>
+             {showNoFlowDelayMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
                   {[10, 20, 30, 40, 60, 120].map((sec) => (
                     <TouchableOpacity
@@ -2022,667 +2031,540 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
-            </View>
-        
-          </View>
-          {/* Automation rules UI: Turn ON and Turn OFF */}
-          <View style={{ marginTop: 12 }}>
+             )}
+        </View>
+
+        {/* Automation Rules Card */}
+        <View style={styles.controlSection}>
             <Text style={styles.sectionTitle}>Automation Rules: Motor</Text>
+            
             {/* Turn ON Rule */}
-            <View style={{ marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={styles.powerLabel}>Turn ON rule</Text>
-                {canControl ? (
-                  <Switch
-                    value={onEnabled}
-                    onValueChange={(v) => { setOnEnabled(v) }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
-                  />
-                ) : null}
-              </View>
-              <Text style={styles.infoLabel}>When level is</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity
-                  onPress={() => setShowOnOperatorMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginRight: 8 }}
-                >
-                  <Text style={{ color: '#333' }}>{onOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowOnPercentMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginLeft: 8 }}
-                >
-                  <Text style={{ color: '#333' }}>{onThreshold}%</Text>
-                </TouchableOpacity>
-              </View>
-              {showOnOperatorMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[
-                    { key: 'lt', label: 'Less than' },
-                    // { key: 'ge', label: 'More than or equal' },
-                  ].map((opt) => (
+            <View style={{ marginBottom: 15 }}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN ON rule</Text>
+                  {canControl && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                       <Text style={{ marginRight: 8, color: onEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
+                          {onEnabled ? 'ON' : 'OFF'}
+                       </Text>
+                       <Switch
+                          value={onEnabled}
+                          onValueChange={(v) => { setOnEnabled(v) }}
+                          trackColor={{ false: '#767577', true: '#4CAF50' }}
+                          thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
+                       />
+                    </View>
+                  )}
+               </View>
+               <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>When level is</Text>
+               <View style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity
+                      onPress={() => setShowOnOperatorMenu((s) => !s)}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <Text style={{ color: '#333' }}>{onOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
+                      <Text style={{ color: '#666' }}>▼</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                      onPress={() => setShowOnPercentMenu((s) => !s)}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginLeft: 8 }}
+                    >
+                      <Text style={{ color: '#333' }}>{onThreshold}%</Text>
+                  </TouchableOpacity>
+               </View>
+                {/* Menus for ON Rule */}
+               {showOnOperatorMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                  {[{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than or equal' }].map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
-                      onPress={() => {
-                        const next = opt.key === 'ge' ? 'ge' : 'lt';
-                        setOnOperator(next);
-                        setShowOnOperatorMenu(false);
-                        persistRules();
-                      }}
-                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                      onPress={() => { setOnOperator(opt.key as 'lt' | 'ge'); setShowOnOperatorMenu(false); persistRules(); }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     >
                       <Text style={{ color: '#333' }}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
-              {showOnPercentMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[ 10, 20, 30, 40].map((p) => (
+               )}
+               {showOnPercentMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                  {[10, 20, 30, 40, 50].map((p) => (
                     <TouchableOpacity
                       key={p}
-                      onPress={() => {
-                        setOnThreshold(p);
-                        setShowOnPercentMenu(false);
-                        persistRules();
-                      }}
-                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                      onPress={() => { setOnThreshold(p); setShowOnPercentMenu(false); persistRules(); }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     >
                       <Text style={{ color: '#333' }}>{p}%</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+               )}
             </View>
 
             {/* Turn OFF Rule */}
-            <View style={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={styles.powerLabel}>Turn OFF rule</Text>
-                {canControl ? (
-                  <Switch
-                    value={offEnabled}
-                    onValueChange={(v) => { setOffEnabled(v) }}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                    thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
-                  />
-                ) : null}
-              </View>
-              <Text style={styles.infoLabel}>When level is</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity
-                  onPress={() => setShowOffOperatorMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginRight: 8 }}
-                >
-                  <Text style={{ color: '#333' }}>{offOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowOffPercentMenu((s) => !s)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', flex: 1, marginLeft: 8 }}
-                >
-                  <Text style={{ color: '#333' }}>{offThreshold}%</Text>
-                </TouchableOpacity>
-              </View>
-              {showOffOperatorMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[
-                    // { key: 'lt', label: 'Less than' },
-                    { key: 'ge', label: 'More than or equal' },
-                  ].map((opt) => (
+            <View style={{ paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' }}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN OFF rule</Text>
+                  {canControl && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                       <Text style={{ marginRight: 8, color: offEnabled ? '#4CAF50' : '#666', fontWeight: 'bold' }}>
+                          {offEnabled ? 'ON' : 'OFF'}
+                       </Text>
+                       <Switch
+                          value={offEnabled}
+                          onValueChange={(v) => { setOffEnabled(v) }}
+                          trackColor={{ false: '#767577', true: '#4CAF50' }}
+                          thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
+                       />
+                    </View>
+                  )}
+               </View>
+               <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>More than</Text>
+               <View style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity
+                      onPress={() => setShowOffOperatorMenu((s) => !s)}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <Text style={{ color: '#333' }}>{offOperator === 'lt' ? 'Less than' : 'More than'}</Text>
+                      <Text style={{ color: '#666' }}>▼</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                      onPress={() => setShowOffPercentMenu((s) => !s)}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginLeft: 8 }}
+                    >
+                      <Text style={{ color: '#333' }}>{offThreshold}%</Text>
+                  </TouchableOpacity>
+               </View>
+                {/* Menus for OFF Rule */}
+                {showOffOperatorMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                  {([{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than' }] as const).map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
-                      onPress={() => {
-                        const next = opt.key === 'lt' ? 'lt' : 'ge';
-                        setOffOperator(next);
-                        setShowOffOperatorMenu(false);
-                        persistRules();
-                      }}
-                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                      onPress={() => { setOffOperator(opt.key); setShowOffOperatorMenu(false); persistRules(); }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     >
                       <Text style={{ color: '#333' }}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
-              {showOffPercentMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
-                  {[ 70, 80, 90, 100].map((p) => (
+               )}
+               {showOffPercentMenu && (
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                  {[70, 80, 90, 100].map((p) => (
                     <TouchableOpacity
                       key={p}
-                      onPress={() => {
-                        setOffThreshold(p);
-                        setShowOffPercentMenu(false);
-                        persistRules();
-                      }}
-                      style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                      onPress={() => { setOffThreshold(p); setShowOffPercentMenu(false); persistRules(); }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     >
                       <Text style={{ color: '#333' }}>{p}%</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+               )}
             </View>
-            <Text style={{ marginTop: 8, color: '#666' }}>Current level: {waterLevel}%</Text>
+            <Text style={{ marginTop: 15, color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Current level: {waterLevel}%</Text>
           </View>
-         
-        </View>
      
         <View style={[styles.controlSection, { marginTop: 10 }]}>
-          <Text style={styles.sectionTitle}>Supply Water</Text>
-          <View style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 4, marginBottom: 10 }}>
-               <Text style={{ fontSize: 12, color: '#555' }}>Current: {debugCurrentTime.toLocaleTimeString()} ({debugCurrentTime.getHours()}:{debugCurrentTime.getMinutes()})</Text>
-               <Text style={{ fontSize: 12, color: '#555' }}>Status: {supplyWaterTimerStatus}</Text>
-               {morningScheduleEnabled && <Text style={{ fontSize: 12, color: '#555' }}>M: {morningStartTime?.getHours()}:{morningStartTime?.getMinutes()} - {morningEndTime?.getHours()}:{morningEndTime?.getMinutes()}</Text>}
-               {eveningScheduleEnabled && <Text style={{ fontSize: 12, color: '#555' }}>E: {eveningStartTime?.getHours()}:{eveningStartTime?.getMinutes()} - {eveningEndTime?.getHours()}:{eveningEndTime?.getMinutes()}</Text>}
-               <Text style={{ fontSize: 12, color: '#555' }}>Freq: {supplyWaterFrequency}</Text>
-               <Text style={{ fontSize: 12, color: '#555' }}>
-                 Debug: Now({debugCurrentTime.getHours() * 60 + debugCurrentTime.getMinutes()}) 
-                 {supplyWaterFrequency === 'once' && ` Date(${morningStartTime?.toLocaleDateString()})`}
-                 {morningScheduleEnabled && ` M_Start(${morningStartTime ? morningStartTime.getHours() * 60 + morningStartTime.getMinutes() : '?'}) M_End(${morningEndTime ? morningEndTime.getHours() * 60 + morningEndTime.getMinutes() : '?'})`}
-               </Text>
-               <Text style={{ fontSize: 12, color: '#555' }}>Last Check: {lastTimerCheck ? new Date(lastTimerCheck).toLocaleTimeString() : 'Never'}</Text>
-               <Text style={{ fontSize: 12, color: '#555' }}>Next Force: {Math.max(0, Math.ceil((30000 - (Date.now() - lastForcedOn))/1000))}s</Text>
-           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-             <Text style={styles.powerLabel}>Enable Timer</Text>
-             <Switch
-               value={supplyWaterTimerEnabled}
-               onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
-               trackColor={{ false: '#767577', true: '#4CAF50' }}
-               thumbColor={supplyWaterTimerEnabled ? '#fff' : '#f4f3f4'}
-             />
+          <Text style={styles.sectionTitle}>Watering Schedule</Text>
+
+          {/* Top Row: Timer Switch | Mode Selector */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+            {/* Timer Switch */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Switch
+                value={supplyWaterTimerEnabled}
+                onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={supplyWaterTimerEnabled ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            {/* Vertical Divider */}
+            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+
+            {/* Mode Selector */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <TouchableOpacity
+                 onPress={() => {
+                    setSupplyWaterFrequency(supplyWaterFrequency === 'everyday' ? 'once' : 'everyday');
+                 }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+               >
+                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                     {supplyWaterFrequency === 'everyday' ? 'Everyday' : 'One Time'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+               </TouchableOpacity>
+            </View>
           </View>
 
+          {/* Schedule Rows (Only if Timer is Enabled) */}
           {supplyWaterTimerEnabled && (
-             <View>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={styles.infoLabel}>Frequency</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                    <TouchableOpacity
-                      onPress={() => { setSupplyWaterFrequency('everyday') }}
-                      style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: supplyWaterFrequency === 'everyday' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: supplyWaterFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { setSupplyWaterFrequency('once') }}
-                      style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: supplyWaterFrequency === 'once' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: supplyWaterFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
-                    </TouchableOpacity>
+            <View>
+               {/* Morning Row */}
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
                   </View>
-                </View>
 
-                <View style={{ marginBottom: 12 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Morning Schedule</Text>
-                      <Switch
-                        value={morningScheduleEnabled}
-                        onValueChange={(v) => { setMorningScheduleEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={morningScheduleEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {morningScheduleEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={morningStartTime}
-                          type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, morningEndTime, setMorningStartTime); } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={morningEndTime}
-                          type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, morningStartTime, setMorningEndTime); } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity
+                         onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, morningEndTime, setMorningStartTime); } })}
+                      >
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                           {morningStartTime instanceof Date ? morningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                         </Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
 
-                <View style={{ marginBottom: 8 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Evening Schedule</Text>
-                      <Switch
-                        value={eveningScheduleEnabled}
-                        onValueChange={(v) => { setEveningScheduleEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={eveningScheduleEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {eveningScheduleEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={eveningStartTime}
-                          type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, eveningEndTime, setEveningStartTime); } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={eveningEndTime}
-                          type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, eveningStartTime, setEveningEndTime); } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-             </View>
+                      <TouchableOpacity
+                         onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, morningStartTime, setMorningEndTime); } })}
+                      >
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                           {morningEndTime instanceof Date ? morningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                         </Text>
+                      </TouchableOpacity>
+                  </View>
+
+                  <Switch
+                    value={morningScheduleEnabled}
+                    onValueChange={(v) => { setMorningScheduleEnabled(v) }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={morningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                  />
+               </View>
+
+               {/* Evening Row */}
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                  </View>
+
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity
+                         onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, eveningEndTime, setEveningStartTime); } })}
+                      >
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                           {eveningStartTime instanceof Date ? eveningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                         </Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+
+                      <TouchableOpacity
+                         onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, eveningStartTime, setEveningEndTime); } })}
+                      >
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                           {eveningEndTime instanceof Date ? eveningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                         </Text>
+                      </TouchableOpacity>
+                  </View>
+
+                  <Switch
+                    value={eveningScheduleEnabled}
+                    onValueChange={(v) => { setEveningScheduleEnabled(v) }}
+                    trackColor={{ false: '#767577', true: '#4CAF50' }}
+                    thumbColor={eveningScheduleEnabled ? '#fff' : '#f4f3f4'}
+                  />
+               </View>
+            </View>
           )}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 10 }] }>
           <Text style={styles.sectionTitle}>GPIO Controls</Text>
-          <View style={styles.powerControl}>
-          <Text style={styles.powerLabel}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
-          {canControl ? (
-            <Switch
-              value={device2On}
-              onValueChange={(val) => {
-                setDevice2On(val);
-                toggleDeviceField('device2', val);
-                if (val) {
-                  setTimeout(() => {
-                    setDevice2On(false);
-                    toggleDeviceField('device2', false);
-                  },3000);
-                }
-              }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device2On ? '#fff' : '#e0cae0ff'}
-            />
-          ) : null}
-        </View>
-        {!canControl ? (
-          <TouchableOpacity
-            style={styles.subscribeMiniButton}
-            onPress={() => navigateToSubscriptionCheckout()}
-          >
-            <Text style={styles.subscribeMiniButtonText}>
-              {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-        <View style={styles.powerControl}>
-          <Text style={styles.powerLabel}>{subLabels?.subdevice3 || 'Watering Plants'}</Text>
-          {canControl ? (
-            <Switch
-              value={device3On}
-              onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
-              trackColor={{ false: '#767577', true: '#4CAF50' }}
-              thumbColor={device3On ? '#fff' : '#e6d2e6ff'}
-            />
-          ) : null}
-        </View>
-        {!canControl ? (
-          <TouchableOpacity
-            style={styles.subscribeMiniButton}
-            onPress={() => navigateToSubscriptionCheckout()}
-          >
-            <Text style={styles.subscribeMiniButtonText}>
-              {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-       
-         
-          <View style={styles.powerControl}>
-          <Text style={styles.powerLabel}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
-            {canControl ? (
-              <Switch
-                value={device4On}
-                onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={device4On ? '#fff' : '#f4f3f4'}
-              />
-            ) : null}
+          
+          <View style={{ flexDirection: 'row' }}>
+            {/* Left Column */}
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              {/* Device 2: Door Lock */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
+                {canControl ? (
+                    <Switch
+                      value={device2On}
+                      onValueChange={(val) => {
+                        setDevice2On(val);
+                        toggleDeviceField('device2', val);
+                        if (val) {
+                          setTimeout(() => {
+                            setDevice2On(false);
+                            toggleDeviceField('device2', false);
+                          }, 3000);
+                        }
+                      }}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={device2On ? '#fff' : '#f4f3f4'}
+                    />
+                ) : (
+                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
+                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Device 4: Dog Feed */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
+                 {canControl ? (
+                    <Switch
+                      value={device4On}
+                      onValueChange={(val) => { setDevice4On(val); toggleDeviceField('device4', val); }}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={device4On ? '#fff' : '#f4f3f4'}
+                    />
+                ) : (
+                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
+                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Vertical Divider */}
+            <View style={{ width: 1, backgroundColor: '#f0f0f0', marginHorizontal: 5 }} />
+
+            {/* Right Column */}
+            <View style={{ flex: 1, paddingLeft: 10 }}>
+              {/* Device 3: Watering Plants */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice3 || 'Watering'}</Text>
+                 {canControl ? (
+                    <Switch
+                      value={device3On}
+                      onValueChange={(val) => { setDevice3On(val); toggleDeviceField('device3', val); }}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={device3On ? '#fff' : '#f4f3f4'}
+                    />
+                ) : (
+                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
+                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Device 5: AC Control */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice5 || 'AC Control'}</Text>
+                 {canControl ? (
+                    <Switch
+                      value={device5On}
+                      onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={device5On ? '#fff' : '#f4f3f4'}
+                    />
+                ) : (
+                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
+                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+            </View>
           </View>
-          {!canControl ? (
-            <TouchableOpacity
-              style={styles.subscribeMiniButton}
-              onPress={() => navigateToSubscriptionCheckout()}
-            >
-              <Text style={styles.subscribeMiniButtonText}>
-                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice5 || 'AC Control'}</Text>
-            {canControl ? (
-              <Switch
-                value={device5On}
-                onValueChange={(val) => { setDevice5On(val); toggleDeviceField('device5', val); }}
-                trackColor={{ false: '#767577', true: '#4CAF50' }}
-                thumbColor={device5On ? '#fff' : '#f4f3f4'}
-              />
-            ) : null}
-          </View>
-          {!canControl ? (
-            <TouchableOpacity
-              style={styles.subscribeMiniButton}
-              onPress={() => navigateToSubscriptionCheckout()}
-            >
-              <Text style={styles.subscribeMiniButtonText}>
-                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Watering Plants Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-             <Text style={styles.powerLabel}>Enable Timer</Text>
-             <Switch
-               value={wateringPlantsTimerEnabled}
-               onValueChange={(v) => { setWateringPlantsTimerEnabled(v) }}
-               trackColor={{ false: '#767577', true: '#4CAF50' }}
-               thumbColor={wateringPlantsTimerEnabled ? '#fff' : '#f4f3f4'}
-             />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Switch
+                value={wateringPlantsTimerEnabled}
+                onValueChange={(v) => { setWateringPlantsTimerEnabled(v) }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={wateringPlantsTimerEnabled ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <TouchableOpacity
+                 onPress={() => { setWateringPlantsFrequency(wateringPlantsFrequency === 'everyday' ? 'once' : 'everyday'); }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+               >
+                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                     {wateringPlantsFrequency === 'everyday' ? 'Everyday' : 'One Time'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+               </TouchableOpacity>
+            </View>
           </View>
 
           {wateringPlantsTimerEnabled && (
-             <View>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={styles.infoLabel}>Frequency</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                    <TouchableOpacity
-                      onPress={() => { setWateringPlantsFrequency('everyday') }}
-                      style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { setWateringPlantsFrequency('once') }}
-                      style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: wateringPlantsFrequency === 'once' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: wateringPlantsFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
-                    </TouchableOpacity>
+            <View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
                   </View>
-                </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsMorningEnd, setWateringPlantsMorningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningStart instanceof Date ? wateringPlantsMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsMorningStart, setWateringPlantsMorningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={wateringPlantsMorningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
 
-                <View style={{ marginBottom: 12 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Morning Schedule</Text>
-                      <Switch
-                        value={wateringPlantsMorningEnabled}
-                        onValueChange={(v) => { setWateringPlantsMorningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={wateringPlantsMorningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {wateringPlantsMorningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={wateringPlantsMorningStart}
-                          type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsMorningEnd, setWateringPlantsMorningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={wateringPlantsMorningEnd}
-                          type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsMorningStart, setWateringPlantsMorningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-
-                <View style={{ marginBottom: 8 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Evening Schedule</Text>
-                      <Switch
-                        value={wateringPlantsEveningEnabled}
-                        onValueChange={(v) => { setWateringPlantsEveningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={wateringPlantsEveningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {wateringPlantsEveningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={wateringPlantsEveningStart}
-                          type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsEveningEnd, setWateringPlantsEveningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={wateringPlantsEveningEnd}
-                          type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsEveningStart, setWateringPlantsEveningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-             </View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsEveningEnd, setWateringPlantsEveningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningStart instanceof Date ? wateringPlantsEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsEveningStart, setWateringPlantsEveningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={wateringPlantsEveningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
+            </View>
           )}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Dog Feed Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-             <Text style={styles.powerLabel}>Enable Timer</Text>
-             <Switch
-               value={dogFeedTimerEnabled}
-               onValueChange={(v) => { setDogFeedTimerEnabled(v) }}
-               trackColor={{ false: '#767577', true: '#4CAF50' }}
-               thumbColor={dogFeedTimerEnabled ? '#fff' : '#f4f3f4'}
-             />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Switch
+                value={dogFeedTimerEnabled}
+                onValueChange={(v) => { setDogFeedTimerEnabled(v) }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={dogFeedTimerEnabled ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <TouchableOpacity
+                 onPress={() => { setDogFeedFrequency(dogFeedFrequency === 'everyday' ? 'once' : 'everyday'); }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+               >
+                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                     {dogFeedFrequency === 'everyday' ? 'Everyday' : 'One Time'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+               </TouchableOpacity>
+            </View>
           </View>
 
           {dogFeedTimerEnabled && (
-             <View>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={styles.infoLabel}>Frequency</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                    <TouchableOpacity
-                      onPress={() => { setDogFeedFrequency('everyday') }}
-                      style={{ padding: 8, backgroundColor: dogFeedFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: dogFeedFrequency === 'everyday' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: dogFeedFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { setDogFeedFrequency('once') }}
-                      style={{ padding: 8, backgroundColor: dogFeedFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: dogFeedFrequency === 'once' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: dogFeedFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
-                    </TouchableOpacity>
+            <View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
                   </View>
-                </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedMorningEnd, setDogFeedMorningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningStart instanceof Date ? dogFeedMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedMorningStart, setDogFeedMorningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={dogFeedMorningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
 
-                <View style={{ marginBottom: 12 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Morning Schedule</Text>
-                      <Switch
-                        value={dogFeedMorningEnabled}
-                        onValueChange={(v) => { setDogFeedMorningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={dogFeedMorningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {dogFeedMorningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={dogFeedMorningStart}
-                          type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedMorningEnd, setDogFeedMorningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={dogFeedMorningEnd}
-                          type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedMorningStart, setDogFeedMorningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-
-                <View style={{ marginBottom: 8 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Evening Schedule</Text>
-                      <Switch
-                        value={dogFeedEveningEnabled}
-                        onValueChange={(v) => { setDogFeedEveningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={dogFeedEveningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {dogFeedEveningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={dogFeedEveningStart}
-                          type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedEveningEnd, setDogFeedEveningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={dogFeedEveningEnd}
-                          type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedEveningStart, setDogFeedEveningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-             </View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedEveningEnd, setDogFeedEveningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningStart instanceof Date ? dogFeedEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedEveningStart, setDogFeedEveningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={dogFeedEveningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
+            </View>
           )}
         </View>
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>AC Control Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-             <Text style={styles.powerLabel}>Enable Timer</Text>
-             <Switch
-               value={acControlTimerEnabled}
-               onValueChange={(v) => { setAcControlTimerEnabled(v) }}
-               trackColor={{ false: '#767577', true: '#4CAF50' }}
-               thumbColor={acControlTimerEnabled ? '#fff' : '#f4f3f4'}
-             />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Switch
+                value={acControlTimerEnabled}
+                onValueChange={(v) => { setAcControlTimerEnabled(v) }}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={acControlTimerEnabled ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <TouchableOpacity
+                 onPress={() => { setAcControlFrequency(acControlFrequency === 'everyday' ? 'once' : 'everyday'); }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+               >
+                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                     {acControlFrequency === 'everyday' ? 'Everyday' : 'One Time'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+               </TouchableOpacity>
+            </View>
           </View>
 
           {acControlTimerEnabled && (
-             <View>
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={styles.infoLabel}>Frequency</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                    <TouchableOpacity
-                      onPress={() => { setAcControlFrequency('everyday') }}
-                      style={{ padding: 8, backgroundColor: acControlFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: acControlFrequency === 'everyday' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: acControlFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { setAcControlFrequency('once') }}
-                      style={{ padding: 8, backgroundColor: acControlFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: acControlFrequency === 'once' ? '#00796b' : '#ddd' }}
-                    >
-                       <Text style={{ color: acControlFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
-                    </TouchableOpacity>
+            <View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
                   </View>
-                </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlMorningEnd, setAcControlMorningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningStart instanceof Date ? acControlMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlMorningStart, setAcControlMorningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={acControlMorningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
 
-                <View style={{ marginBottom: 12 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Morning Schedule</Text>
-                      <Switch
-                        value={acControlMorningEnabled}
-                        onValueChange={(v) => { setAcControlMorningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={acControlMorningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {acControlMorningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={acControlMorningStart}
-                          type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlMorningEnd, setAcControlMorningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={acControlMorningEnd}
-                          type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlMorningStart, setAcControlMorningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-
-                <View style={{ marginBottom: 8 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <Text style={styles.infoLabel}>Evening Schedule</Text>
-                      <Switch
-                        value={acControlEveningEnabled}
-                        onValueChange={(v) => { setAcControlEveningEnabled(v) }}
-                        trackColor={{ false: '#767577', true: '#4CAF50' }}
-                        thumbColor={acControlEveningEnabled ? '#fff' : '#f4f3f4'}
-                      />
-                   </View>
-                   {acControlEveningEnabled && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="Start Time"
-                          value={acControlEveningStart}
-                          type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlEveningEnd, setAcControlEveningStart) } })}
-                        />
-                      </View>
-                      <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
-                      <View style={{ flex: 1 }}>
-                        <SimpleDateTime
-                          label="End Time"
-                          value={acControlEveningEnd}
-                          type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlEveningStart, setAcControlEveningEnd) } })}
-                        />
-                      </View>
-                   </View>
-                   )}
-                </View>
-             </View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', width: '30%' }}>
+                     <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
+                     <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <TouchableOpacity onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlEveningEnd, setAcControlEveningStart) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningStart instanceof Date ? acControlEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <TouchableOpacity onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlEveningStart, setAcControlEveningEnd) } })}>
+                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <Switch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled} trackColor={{ false: '#767577', true: '#4CAF50' }} thumbColor={acControlEveningEnabled ? '#fff' : '#f4f3f4'} />
+               </View>
+            </View>
           )}
         </View>
 
