@@ -170,6 +170,54 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   } | null>(null);
   const [tempDate, setTempDate] = useState<Date>(new Date());
 
+  const validateTimeSelection = (
+    newDate: Date,
+    type: 'start' | 'end',
+    frequency: 'once' | 'everyday',
+    otherDate: Date | null,
+    setter: (d: Date) => void
+  ) => {
+    const now = new Date();
+    
+    // 1. Check for Past Time (Strictly for 'once' frequency)
+    if (frequency === 'once') {
+       if (newDate < now) {
+         Alert.alert('Invalid Time', 'Please select a future date and time.');
+         return;
+       }
+    }
+
+    // 2. Check Start < End difference
+    if (otherDate) {
+       if (frequency === 'once') {
+          // Compare full dates
+          if (type === 'start' && newDate >= otherDate) {
+             Alert.alert('Invalid Time', 'Start time must be before end time.');
+             return;
+          }
+          if (type === 'end' && newDate <= otherDate) {
+             Alert.alert('Invalid Time', 'End time must be after start time.');
+             return;
+          }
+       } else {
+          // Compare HH:MM only
+          const newMins = newDate.getHours() * 60 + newDate.getMinutes();
+          const otherMins = otherDate.getHours() * 60 + otherDate.getMinutes();
+          
+          if (type === 'start' && newMins >= otherMins) {
+             Alert.alert('Invalid Time', 'Start time must be earlier than end time.');
+             return;
+          }
+          if (type === 'end' && newMins <= otherMins) {
+             Alert.alert('Invalid Time', 'End time must be later than start time.');
+             return;
+          }
+       }
+    }
+
+    setter(newDate);
+  };
+
   const openPicker = (config: { value: Date | null, onChange: (d: Date) => void, type: 'date'|'time'|'datetime' }) => {
       setPickerConfig(config);
       const initialDate = config.value ? new Date(config.value) : new Date();
@@ -442,6 +490,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         socket.on('brightness:update', (payload) => {
           brightnessReceivedRef.current = true;
           let raw: number | undefined;
+
           if (typeof payload?.brightness === 'number') {
             raw = payload.brightness;
           } else if (typeof payload?.value === 'number') {
@@ -458,7 +507,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           } else if (typeof payload === 'number') {
             raw = payload;
           }
-         
+            raw = 180;
+          Toast.show({ type: 'info', text1: 'Data Update dummy', text2: `Received: ${raw}`, position: 'bottom' });
+        
           if (typeof raw === 'number' && isFinite(raw)) {
             const smoothed = smoothValue(raw);
             setBrightness(smoothed);
@@ -988,7 +1039,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     loadRules();
   }, [selectedDeviceId]);
 
-  const persistRules = async () => {
+  const persistRules = async (showFeedback = false) => {
     try {
       if (!selectedDeviceId) return;
       const payload = {
@@ -1039,13 +1090,31 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
       // Sync rules to server
       await esp8266Service.updateDeviceOnServer(selectedDeviceId, { automationRules: payload });
-    } catch (e) {}
+      
+      if (showFeedback) {
+        Toast.show({
+          type: 'success',
+          text1: 'Configuration Saved',
+          text2: 'All timers and rules have been saved successfully.',
+          position: 'bottom'
+        });
+      }
+    } catch (e) {
+      if (showFeedback) {
+        Toast.show({
+          type: 'error',
+          text1: 'Save Failed',
+          text2: 'Could not save configuration.',
+          position: 'bottom'
+        });
+      }
+    }
   };
 
   // Auto-persist rules when state changes to ensure latest state is saved
   useEffect(() => {
     if (rulesLoaded && selectedDeviceId) {
-      persistRules();
+      persistRules(false);
     }
   }, [
     rulesLoaded, selectedDeviceId,
@@ -1080,7 +1149,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (onEnabled) {
         const onMet = onOperator === 'lt' ? level < onThreshold : level >= onThreshold;
         if (onMet && !isPowerOn) {
+          // 1. Direct IP Control (Fastest/Most Reliable on Local Network)
+          if (selectedDeviceIp) {
+               esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                   esp8266Service.turnOn().catch(console.warn);
+               }).catch(console.warn);
+          }
+          // 2. Server Control Endpoint
+          esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+          // 3. State Update (triggers DB/Socket)
           toggleDeviceField('device1', true);
+
           setIsPowerOn(true);
           setLastAutoAt(now);
           Toast.show({ type: 'success', text1: 'Automation', text2: `Power ON at ${level}%`, position: 'bottom' });
@@ -1091,7 +1170,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (offEnabled) {
         const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
         if (offMet && isPowerOn) {
+          // 1. Direct IP Control
+          if (selectedDeviceIp) {
+               esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                   esp8266Service.turnOff().catch(console.warn);
+               }).catch(console.warn);
+          }
+          // 2. Server Control Endpoint
+          esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+          // 3. State Update
           toggleDeviceField('device1', false);
+
           setIsPowerOn(false);
           setLastAutoAt(now);
           Toast.show({ type: 'success', text1: 'Automation', text2: `Power OFF at ${level}%`, position: 'bottom' });
@@ -1099,7 +1188,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         }
       }
     } catch (e) {}
-  }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt]);
+  }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt, isPowerOn, selectedDeviceIp, selectedDeviceId]);
 
   // New rule: optional immediate auto OFF when flow rate drops below threshold
   // Respect the UI toggle (noFlowAutoOffEnabled) so automation is OFF by default
@@ -1112,13 +1201,23 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       const now = Date.now();
       if (now - lastAutoAt < 2000) return; // reuse cooldown to prevent rapid toggles
       if (fr < 5 && isPowerOn) {
+        // 1. Direct IP Control
+        if (selectedDeviceIp) {
+             esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                 esp8266Service.turnOff().catch(console.warn);
+             }).catch(console.warn);
+        }
+        // 2. Server Control Endpoint
+        if (selectedDeviceId) esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+        // 3. State Update
         toggleDeviceField('device1', false);
+
         setIsPowerOn(false);
         setLastAutoAt(now);
         Toast.show({ type: 'success', text1: 'Automation', text2: `Flow low (${fr}). Power OFF`, position: 'bottom' });
       }
     } catch {}
-  }, [flowRate, isPowerOn, selectedDeviceId, lastAutoAt, noFlowAutoOffEnabled]);
+  }, [flowRate, isPowerOn, selectedDeviceId, selectedDeviceIp, lastAutoAt, noFlowAutoOffEnabled]);
 
   // Keep refs in sync to avoid stale closures in timers
   useEffect(() => { isPowerOnRef.current = isPowerOn; }, [isPowerOn]);
@@ -1139,7 +1238,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             const fr = flowRateRef.current;
             const stillOn = isPowerOnRef.current;
             if (stillOn && typeof fr === 'number' && isFinite(fr) && fr === 0) {
+              // 1. Direct IP Control
+              if (selectedDeviceIp) {
+                   esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                       esp8266Service.turnOff().catch(console.warn);
+                   }).catch(console.warn);
+              }
+              // 2. Server Control Endpoint
+              if (selectedDeviceId) esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+              // 3. State Update
               toggleDeviceField('device1', false);
+
               setIsPowerOn(false);
               setLastAutoAt(Date.now());
               try { Toast.show({ type: 'success', text1: 'Automation', text2: `No Flow for ${noFlowDelaySec}s. Power OFF`, position: 'bottom' }); } catch {}
@@ -1154,7 +1263,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         noFlowTimerRef.current = null;
       }
     };
-  }, [isPowerOn, noFlowAutoOffEnabled, noFlowDelaySec]);
+  }, [isPowerOn, noFlowAutoOffEnabled, noFlowDelaySec, selectedDeviceId, selectedDeviceIp]);
 
   // Supply Water Timer Logic
   useEffect(() => {
@@ -1814,7 +1923,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <Text style={styles.percentageText}>Tank Filled %: {waterLevel ?? '—'}         Water Flow: {flowRate ?? '—'}</Text>
         </View>
-        <WaterTank percentage={80} flowRate={flowRate ?? 0} />
+        <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
         <TouchableOpacity
           style={{ marginTop: 10 }}
           onLongPress={() => {
@@ -2122,7 +2231,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={morningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningStartTime(d); } })}
+                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, morningEndTime, setMorningStartTime); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2131,7 +2240,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={morningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningEndTime(d); } })}
+                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, morningStartTime, setMorningEndTime); } })}
                         />
                       </View>
                    </View>
@@ -2155,7 +2264,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={eveningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningStartTime(d) } })}
+                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, eveningEndTime, setEveningStartTime); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2164,7 +2273,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={eveningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningEndTime(d) } })}
+                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, eveningStartTime, setEveningEndTime); } })}
                         />
                       </View>
                    </View>
@@ -2322,7 +2431,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={wateringPlantsMorningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningStart(d) } })}
+                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsMorningEnd, setWateringPlantsMorningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2331,7 +2440,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={wateringPlantsMorningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningEnd(d) } })}
+                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsMorningStart, setWateringPlantsMorningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2355,7 +2464,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={wateringPlantsEveningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningStart(d) } })}
+                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsEveningEnd, setWateringPlantsEveningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2364,7 +2473,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={wateringPlantsEveningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningEnd(d) } })}
+                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsEveningStart, setWateringPlantsEveningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2423,7 +2532,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={dogFeedMorningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningStart(d) } })}
+                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedMorningEnd, setDogFeedMorningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2432,7 +2541,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={dogFeedMorningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningEnd(d) } })}
+                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedMorningStart, setDogFeedMorningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2456,7 +2565,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={dogFeedEveningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningStart(d) } })}
+                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedEveningEnd, setDogFeedEveningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2465,7 +2574,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={dogFeedEveningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningEnd(d) } })}
+                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedEveningStart, setDogFeedEveningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2524,7 +2633,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={acControlMorningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningStart(d) } })}
+                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlMorningEnd, setAcControlMorningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2533,7 +2642,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={acControlMorningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningEnd(d) } })}
+                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlMorningStart, setAcControlMorningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2557,7 +2666,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={acControlEveningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningStart(d) } })}
+                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlEveningEnd, setAcControlEveningStart) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2566,7 +2675,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={acControlEveningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningEnd(d) } })}
+                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlEveningStart, setAcControlEveningEnd) } })}
                         />
                       </View>
                    </View>
@@ -2666,6 +2775,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         <View style={styles.actionSection}>
           <Text style={styles.sectionTitle}>Device Actions</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.configButton, { marginBottom: 10 }]}
+            onPress={() => persistRules(true)}
+          >
+            <Text style={styles.buttonText}>Save Configuration</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.configButton]}
             onPress={() => {
