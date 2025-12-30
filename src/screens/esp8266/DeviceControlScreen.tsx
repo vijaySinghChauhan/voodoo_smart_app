@@ -26,7 +26,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from '../../services/notifications/notificationService';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 
-import { DateTime } from '../../components/DateTime';
+import { SimpleDateTime } from '../../components/SimpleDateTime';
+import { DatePickerModal, TimePickerModal } from 'react-native-paper-dates';
 
 
 interface DeviceStatus {
@@ -118,6 +119,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [lastTimerCheck, setLastTimerCheck] = useState<number>(0);
   const [debugCurrentTime, setDebugCurrentTime] = useState<Date>(new Date());
   const [supplyWaterTimerStatus, setSupplyWaterTimerStatus] = useState<string>('Idle');
+  const [lastForcedOn, setLastForcedOn] = useState<number>(0);
 
   useEffect(() => {
     const timer = setInterval(() => setDebugCurrentTime(new Date()), 1000);
@@ -157,6 +159,64 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   // Gate automation until rules are loaded to avoid unintended toggles
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<any>(null);
+
+  // Shared DateTimePicker State
+  const [pickerVisible, setPickerVisible] = useState(false); // for DatePicker
+  const [timePickerVisible, setTimePickerVisible] = useState(false); // for TimePicker
+  const [pickerConfig, setPickerConfig] = useState<{
+      value: Date | null;
+      onChange: (d: Date) => void;
+      type: 'date' | 'time' | 'datetime';
+  } | null>(null);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
+
+  const openPicker = (config: { value: Date | null, onChange: (d: Date) => void, type: 'date'|'time'|'datetime' }) => {
+      setPickerConfig(config);
+      const initialDate = config.value ? new Date(config.value) : new Date();
+      setTempDate(initialDate);
+      
+      if (config.type === 'time') {
+          setTimePickerVisible(true);
+      } else {
+          setPickerVisible(true);
+      }
+  };
+
+  const onConfirmDate = ({ date }: any) => {
+      setPickerVisible(false);
+      if (!pickerConfig) return;
+
+      const baseDate = date || tempDate;
+      const prev = tempDate;
+      
+      const newDate = new Date(baseDate);
+      // Keep previous time
+      newDate.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+      setTempDate(newDate);
+
+      if (pickerConfig.type === 'datetime') {
+          // Proceed to time picker
+          setTimeout(() => setTimePickerVisible(true), 300);
+      } else {
+          // Done (type='date')
+          pickerConfig.onChange(newDate);
+          setPickerConfig(null);
+      }
+  };
+
+  const onConfirmTime = ({ hours, minutes }: any) => {
+      setTimePickerVisible(false);
+      if (!pickerConfig) return;
+
+      const newDate = new Date(tempDate);
+      newDate.setHours(hours);
+      newDate.setMinutes(minutes);
+      newDate.setSeconds(0);
+      newDate.setMilliseconds(0);
+      
+      pickerConfig.onChange(newDate);
+      setPickerConfig(null);
+  };
   const isPowerOnRef = React.useRef<boolean>(false);
   const flowRateRef = React.useRef<number | undefined>(undefined);
   // Ensure UI shows power OFF by default on first load
@@ -790,10 +850,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
            const s = new Date(start);
            const e = new Date(end);
            if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-               active = now >= s && now < e;
-               finished = now >= e && (now.getTime() - e.getTime() < 300000); // 5 mins
-           }
-      } else {
+                       active = now >= s && now < e;
+                       // For 'once', we want to catch it even if we missed the exact end time
+                       // because we will disable the timer immediately after handling it.
+                       finished = now >= e; 
+                   }
+              } else {
            const currentMins = now.getHours() * 60 + now.getMinutes();
            const sMins = start.getHours() * 60 + start.getMinutes();
            const eMins = end.getHours() * 60 + end.getMinutes();
@@ -807,7 +869,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
            
            // Simple finished check (within 5 mins after end)
            // Handle midnight wrap for finished check if needed, but keeping simple for now
-           finished = currentMins >= eMins && currentMins < eMins + 5;
+           const diff = (currentMins - eMins + 1440) % 1440;
+           finished = diff >= 0 && diff < 5;
       }
       return { active, finished };
   };
@@ -1100,21 +1163,75 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       
       const inMorning = morning.active;
       const inEvening = evening.active;
+      
+      // Debug logging for Supply Water
+      if (supplyWaterTimerEnabled) {
+          /* console.log('[SupplyWater] Check:', { 
+              now: now.toLocaleTimeString(), 
+              inMorning, 
+              inEvening, 
+              isPowerOn,
+              morningStart: morningStartTime?.toLocaleTimeString(),
+              morningEnd: morningEndTime?.toLocaleTimeString(),
+              freq: supplyWaterFrequency
+          }); */
+      }
+
       const morningFinished = morning.finished;
       const eveningFinished = evening.finished;
 
       if (inMorning || inEvening) {
         setSupplyWaterTimerStatus(`Active (${inMorning ? 'Morning' : 'Evening'})`);
+        
+        // Redundancy check: If app thinks it's ON but maybe it's not (stale state),
+        // or if it's OFF, we send the ON command.
+        // We force it if:
+        // 1. App says it's OFF (!isPowerOn)
+        // 2. We haven't forced it recently (e.g. every 5 mins) to handle stale "ON" state
+        const shouldForce = Date.now() - lastForcedOn > 300000; // 5 mins
+
         if (!isPowerOn) {
+           // Standard trigger
+           // 1. Direct IP Control (Fastest/Most Reliable on Local Network)
+           if (selectedDeviceIp) {
+               esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                   esp8266Service.turnOn().catch(console.warn);
+               }).catch(console.warn);
+           }
+           // 2. Server Control Endpoint
+           esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+           // 3. State Update (triggers DB/Socket)
            toggleDeviceField('device1', true);
+           
            setIsPowerOn(true);
-           Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water ON', position: 'bottom' });
+           setLastForcedOn(Date.now());
+           Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water ON (Sent)', position: 'bottom' });
+        } else if (shouldForce) {
+           // Redundancy trigger (silent but persistent)
+           if (selectedDeviceIp) {
+               esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                   esp8266Service.turnOn().catch(console.warn);
+               }).catch(console.warn);
+           }
+           esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+           setLastForcedOn(Date.now());
         }
       } else {
         setSupplyWaterTimerStatus('Waiting');
         if (isPowerOn) {
              if (morningFinished || eveningFinished) {
+                 // Device 1 is Main Power
+                 // 1. Direct IP Control
+                 if (selectedDeviceIp) {
+                     esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
+                         esp8266Service.turnOff().catch(console.warn);
+                     }).catch(console.warn);
+                 }
+                 // 2. Server Control Endpoint
+                 esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+                 // 3. State Update
                  toggleDeviceField('device1', false);
+                 
                  setIsPowerOn(false);
                  Toast.show({ type: 'success', text1: 'Timer', text2: 'Supply Water OFF', position: 'bottom' });
                  
@@ -1129,7 +1246,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled]);
+  }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled, lastForcedOn]);
 
   // Watering Plants Timer Logic
   useEffect(() => {
@@ -1154,9 +1271,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       } else {
         if (device3On) {
              if (morningFinished || eveningFinished) {
-                 toggleDeviceField('device3', false);
-                 setDevice3On(false);
-                 Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants OFF', position: 'bottom' });
+                 // Check conflict with Dog Feed (also Device 3)
+                 let dogFeedActive = false;
+                 if (dogFeedTimerEnabled) {
+                     const dfMorning = checkSchedule(now, dogFeedMorningEnabled, dogFeedFrequency, dogFeedMorningStart, dogFeedMorningEnd);
+                     const dfEvening = checkSchedule(now, dogFeedEveningEnabled, dogFeedFrequency, dogFeedEveningStart, dogFeedEveningEnd);
+                     dogFeedActive = dfMorning.active || dfEvening.active;
+                 }
+
+                 if (!dogFeedActive) {
+                     toggleDeviceField('device3', false);
+                     setDevice3On(false);
+                     Toast.show({ type: 'success', text1: 'Timer', text2: 'Watering Plants OFF', position: 'bottom' });
+                 }
                  
                  if (wateringPlantsFrequency === 'once') {
                      if (eveningFinished || (morningFinished && !wateringPlantsEveningEnabled)) {
@@ -1169,7 +1296,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [rulesLoaded, wateringPlantsTimerEnabled, selectedDeviceId, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningStart, wateringPlantsEveningEnd, device3On, wateringPlantsFrequency, wateringPlantsMorningEnabled, wateringPlantsEveningEnabled]);
+  }, [rulesLoaded, wateringPlantsTimerEnabled, selectedDeviceId, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningStart, wateringPlantsEveningEnd, device3On, wateringPlantsFrequency, wateringPlantsMorningEnabled, wateringPlantsEveningEnabled, dogFeedTimerEnabled, dogFeedMorningEnabled, dogFeedFrequency, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningEnabled, dogFeedEveningStart, dogFeedEveningEnd]);
 
   // Dog Feed Timer Logic
   useEffect(() => {
@@ -1185,19 +1312,29 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       const morningFinished = morning.finished;
       const eveningFinished = evening.finished;
 
-      // Note: device4 is Dog Feed
+      // Note: device3 is Dog Feed (Mapped to Device 3 as per user request, sharing with Watering Plants)
       if (inMorning || inEvening) {
-        if (!device4On) {
-           toggleDeviceField('device4', true);
-           setDevice4On(true);
+        if (!device3On) {
+           toggleDeviceField('device3', true);
+           setDevice3On(true);
            Toast.show({ type: 'success', text1: 'Timer', text2: 'Dog Feed ON', position: 'bottom' });
         }
       } else {
-        if (device4On) {
+        if (device3On) {
              if (morningFinished || eveningFinished) {
-                 toggleDeviceField('device4', false);
-                 setDevice4On(false);
-                 Toast.show({ type: 'success', text1: 'Timer', text2: 'Dog Feed OFF', position: 'bottom' });
+                 // Check conflict with Watering Plants (also Device 3)
+                 let wpActive = false;
+                 if (wateringPlantsTimerEnabled) {
+                     const wpMorning = checkSchedule(now, wateringPlantsMorningEnabled, wateringPlantsFrequency, wateringPlantsMorningStart, wateringPlantsMorningEnd);
+                     const wpEvening = checkSchedule(now, wateringPlantsEveningEnabled, wateringPlantsFrequency, wateringPlantsEveningStart, wateringPlantsEveningEnd);
+                     wpActive = wpMorning.active || wpEvening.active;
+                 }
+
+                 if (!wpActive) {
+                     toggleDeviceField('device3', false);
+                     setDevice3On(false);
+                     Toast.show({ type: 'success', text1: 'Timer', text2: 'Dog Feed OFF', position: 'bottom' });
+                 }
                  
                  if (dogFeedFrequency === 'once') {
                      if (eveningFinished || (morningFinished && !dogFeedEveningEnabled)) {
@@ -1210,7 +1347,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [rulesLoaded, dogFeedTimerEnabled, selectedDeviceId, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningStart, dogFeedEveningEnd, device4On, dogFeedFrequency, dogFeedMorningEnabled, dogFeedEveningEnabled]);
+  }, [rulesLoaded, dogFeedTimerEnabled, selectedDeviceId, dogFeedMorningStart, dogFeedMorningEnd, dogFeedEveningStart, dogFeedEveningEnd, device3On, dogFeedFrequency, dogFeedMorningEnabled, dogFeedEveningEnabled, wateringPlantsTimerEnabled, wateringPlantsMorningEnabled, wateringPlantsFrequency, wateringPlantsMorningStart, wateringPlantsMorningEnd, wateringPlantsEveningEnabled, wateringPlantsEveningStart, wateringPlantsEveningEnd]);
 
   // AC Control Timer Logic
   useEffect(() => {
@@ -1959,20 +2096,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {morningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={morningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setMorningStartTime(d); persistRules(); }}
+                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningStartTime(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={morningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setMorningEndTime(d); persistRules(); }}
+                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningEndTime(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -1992,20 +2129,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {eveningScheduleEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={eveningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setEveningStartTime(d); persistRules(); }}
+                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningStartTime(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={eveningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setEveningEndTime(d); persistRules(); }}
+                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningEndTime(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2159,20 +2296,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {wateringPlantsMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={wateringPlantsMorningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setWateringPlantsMorningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={wateringPlantsMorningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setWateringPlantsMorningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2192,20 +2329,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {wateringPlantsEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={wateringPlantsEveningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setWateringPlantsEveningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={wateringPlantsEveningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setWateringPlantsEveningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2260,20 +2397,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {dogFeedMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={dogFeedMorningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setDogFeedMorningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={dogFeedMorningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setDogFeedMorningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2293,20 +2430,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {dogFeedEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={dogFeedEveningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setDogFeedEveningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={dogFeedEveningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setDogFeedEveningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2361,20 +2498,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {acControlMorningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={acControlMorningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setAcControlMorningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={acControlMorningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setAcControlMorningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2394,20 +2531,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    {acControlEveningEnabled && (
                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="Start Time"
                           value={acControlEveningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setAcControlEveningStart(d); persistRules(); }}
+                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningStart(d); persistRules(); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
                       <View style={{ flex: 1 }}>
-                        <DateTime
+                        <SimpleDateTime
                           label="End Time"
                           value={acControlEveningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onChange={(d) => { setAcControlEveningEnd(d); persistRules(); }}
+                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningEnd(d); persistRules(); } })}
                         />
                       </View>
                    </View>
@@ -2542,6 +2679,22 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      
+      <DatePickerModal
+        locale="en"
+        mode="single"
+        visible={pickerVisible}
+        onDismiss={() => setPickerVisible(false)}
+        date={tempDate}
+        onConfirm={onConfirmDate}
+      />
+      <TimePickerModal
+        visible={timePickerVisible}
+        onDismiss={() => setTimePickerVisible(false)}
+        onConfirm={onConfirmTime}
+        hours={tempDate.getHours()}
+        minutes={tempDate.getMinutes()}
+      />
     </SafeAreaView>
   );
 };
