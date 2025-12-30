@@ -843,6 +843,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const checkSchedule = (now: Date, enabled: boolean, frequency: string, start: Date | null, end: Date | null) => {
       if (!enabled || !start || !end) return { active: false, finished: false };
       
+      // Safety check for invalid dates
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          console.warn('[Schedule] Invalid start/end date', { start, end });
+          return { active: false, finished: false };
+      }
+
       let active = false;
       let finished = false;
       
@@ -1166,15 +1172,22 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       
       // Debug logging for Supply Water
       if (supplyWaterTimerEnabled) {
-          /* console.log('[SupplyWater] Check:', { 
+          const nowMins = now.getHours() * 60 + now.getMinutes();
+          const startMins = morningStartTime ? morningStartTime.getHours() * 60 + morningStartTime.getMinutes() : -1;
+          const endMins = morningEndTime ? morningEndTime.getHours() * 60 + morningEndTime.getMinutes() : -1;
+
+          console.log('[SupplyWater] Check:', { 
               now: now.toLocaleTimeString(), 
+              nowMins,
+              startMins,
+              endMins,
               inMorning, 
               inEvening, 
               isPowerOn,
               morningStart: morningStartTime?.toLocaleTimeString(),
               morningEnd: morningEndTime?.toLocaleTimeString(),
               freq: supplyWaterFrequency
-          }); */
+          });
       }
 
       const morningFinished = morning.finished;
@@ -1187,8 +1200,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         // or if it's OFF, we send the ON command.
         // We force it if:
         // 1. App says it's OFF (!isPowerOn)
-        // 2. We haven't forced it recently (e.g. every 5 mins) to handle stale "ON" state
-        const shouldForce = Date.now() - lastForcedOn > 300000; // 5 mins
+        // 2. We haven't forced it recently (e.g. every 30s) to handle stale "ON" state
+        const shouldForce = Date.now() - lastForcedOn > 30000; // 30s (was 5 mins)
 
         if (!isPowerOn) {
            // Standard trigger
@@ -1868,7 +1881,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 {canControl ? (
                   <Switch
                     value={noFlowAutoOffEnabled}
-                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v) }}
                     trackColor={{ false: '#767577', true: '#4CAF50' }}
                     thumbColor={noFlowAutoOffEnabled ? '#fff' : '#f4f3f4'}
                   />
@@ -1913,7 +1926,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 {canControl ? (
                   <Switch
                     value={onEnabled}
-                    onValueChange={(v) => { setOnEnabled(v); persistRules(); }}
+                    onValueChange={(v) => { setOnEnabled(v) }}
                     trackColor={{ false: '#767577', true: '#4CAF50' }}
                     thumbColor={onEnabled ? '#fff' : '#f4f3f4'}
                   />
@@ -1981,7 +1994,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 {canControl ? (
                   <Switch
                     value={offEnabled}
-                    onValueChange={(v) => { setOffEnabled(v); persistRules(); }}
+                    onValueChange={(v) => { setOffEnabled(v) }}
                     trackColor={{ false: '#767577', true: '#4CAF50' }}
                     thumbColor={offEnabled ? '#fff' : '#f4f3f4'}
                   />
@@ -2049,15 +2062,24 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Supply Water</Text>
           <View style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 4, marginBottom: 10 }}>
-               <Text style={{ fontSize: 12, color: '#555' }}>Current Time: {debugCurrentTime.toLocaleTimeString()}</Text>
+               <Text style={{ fontSize: 12, color: '#555' }}>Current: {debugCurrentTime.toLocaleTimeString()} ({debugCurrentTime.getHours()}:{debugCurrentTime.getMinutes()})</Text>
                <Text style={{ fontSize: 12, color: '#555' }}>Status: {supplyWaterTimerStatus}</Text>
+               {morningScheduleEnabled && <Text style={{ fontSize: 12, color: '#555' }}>M: {morningStartTime?.getHours()}:{morningStartTime?.getMinutes()} - {morningEndTime?.getHours()}:{morningEndTime?.getMinutes()}</Text>}
+               {eveningScheduleEnabled && <Text style={{ fontSize: 12, color: '#555' }}>E: {eveningStartTime?.getHours()}:{eveningStartTime?.getMinutes()} - {eveningEndTime?.getHours()}:{eveningEndTime?.getMinutes()}</Text>}
+               <Text style={{ fontSize: 12, color: '#555' }}>Freq: {supplyWaterFrequency}</Text>
+               <Text style={{ fontSize: 12, color: '#555' }}>
+                 Debug: Now({debugCurrentTime.getHours() * 60 + debugCurrentTime.getMinutes()}) 
+                 {supplyWaterFrequency === 'once' && ` Date(${morningStartTime?.toLocaleDateString()})`}
+                 {morningScheduleEnabled && ` M_Start(${morningStartTime ? morningStartTime.getHours() * 60 + morningStartTime.getMinutes() : '?'}) M_End(${morningEndTime ? morningEndTime.getHours() * 60 + morningEndTime.getMinutes() : '?'})`}
+               </Text>
                <Text style={{ fontSize: 12, color: '#555' }}>Last Check: {lastTimerCheck ? new Date(lastTimerCheck).toLocaleTimeString() : 'Never'}</Text>
+               <Text style={{ fontSize: 12, color: '#555' }}>Next Force: {Math.max(0, Math.ceil((30000 - (Date.now() - lastForcedOn))/1000))}s</Text>
            </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
              <Text style={styles.powerLabel}>Enable Timer</Text>
              <Switch
                value={supplyWaterTimerEnabled}
-               onValueChange={(v) => { setSupplyWaterTimerEnabled(v); persistRules(); }}
+               onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
                trackColor={{ false: '#767577', true: '#4CAF50' }}
                thumbColor={supplyWaterTimerEnabled ? '#fff' : '#f4f3f4'}
              />
@@ -2069,13 +2091,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={styles.infoLabel}>Frequency</Text>
                   <View style={{ flexDirection: 'row', marginTop: 5 }}>
                     <TouchableOpacity
-                      onPress={() => { setSupplyWaterFrequency('everyday'); persistRules(); }}
+                      onPress={() => { setSupplyWaterFrequency('everyday') }}
                       style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: supplyWaterFrequency === 'everyday' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: supplyWaterFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setSupplyWaterFrequency('once'); persistRules(); }}
+                      onPress={() => { setSupplyWaterFrequency('once') }}
                       style={{ padding: 8, backgroundColor: supplyWaterFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: supplyWaterFrequency === 'once' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: supplyWaterFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
@@ -2088,7 +2110,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Morning Schedule</Text>
                       <Switch
                         value={morningScheduleEnabled}
-                        onValueChange={(v) => { setMorningScheduleEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setMorningScheduleEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={morningScheduleEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2100,7 +2122,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={morningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningStartTime(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningStartTime(d); } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2109,7 +2131,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={morningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningEndTime(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setMorningEndTime(d); } })}
                         />
                       </View>
                    </View>
@@ -2121,7 +2143,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Evening Schedule</Text>
                       <Switch
                         value={eveningScheduleEnabled}
-                        onValueChange={(v) => { setEveningScheduleEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setEveningScheduleEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={eveningScheduleEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2133,7 +2155,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={eveningStartTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningStartTime(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningStartTime(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2142,7 +2164,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={eveningEndTime}
                           type={supplyWaterFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningEndTime(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setEveningEndTime(d) } })}
                         />
                       </View>
                    </View>
@@ -2257,7 +2279,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              <Text style={styles.powerLabel}>Enable Timer</Text>
              <Switch
                value={wateringPlantsTimerEnabled}
-               onValueChange={(v) => { setWateringPlantsTimerEnabled(v); persistRules(); }}
+               onValueChange={(v) => { setWateringPlantsTimerEnabled(v) }}
                trackColor={{ false: '#767577', true: '#4CAF50' }}
                thumbColor={wateringPlantsTimerEnabled ? '#fff' : '#f4f3f4'}
              />
@@ -2269,13 +2291,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={styles.infoLabel}>Frequency</Text>
                   <View style={{ flexDirection: 'row', marginTop: 5 }}>
                     <TouchableOpacity
-                      onPress={() => { setWateringPlantsFrequency('everyday'); persistRules(); }}
+                      onPress={() => { setWateringPlantsFrequency('everyday') }}
                       style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: wateringPlantsFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setWateringPlantsFrequency('once'); persistRules(); }}
+                      onPress={() => { setWateringPlantsFrequency('once') }}
                       style={{ padding: 8, backgroundColor: wateringPlantsFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: wateringPlantsFrequency === 'once' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: wateringPlantsFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
@@ -2288,7 +2310,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Morning Schedule</Text>
                       <Switch
                         value={wateringPlantsMorningEnabled}
-                        onValueChange={(v) => { setWateringPlantsMorningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setWateringPlantsMorningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={wateringPlantsMorningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2300,7 +2322,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={wateringPlantsMorningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2309,7 +2331,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={wateringPlantsMorningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsMorningEnd(d) } })}
                         />
                       </View>
                    </View>
@@ -2321,7 +2343,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Evening Schedule</Text>
                       <Switch
                         value={wateringPlantsEveningEnabled}
-                        onValueChange={(v) => { setWateringPlantsEveningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setWateringPlantsEveningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={wateringPlantsEveningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2333,7 +2355,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={wateringPlantsEveningStart}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2342,7 +2364,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={wateringPlantsEveningEnd}
                           type={wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setWateringPlantsEveningEnd(d) } })}
                         />
                       </View>
                    </View>
@@ -2358,7 +2380,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              <Text style={styles.powerLabel}>Enable Timer</Text>
              <Switch
                value={dogFeedTimerEnabled}
-               onValueChange={(v) => { setDogFeedTimerEnabled(v); persistRules(); }}
+               onValueChange={(v) => { setDogFeedTimerEnabled(v) }}
                trackColor={{ false: '#767577', true: '#4CAF50' }}
                thumbColor={dogFeedTimerEnabled ? '#fff' : '#f4f3f4'}
              />
@@ -2370,13 +2392,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={styles.infoLabel}>Frequency</Text>
                   <View style={{ flexDirection: 'row', marginTop: 5 }}>
                     <TouchableOpacity
-                      onPress={() => { setDogFeedFrequency('everyday'); persistRules(); }}
+                      onPress={() => { setDogFeedFrequency('everyday') }}
                       style={{ padding: 8, backgroundColor: dogFeedFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: dogFeedFrequency === 'everyday' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: dogFeedFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setDogFeedFrequency('once'); persistRules(); }}
+                      onPress={() => { setDogFeedFrequency('once') }}
                       style={{ padding: 8, backgroundColor: dogFeedFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: dogFeedFrequency === 'once' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: dogFeedFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
@@ -2389,7 +2411,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Morning Schedule</Text>
                       <Switch
                         value={dogFeedMorningEnabled}
-                        onValueChange={(v) => { setDogFeedMorningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setDogFeedMorningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={dogFeedMorningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2401,7 +2423,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={dogFeedMorningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2410,7 +2432,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={dogFeedMorningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedMorningEnd(d) } })}
                         />
                       </View>
                    </View>
@@ -2422,7 +2444,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Evening Schedule</Text>
                       <Switch
                         value={dogFeedEveningEnabled}
-                        onValueChange={(v) => { setDogFeedEveningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setDogFeedEveningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={dogFeedEveningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2434,7 +2456,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={dogFeedEveningStart}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2443,7 +2465,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={dogFeedEveningEnd}
                           type={dogFeedFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setDogFeedEveningEnd(d) } })}
                         />
                       </View>
                    </View>
@@ -2459,7 +2481,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              <Text style={styles.powerLabel}>Enable Timer</Text>
              <Switch
                value={acControlTimerEnabled}
-               onValueChange={(v) => { setAcControlTimerEnabled(v); persistRules(); }}
+               onValueChange={(v) => { setAcControlTimerEnabled(v) }}
                trackColor={{ false: '#767577', true: '#4CAF50' }}
                thumbColor={acControlTimerEnabled ? '#fff' : '#f4f3f4'}
              />
@@ -2471,13 +2493,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <Text style={styles.infoLabel}>Frequency</Text>
                   <View style={{ flexDirection: 'row', marginTop: 5 }}>
                     <TouchableOpacity
-                      onPress={() => { setAcControlFrequency('everyday'); persistRules(); }}
+                      onPress={() => { setAcControlFrequency('everyday') }}
                       style={{ padding: 8, backgroundColor: acControlFrequency === 'everyday' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: acControlFrequency === 'everyday' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: acControlFrequency === 'everyday' ? '#00796b' : '#666' }}>Everyday</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setAcControlFrequency('once'); persistRules(); }}
+                      onPress={() => { setAcControlFrequency('once') }}
                       style={{ padding: 8, backgroundColor: acControlFrequency === 'once' ? '#e0f2f1' : '#f5f5f5', borderRadius: 4, borderWidth: 1, borderColor: acControlFrequency === 'once' ? '#00796b' : '#ddd' }}
                     >
                        <Text style={{ color: acControlFrequency === 'once' ? '#00796b' : '#666' }}>One Time</Text>
@@ -2490,7 +2512,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Morning Schedule</Text>
                       <Switch
                         value={acControlMorningEnabled}
-                        onValueChange={(v) => { setAcControlMorningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setAcControlMorningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={acControlMorningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2502,7 +2524,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={acControlMorningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2511,7 +2533,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={acControlMorningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlMorningEnd(d) } })}
                         />
                       </View>
                    </View>
@@ -2523,7 +2545,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <Text style={styles.infoLabel}>Evening Schedule</Text>
                       <Switch
                         value={acControlEveningEnabled}
-                        onValueChange={(v) => { setAcControlEveningEnabled(v); persistRules(); }}
+                        onValueChange={(v) => { setAcControlEveningEnabled(v) }}
                         trackColor={{ false: '#767577', true: '#4CAF50' }}
                         thumbColor={acControlEveningEnabled ? '#fff' : '#f4f3f4'}
                       />
@@ -2535,7 +2557,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="Start Time"
                           value={acControlEveningStart}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningStart(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningStart(d) } })}
                         />
                       </View>
                       <Text style={{ color: '#666', marginHorizontal: 8 }}>to</Text>
@@ -2544,7 +2566,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           label="End Time"
                           value={acControlEveningEnd}
                           type={acControlFrequency === 'everyday' ? 'time' : 'datetime'}
-                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningEnd(d); persistRules(); } })}
+                          onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { setAcControlEveningEnd(d) } })}
                         />
                       </View>
                    </View>
