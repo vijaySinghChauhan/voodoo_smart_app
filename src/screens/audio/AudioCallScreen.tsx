@@ -229,6 +229,19 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
   }, [socketRef.current, roomRef.current]);
 
   const startCall = async () => {
+    // Request permission first
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('Microphone permission denied');
+          return;
+        }
+      } catch (e) {
+        console.warn('Mic permission request error', e);
+      }
+    }
+
     setCallState('connecting');
     // Pre-activate audio session and route to speaker
     try {
@@ -322,17 +335,6 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     };
 
     // Acquire audio stream
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.warn('Microphone permission denied');
-          return;
-        }
-      } catch (e) {
-        console.warn('Mic permission request error', e);
-      }
-    }
     const stream = await mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
       video: false
@@ -349,6 +351,18 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
   };
 
   const acceptCall = async () => {
+    // Request permissions first
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('Microphone permission denied');
+          return;
+        }
+      } catch (e) {
+        console.warn('Mic permission request error', e);
+      }
+    }
     setCallState('connecting');
     // Activate audio session immediately and route to speaker
     try {
@@ -428,17 +442,6 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     }
     // Acquire audio
     if (!localStreamRef.current) {
-      if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            console.warn('Microphone permission denied');
-            return;
-          }
-        } catch (e) {
-          console.warn('Mic permission request error', e);
-        }
-      }
       const stream = await mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
         video: false
