@@ -7,7 +7,7 @@ type WaterTankProps = {
   flowRate?: number;
 };
 
-const WaterTank = ({ percentage, flowRate }: WaterTankProps) => {
+const WaterTank = React.memo(({ percentage, flowRate }: WaterTankProps) => {
   const clamped = Math.max(0, Math.min(100, percentage));
   
   // Dimensions
@@ -160,7 +160,7 @@ const WaterTank = ({ percentage, flowRate }: WaterTankProps) => {
       </Svg>
     </View>
   );
-};
+});
 
 // Animated Flow Component
 const AnimatedFlow = ({ x, y, height }: { x: number; y: number; height: number }) => {

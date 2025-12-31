@@ -23,18 +23,32 @@ export const AppSwitch: React.FC<AppSwitchProps> = ({
   style,
 }) => {
   const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const targetValue = useRef(value ? 1 : 0);
 
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: value ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    const nextTarget = value ? 1 : 0;
+    if (nextTarget !== targetValue.current) {
+      animateTo(nextTarget);
+    }
   }, [value]);
 
+  const animateTo = (toValue: number) => {
+    targetValue.current = toValue;
+    Animated.timing(anim, {
+      toValue,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
   const toggle = () => {
-    if (!disabled) onValueChange?.(!value);
+    if (!disabled) {
+      const nextValue = !value;
+      // Optimistic update
+      animateTo(nextValue ? 1 : 0);
+      onValueChange?.(nextValue);
+    }
   };
 
   const padding = 2;
