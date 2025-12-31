@@ -29,6 +29,7 @@ import { SimpleDateTime } from '../../components/SimpleDateTime';
 import { AppSwitch } from '../../components/AppSwitch';
 import { DateTimePickerManager, DateTimePickerManagerRef } from '../../components/DateTimePickerManager';
 import { COLORS } from '../../theme/theme';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 
 interface DeviceStatus {
@@ -1874,7 +1875,16 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.header}>
-          <Text style={styles.deviceName}>{deviceName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()} 
+              style={{ marginRight: 10, padding: 4 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+               <MaterialIcons name="arrow-back" size={28} color={COLORS.textDark} />
+            </TouchableOpacity>
+            <Text style={[styles.deviceName, { marginBottom: 0 }]}>{deviceName}</Text>
+          </View>
           <View style={styles.statusIndicator}>
             <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? COLORS.success : COLORS.error }]} />
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
@@ -2722,7 +2732,9 @@ const styles = StyleSheet.create({
 
   },
   buttonText:{
-
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   resetButtonText:{
 

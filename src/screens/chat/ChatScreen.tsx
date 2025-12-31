@@ -99,8 +99,18 @@ const ChatScreen = ({ route }: any) => {
 
       // Connect to Socket.io server with JWT from storage
       const token = (await authService.getToken()) || '';
+      
+      if (!token) {
+        setConnectionError('Not logged in. Please sign in to chat.');
+        return;
+      }
+
+      // Configure transports: favor polling on Android to avoid common WebSocket handshake issues
+      const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : false);
+      const transportList = Platform.OS === 'android' ? ['polling', 'websocket'] : (isDev ? ['polling', 'websocket'] : ['websocket', 'polling']);
+
       socketRef.current = io(constantsV.CHAT_BASE_URL, {
-        transports: ['websocket', 'polling'],
+        transports: transportList,
         path: '/voodoo/socket.io',
         timeout: 10000,
         // Allow continuous reconnection attempts; avoid hard stop after a few minutes
@@ -111,7 +121,15 @@ const ChatScreen = ({ route }: any) => {
 
       // Surface connection/auth errors to the UI to guide users
       socketRef.current.on('connect_error', (err: any) => {
-        setConnectionError('Chat connection failed. Please log in and retry.');
+        const msg = err?.message || 'Chat connection failed';
+        // 'websocket error' usually means the WS handshake failed; this often happens on corporate/cellular networks
+        // or due to certificate/proxy issues. The client should fall back to polling automatically,
+        // but we surface a friendly status while it retries.
+        if (msg === 'websocket error' || msg === 'xhr poll error') {
+          setConnectionError('Connecting...');
+        } else {
+          setConnectionError(msg);
+        }
       });
 
       // Refresh auth token during reconnect attempts to avoid expired sessions
@@ -164,7 +182,7 @@ const ChatScreen = ({ route }: any) => {
         socketRef.current.disconnect();
       }
     };
-  }, [room]);
+  }, [room, user?.id]);
 
   // Persist messages to cache so navigating away and back keeps them
   useEffect(() => {
