@@ -3,7 +3,7 @@ import React from 'react';
 import { Linking, Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
@@ -73,7 +73,7 @@ const Drawer = createDrawerNavigator();
 function ChatStack() {
   return (
     <Stack.Navigator initialRouteName="UserList">
-      <Stack.Screen name="UserList" component={UserListScreen} options={{ title: 'Users' }} />
+      <Stack.Screen name="UserList" component={UserListScreen} options={{ title: 'Users', headerShown: false }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Chat: ${route.params.targetUserName}` : 'Chat' })} />
     </Stack.Navigator>
   );
@@ -82,7 +82,7 @@ function ChatStack() {
 function AudioStack() {
   return (
     <Stack.Navigator initialRouteName="UserAudioList">
-      <Stack.Screen name="UserAudioList" component={UserAudioListScreen} options={{ title: 'Users (Audio)' }} />
+      <Stack.Screen name="UserAudioList" component={UserAudioListScreen} options={{ title: 'Users (Audio)', headerShown: false }} />
       <Stack.Screen name="AudioCall" component={AudioCallScreen as React.ComponentType<any>} options={({ route }: any) => ({ title: route?.params?.targetUserName ? `Call: ${route.params.targetUserName}` : 'Audio Call' })} />
     </Stack.Navigator>
   );
@@ -98,7 +98,7 @@ export const AuthStack = () => (
 );
 
 const RoomsStack = () => (
-  <Stack.Navigator>
+  <Stack.Navigator initialRouteName="RoomsList">
     <Stack.Screen 
       name="RoomsList" 
       component={RoomsScreen as React.ComponentType<any>} 
@@ -114,19 +114,7 @@ const RoomsStack = () => (
 
 const EcommerceStack = () => (
   <Stack.Navigator initialRouteName="ProductList">
-    <Stack.Screen name="ProductList" component={ProductListScreen} 
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{ marginRight: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open cart"
-            >
-              <Text style={{ fontSize: 20 }}>🛒</Text>
-            </TouchableOpacity>
-          ),
-        })}/>
+    <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
     <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
     <Stack.Screen name="Checkout" component={CheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
@@ -138,7 +126,7 @@ const EcommerceStack = () => (
 
 const ESP8266Stack = () => (
   <Stack.Navigator initialRouteName="DevicesList">
-    <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices' }} />
+    <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices', headerShown: false }} />
     <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ title: 'Discover Devices' }} />
     <Stack.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control' }} />
     <Stack.Screen name="DeviceAccess" component={DeviceAccessScreen} options={{ title: 'Manage Access' }} />
@@ -148,8 +136,8 @@ const ESP8266Stack = () => (
 
 const SubscriptionsStack = () => (
   <Stack.Navigator initialRouteName="SubscriptionList">
-    <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions' }} />
-    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen} options={{ title: 'Checkout' }} />
+    <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions', headerShown: false }} />
+    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
   </Stack.Navigator>
 );
 
@@ -182,28 +170,59 @@ const AppDrawer = () => {
       />
       <Drawer.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
       <Drawer.Screen name="WiFiConf" component={WifiConnection} options={{ title: 'WiFi Test' }} />
-      <Drawer.Screen name="Rooms" component={RoomsStack} />
-      <Drawer.Screen name="Devices" component={ESP8266Stack} />
+      <Drawer.Screen name="Rooms" component={RoomsStack} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'RoomsList';
+          // RoomsList component is RoomsScreen which might need header customization
+          // Assuming RoomsList is the root
+          return { headerShown: routeName === 'RoomsList' };
+        }}
+      />
+      <Drawer.Screen name="Devices" component={ESP8266Stack} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'DevicesList';
+          const isRoot = routeName === 'DevicesList';
+          return { headerShown: isRoot };
+        }}
+      />
       <Drawer.Screen name="Shop" component={EcommerceStack} 
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{ marginRight: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open cart"
-            >
-              <Text style={{ fontSize: 20 }}>🛒</Text>
-            </TouchableOpacity>
-          ),
-        })}/>
+        options={({ route, navigation }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ProductList';
+          const isRoot = routeName === 'ProductList';
+          return {
+            headerShown: isRoot,
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Cart')}
+                style={{ marginRight: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open cart"
+              >
+                <Text style={{ fontSize: 20 }}>🛒</Text>
+              </TouchableOpacity>
+            ),
+          };
+        }}/>
       <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-      <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} />
+      <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'SubscriptionList';
+          return { headerShown: routeName === 'SubscriptionList' };
+        }}
+      />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <Drawer.Screen name="AddressEdit" component={AddressEditScreen} options={{ title: 'Edit Address' }} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
-      <Drawer.Screen name="Chat" component={ChatStack} />
-      <Drawer.Screen name="Audio" component={AudioStack} options={{ title: 'Audio Calls' }} />
+      <Drawer.Screen name="Chat" component={ChatStack} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'UserList';
+          return { headerShown: routeName === 'UserList' };
+        }}
+      />
+      <Drawer.Screen name="Audio" component={AudioStack} options={({ route }) => {
+        const routeName = getFocusedRouteNameFromRoute(route) ?? 'UserAudioList';
+        return { headerShown: routeName === 'UserAudioList', title: 'Audio Calls' };
+      }} />
       <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
       <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
       <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />

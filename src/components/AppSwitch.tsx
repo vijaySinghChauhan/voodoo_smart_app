@@ -9,6 +9,8 @@ import {
   SwitchProps,
 } from 'react-native';
 
+import { COLORS } from '../theme/theme';
+
 interface AppSwitchProps extends SwitchProps {
   width?: number;
   height?: number;
@@ -62,7 +64,7 @@ export const AppSwitch: React.FC<AppSwitchProps> = ({
 
   const bg = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#B0B0B0', '#22B5A6'],
+    outputRange: [COLORS.textLight, COLORS.accent],
   });
 
   const onOpacity = anim;

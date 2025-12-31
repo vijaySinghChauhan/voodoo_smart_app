@@ -28,6 +28,7 @@ import subscriptionService from '../../services/subscriptions/subscriptionServic
 import { SimpleDateTime } from '../../components/SimpleDateTime';
 import { AppSwitch } from '../../components/AppSwitch';
 import { DateTimePickerManager, DateTimePickerManagerRef } from '../../components/DateTimePickerManager';
+import { COLORS } from '../../theme/theme';
 
 
 interface DeviceStatus {
@@ -1863,7 +1864,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading device information...</Text>
       </View>
     );
@@ -1875,12 +1876,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={styles.header}>
           <Text style={styles.deviceName}>{deviceName}</Text>
           <View style={styles.statusIndicator}>
-            <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? '#4CAF50' : '#ff6b6b' }]} />
+            <View style={[styles.statusDot, { backgroundColor: deviceStatus?.connected ? COLORS.success : COLORS.error }]} />
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
           </View>
       
           <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 8 }}>
-            <Text style={{ color: '#4a90e2', fontWeight: '600' }}>Refresh</Text>
+            <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
         </View>
         {/* Display: Tank Filled percent */}
@@ -1896,18 +1897,18 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             Toast.show({ type: 'info', text1: 'Debug Mode', text2: !showDebugPanel ? 'Enabled' : 'Disabled', position: 'bottom' });
           }}
         >
-          <Text style={{ color: '#666' }}>Exact Data: {brightness ?? '—'}</Text>
+          <Text style={{ color: COLORS.textMedium }}>Exact Data: {brightness ?? '—'}</Text>
         </TouchableOpacity>
 
         {showDebugPanel && (
-          <View style={{ marginTop: 10, padding: 10, backgroundColor: '#333', borderRadius: 8 }}>
-            <Text style={{ fontWeight: 'bold', marginBottom: 5, color: '#fff' }}>Socket Diagnostics</Text>
-            <Text style={{ fontSize: 12, color: '#ddd' }}>Status: {socketConnected ? 'Connected' : 'Disconnected'}</Text>
-            <Text style={{ fontSize: 12, color: '#ddd' }}>Host: {activeSocketHost || 'None'}</Text>
-            <Text style={{ fontSize: 12, marginTop: 5, color: '#ddd' }}>Last Brightness: {lastBrightness ?? 'None'}</Text>
-            <Text style={{ fontSize: 12, color: '#ddd' }}>Received At: {lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : 'Never'}</Text>
-            <Text style={{ fontSize: 12, marginTop: 5, color: '#ddd' }}>Last Flow: {lastFlowRate ?? 'None'}</Text>
-            <Text style={{ fontSize: 12, color: '#ddd' }}>Received At: {lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : 'Never'}</Text>
+          <View style={{ marginTop: 10, padding: 10, backgroundColor: COLORS.textDark, borderRadius: 8 }}>
+            <Text style={{ fontWeight: 'bold', marginBottom: 5, color: COLORS.white }}>Socket Diagnostics</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Status: {socketConnected ? 'Connected' : 'Disconnected'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Host: {activeSocketHost || 'None'}</Text>
+            <Text style={{ fontSize: 12, marginTop: 5, color: COLORS.lightGray }}>Last Brightness: {lastBrightness ?? 'None'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Received At: {lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : 'Never'}</Text>
+            <Text style={{ fontSize: 12, marginTop: 5, color: COLORS.lightGray }}>Last Flow: {lastFlowRate ?? 'None'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Received At: {lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : 'Never'}</Text>
           </View>
         )}
         <View style={styles.controlSection}>
@@ -1953,28 +1954,28 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 )}
              </View>
 
-             <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 }}>Flow Data</Text>
+             <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 10 }}>Flow Data</Text>
              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
                 <View style={{ flex: 1 }}>
-                   <Text style={{ fontSize: 14, color: '#666' }}>Flow Rate</Text>
-                   <Text style={{ fontSize: 18, color: '#333', marginTop: 4 }}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '0 L/min'}</Text>
+                   <Text style={{ fontSize: 14, color: COLORS.textMedium }}>Flow Rate</Text>
+                   <Text style={{ fontSize: 18, color: COLORS.textDark, marginTop: 4 }}>{typeof flowRate === 'number' ? `${flowRate} L/min` : '0 L/min'}</Text>
                 </View>
-                <View style={{ width: 1, height: 40, backgroundColor: '#ddd', marginHorizontal: 15 }} />
+                <View style={{ width: 1, height: 40, backgroundColor: COLORS.lightGray, marginHorizontal: 15 }} />
                 <View style={{ flex: 1 }}>
-                   <Text style={{ fontSize: 14, color: '#666' }}>Total Liters</Text>
-                   <Text style={{ fontSize: 18, color: '#333', marginTop: 4 }}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '0 L'}</Text>
+                   <Text style={{ fontSize: 14, color: COLORS.textMedium }}>Total Liters</Text>
+                   <Text style={{ fontSize: 18, color: COLORS.textDark, marginTop: 4 }}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '0 L'}</Text>
                 </View>
              </View>
 
-             <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>Auto OFF Delay when flow is 0</Text>
+             <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 8 }}>Auto OFF Delay when flow is 0</Text>
              <TouchableOpacity
                   onPress={() => setShowNoFlowDelayMenu((s) => !s)}
-                  style={{ padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa' }}
+                  style={{ padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background }}
                 >
-                  <Text style={{ color: '#333' }}>{noFlowDelaySec}s</Text>
+                  <Text style={{ color: COLORS.textDark }}>{noFlowDelaySec}s</Text>
              </TouchableOpacity>
              {showNoFlowDelayMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff' }}>
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white }}>
                   {[10, 20, 30, 40, 60, 120].map((sec) => (
                     <TouchableOpacity
                       key={sec}
@@ -1985,7 +1986,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       }}
                       style={{ paddingVertical: 10, paddingHorizontal: 12 }}
                     >
-                      <Text style={{ color: '#333' }}>{sec}s</Text>
+                      <Text style={{ color: COLORS.textDark }}>{sec}s</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1999,7 +2000,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             {/* Turn ON Rule */}
             <View style={{ marginBottom: 15 }}>
                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN ON rule</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark }}>TURN ON rule</Text>
                   {canControl && (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                        <AppSwitch
@@ -2011,45 +2012,45 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     </View>
                   )}
                </View>
-               <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>When level is</Text>
+               <Text style={{ fontSize: 14, color: COLORS.textMedium, marginBottom: 8 }}>When level is</Text>
                <View style={{ flexDirection: 'row' }}>
                   <TouchableOpacity
                       onPress={() => setShowOnOperatorMenu((s) => !s)}
-                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background, marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                     >
-                      <Text style={{ color: '#333' }}>{onOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
-                      <Text style={{ color: '#666' }}>▼</Text>
+                      <Text style={{ color: COLORS.textDark }}>{onOperator === 'lt' ? 'Less than' : 'More than or equal'}</Text>
+                      <Text style={{ color: COLORS.textMedium }}>▼</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                       onPress={() => setShowOnPercentMenu((s) => !s)}
-                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginLeft: 8 }}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background, marginLeft: 8 }}
                     >
-                      <Text style={{ color: '#333' }}>{onThreshold}%</Text>
+                      <Text style={{ color: COLORS.textDark }}>{onThreshold}%</Text>
                   </TouchableOpacity>
                </View>
                 {/* Menus for ON Rule */}
                {showOnOperatorMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
                   {[{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than or equal' }].map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => { setOnOperator(opt.key as 'lt' | 'ge'); setShowOnOperatorMenu(false); persistRules(); }}
-                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}
                     >
-                      <Text style={{ color: '#333' }}>{opt.label}</Text>
+                      <Text style={{ color: COLORS.textDark }}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
                )}
                {showOnPercentMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
                   {[10, 20, 30, 40, 50].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => { setOnThreshold(p); setShowOnPercentMenu(false); persistRules(); }}
-                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}
                     >
-                      <Text style={{ color: '#333' }}>{p}%</Text>
+                      <Text style={{ color: COLORS.textDark }}>{p}%</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -2057,9 +2058,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
 
             {/* Turn OFF Rule */}
-            <View style={{ paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' }}>
+            <View style={{ paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.lightGray }}>
                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>TURN OFF rule</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark }}>TURN OFF rule</Text>
                   {canControl && (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                        <AppSwitch
@@ -2071,61 +2072,61 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     </View>
                   )}
                </View>
-               <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>More than</Text>
+               <Text style={{ fontSize: 14, color: COLORS.textMedium, marginBottom: 8 }}>More than</Text>
                <View style={{ flexDirection: 'row' }}>
                   <TouchableOpacity
                       onPress={() => setShowOffOperatorMenu((s) => !s)}
-                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background, marginRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                     >
-                      <Text style={{ color: '#333' }}>{offOperator === 'lt' ? 'Less than' : 'More than'}</Text>
-                      <Text style={{ color: '#666' }}>▼</Text>
+                      <Text style={{ color: COLORS.textDark }}>{offOperator === 'lt' ? 'Less than' : 'More than'}</Text>
+                      <Text style={{ color: COLORS.textMedium }}>▼</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                       onPress={() => setShowOffPercentMenu((s) => !s)}
-                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa', marginLeft: 8 }}
+                      style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background, marginLeft: 8 }}
                     >
-                      <Text style={{ color: '#333' }}>{offThreshold}%</Text>
+                      <Text style={{ color: COLORS.textDark }}>{offThreshold}%</Text>
                   </TouchableOpacity>
                </View>
                 {/* Menus for OFF Rule */}
                 {showOffOperatorMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
                   {([{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than' }] as const).map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => { setOffOperator(opt.key); setShowOffOperatorMenu(false); persistRules(); }}
-                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}
                     >
-                      <Text style={{ color: '#333' }}>{opt.label}</Text>
+                      <Text style={{ color: COLORS.textDark }}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
                )}
                {showOffPercentMenu && (
-                <View style={{ marginTop: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', zIndex: 10 }}>
+                <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
                   {[70, 80, 90, 100].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => { setOffThreshold(p); setShowOffPercentMenu(false); persistRules(); }}
-                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}
                     >
-                      <Text style={{ color: '#333' }}>{p}%</Text>
+                      <Text style={{ color: COLORS.textDark }}>{p}%</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
                )}
             </View>
-            <Text style={{ marginTop: 15, color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Current level: {waterLevel}%</Text>
+            <Text style={{ marginTop: 15, color: COLORS.textMedium, fontStyle: 'italic', textAlign: 'center' }}>Current level: {waterLevel}%</Text>
           </View>
      
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Watering Schedule</Text>
 
           {/* Top Row: Timer Switch | Mode Selector */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
             {/* Timer Switch */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 10 }}>Timer:</Text>
               <AppSwitch
                 value={supplyWaterTimerEnabled}
                 onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
@@ -2135,21 +2136,21 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
 
             {/* Vertical Divider */}
-            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ width: 1, height: '100%', backgroundColor: COLORS.lightGray, marginHorizontal: 10 }} />
 
             {/* Mode Selector */}
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 8 }}>Mode:</Text>
                <TouchableOpacity
                  onPress={() => {
                     setSupplyWaterFrequency(supplyWaterFrequency === 'everyday' ? 'once' : 'everyday');
                  }}
-                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: COLORS.background, borderRadius: 6, borderWidth: 1, borderColor: COLORS.lightGray }}
                >
-                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                  <Text style={{ color: COLORS.accent, fontWeight: '600', marginRight: 4 }}>
                      {supplyWaterFrequency === 'everyday' ? 'Everyday' : 'One Time'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.accent }}>▼</Text>
                </TouchableOpacity>
             </View>
           </View>
@@ -2158,11 +2159,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           {supplyWaterTimerEnabled && (
             <View>
                {/* Morning Row */}
-               <View style={{ flexDirection: supplyWaterFrequency === 'once' ? 'column' : 'row', alignItems: supplyWaterFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+               <View style={{ flexDirection: supplyWaterFrequency === 'once' ? 'column' : 'row', alignItems: supplyWaterFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: supplyWaterFrequency === 'once' ? '100%' : '30%', marginBottom: supplyWaterFrequency === 'once' ? 8 : 0 }}>
                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
-                        <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
+                        <Text style={{ fontSize: 16, color: COLORS.textDark }}>Morning</Text>
                      </View>
                      {supplyWaterFrequency === 'once' && <AppSwitch value={morningScheduleEnabled} onValueChange={(v) => { setMorningScheduleEnabled(v) }} />}
                   </View>
@@ -2171,17 +2172,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <TouchableOpacity
                          onPress={() => openPicker({ value: morningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, morningEndTime, setMorningStartTime); } })}
                       >
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>
                            {morningStartTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? morningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(morningStartTime)) : '--:--'}
                         </Text>
                       </TouchableOpacity>
                       
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
 
                       <TouchableOpacity
                          onPress={() => openPicker({ value: morningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, morningStartTime, setMorningEndTime); } })}
                       >
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>
                            {morningEndTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? morningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(morningEndTime)) : '--:--'}
                         </Text>
                       </TouchableOpacity>
@@ -2200,7 +2201,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: supplyWaterFrequency === 'once' ? '100%' : '30%', marginBottom: supplyWaterFrequency === 'once' ? 8 : 0 }}>
                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
-                        <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                        <Text style={{ fontSize: 16, color: COLORS.textDark }}>Evening</Text>
                      </View>
                      {supplyWaterFrequency === 'once' && <AppSwitch value={eveningScheduleEnabled} onValueChange={(v) => { setEveningScheduleEnabled(v) }} />}
                   </View>
@@ -2209,17 +2210,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       <TouchableOpacity
                          onPress={() => openPicker({ value: eveningStartTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', supplyWaterFrequency, eveningEndTime, setEveningStartTime); } })}
                       >
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>
                            {eveningStartTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? eveningStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(eveningStartTime)) : '--:--'}
                         </Text>
                       </TouchableOpacity>
                       
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
 
                       <TouchableOpacity
                          onPress={() => openPicker({ value: eveningEndTime, type: supplyWaterFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', supplyWaterFrequency, eveningStartTime, setEveningEndTime); } })}
                       >
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>
                            {eveningEndTime instanceof Date ? (supplyWaterFrequency === 'everyday' ? eveningEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(eveningEndTime)) : '--:--'}
                         </Text>
                       </TouchableOpacity>
@@ -2243,8 +2244,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             {/* Left Column */}
             <View style={{ flex: 1, paddingRight: 10 }}>
               {/* Device 2: Door Lock */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
                 {canControl ? (
                     <AppSwitch
                       value={device2On}
@@ -2263,14 +2264,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
                     </TouchableOpacity>
                 )}
               </View>
 
               {/* Device 4: Dog Feed */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device4On}
@@ -2280,20 +2281,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
                     </TouchableOpacity>
                 )}
               </View>
             </View>
 
             {/* Vertical Divider */}
-            <View style={{ width: 1, backgroundColor: '#f0f0f0', marginHorizontal: 5 }} />
+            <View style={{ width: 1, backgroundColor: COLORS.lightGray, marginHorizontal: 5 }} />
 
             {/* Right Column */}
             <View style={{ flex: 1, paddingLeft: 10 }}>
               {/* Device 3: Watering Plants */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice3 || 'Watering'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice3 || 'Watering'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device3On}
@@ -2303,14 +2304,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
                     </TouchableOpacity>
                 )}
               </View>
 
               {/* Device 5: AC Control */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>{subLabels?.subdevice5 || 'AC Control'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice5 || 'AC Control'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device5On}
@@ -2320,7 +2321,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     />
                 ) : (
                     <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: '#4a90e2', fontSize: 12 }}>Sub</Text>
+                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
                     </TouchableOpacity>
                 )}
               </View>
@@ -2330,9 +2331,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Watering Plants Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 10 }}>Timer:</Text>
               <AppSwitch
                 value={wateringPlantsTimerEnabled}
                 onValueChange={(v) => { setWateringPlantsTimerEnabled(v) }}
@@ -2340,38 +2341,38 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 
               />
             </View>
-            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ width: 1, height: '100%', backgroundColor: COLORS.lightGray, marginHorizontal: 10 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 8 }}>Mode:</Text>
                <TouchableOpacity
                  onPress={() => { setWateringPlantsFrequency(wateringPlantsFrequency === 'everyday' ? 'once' : 'everyday'); }}
-                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: COLORS.background, borderRadius: 6, borderWidth: 1, borderColor: COLORS.lightGray }}
                >
-                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                  <Text style={{ color: COLORS.accent, fontWeight: '600', marginRight: 4 }}>
                      {wateringPlantsFrequency === 'everyday' ? 'Everyday' : 'One Time'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.accent }}>▼</Text>
                </TouchableOpacity>
             </View>
           </View>
 
           {wateringPlantsTimerEnabled && (
             <View>
-               <View style={{ flexDirection: wateringPlantsFrequency === 'once' ? 'column' : 'row', alignItems: wateringPlantsFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+               <View style={{ flexDirection: wateringPlantsFrequency === 'once' ? 'column' : 'row', alignItems: wateringPlantsFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: wateringPlantsFrequency === 'once' ? '100%' : '30%', marginBottom: wateringPlantsFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Morning</Text>
                       </View>
                       {wateringPlantsFrequency === 'once' && <AppSwitch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsMorningEnd, setWateringPlantsMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{wateringPlantsMorningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsMorningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsMorningStart, setWateringPlantsMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{wateringPlantsMorningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {wateringPlantsFrequency !== 'once' && <AppSwitch value={wateringPlantsMorningEnabled} onValueChange={setWateringPlantsMorningEnabled} />}
@@ -2381,17 +2382,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: wateringPlantsFrequency === 'once' ? '100%' : '30%', marginBottom: wateringPlantsFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Evening</Text>
                       </View>
                       {wateringPlantsFrequency === 'once' && <AppSwitch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningStart, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', wateringPlantsFrequency, wateringPlantsEveningEnd, setWateringPlantsEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{wateringPlantsEveningStart instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: wateringPlantsEveningEnd, type: wateringPlantsFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', wateringPlantsFrequency, wateringPlantsEveningStart, setWateringPlantsEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{wateringPlantsEveningEnd instanceof Date ? (wateringPlantsFrequency === 'everyday' ? wateringPlantsEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(wateringPlantsEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {wateringPlantsFrequency !== 'once' && <AppSwitch value={wateringPlantsEveningEnabled} onValueChange={setWateringPlantsEveningEnabled} />}
@@ -2402,9 +2403,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Dog Feed Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 10 }}>Timer:</Text>
               <AppSwitch
                 value={dogFeedTimerEnabled}
                 onValueChange={(v) => { setDogFeedTimerEnabled(v) }}
@@ -2412,38 +2413,38 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 
               />
             </View>
-            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ width: 1, height: '100%', backgroundColor: COLORS.lightGray, marginHorizontal: 10 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 8 }}>Mode:</Text>
                <TouchableOpacity
                  onPress={() => { setDogFeedFrequency(dogFeedFrequency === 'everyday' ? 'once' : 'everyday'); }}
-                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: COLORS.background, borderRadius: 6, borderWidth: 1, borderColor: COLORS.lightGray }}
                >
-                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                  <Text style={{ color: COLORS.accent, fontWeight: '600', marginRight: 4 }}>
                      {dogFeedFrequency === 'everyday' ? 'Everyday' : 'One Time'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.accent }}>▼</Text>
                </TouchableOpacity>
             </View>
           </View>
 
           {dogFeedTimerEnabled && (
             <View>
-               <View style={{ flexDirection: dogFeedFrequency === 'once' ? 'column' : 'row', alignItems: dogFeedFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+               <View style={{ flexDirection: dogFeedFrequency === 'once' ? 'column' : 'row', alignItems: dogFeedFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: dogFeedFrequency === 'once' ? '100%' : '30%', marginBottom: dogFeedFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Morning</Text>
                       </View>
                       {dogFeedFrequency === 'once' && <AppSwitch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedMorningEnd, setDogFeedMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{dogFeedMorningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedMorningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedMorningStart, setDogFeedMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{dogFeedMorningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {dogFeedFrequency !== 'once' && <AppSwitch value={dogFeedMorningEnabled} onValueChange={setDogFeedMorningEnabled} />}
@@ -2453,17 +2454,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: dogFeedFrequency === 'once' ? '100%' : '30%', marginBottom: dogFeedFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Evening</Text>
                       </View>
                       {dogFeedFrequency === 'once' && <AppSwitch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningStart, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', dogFeedFrequency, dogFeedEveningEnd, setDogFeedEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{dogFeedEveningStart instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: dogFeedEveningEnd, type: dogFeedFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', dogFeedFrequency, dogFeedEveningStart, setDogFeedEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{dogFeedEveningEnd instanceof Date ? (dogFeedFrequency === 'everyday' ? dogFeedEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(dogFeedEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {dogFeedFrequency !== 'once' && <AppSwitch value={dogFeedEveningEnabled} onValueChange={setDogFeedEveningEnabled} />}
@@ -2474,9 +2475,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>AC Control Timer</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, color: '#333', marginRight: 10 }}>Timer:</Text>
+              <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 10 }}>Timer:</Text>
               <AppSwitch
                 value={acControlTimerEnabled}
                 onValueChange={(v) => { setAcControlTimerEnabled(v) }}
@@ -2484,38 +2485,38 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 
               />
             </View>
-            <View style={{ width: 1, height: '100%', backgroundColor: '#f0f0f0', marginHorizontal: 10 }} />
+            <View style={{ width: 1, height: '100%', backgroundColor: COLORS.lightGray, marginHorizontal: 10 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-               <Text style={{ fontSize: 16, color: '#333', marginRight: 8 }}>Mode:</Text>
+               <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 8 }}>Mode:</Text>
                <TouchableOpacity
                  onPress={() => { setAcControlFrequency(acControlFrequency === 'everyday' ? 'once' : 'everyday'); }}
-                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: '#f5f5f5', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}
+                 style={{ flexDirection: 'row', alignItems: 'center', padding: 6, backgroundColor: COLORS.background, borderRadius: 6, borderWidth: 1, borderColor: COLORS.lightGray }}
                >
-                  <Text style={{ color: '#00796b', fontWeight: '600', marginRight: 4 }}>
+                  <Text style={{ color: COLORS.accent, fontWeight: '600', marginRight: 4 }}>
                      {acControlFrequency === 'everyday' ? 'Everyday' : 'One Time'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: '#00796b' }}>▼</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.accent }}>▼</Text>
                </TouchableOpacity>
             </View>
           </View>
 
           {acControlTimerEnabled && (
             <View>
-               <View style={{ flexDirection: acControlFrequency === 'once' ? 'column' : 'row', alignItems: acControlFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+               <View style={{ flexDirection: acControlFrequency === 'once' ? 'column' : 'row', alignItems: acControlFrequency === 'once' ? 'stretch' : 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: acControlFrequency === 'once' ? '100%' : '30%', marginBottom: acControlFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>⏰</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Morning</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Morning</Text>
                       </View>
                       {acControlFrequency === 'once' && <AppSwitch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlMorningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlMorningEnd, setAcControlMorningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{acControlMorningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlMorningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlMorningStart, setAcControlMorningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{acControlMorningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlMorningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlMorningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {acControlFrequency !== 'once' && <AppSwitch value={acControlMorningEnabled} onValueChange={setAcControlMorningEnabled} />}
@@ -2525,17 +2526,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: acControlFrequency === 'once' ? '100%' : '30%', marginBottom: acControlFrequency === 'once' ? 8 : 0 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                          <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
-                         <Text style={{ fontSize: 16, color: '#333' }}>Evening</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark }}>Evening</Text>
                       </View>
                       {acControlFrequency === 'once' && <AppSwitch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled} />}
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlEveningStart, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'start', acControlFrequency, acControlEveningEnd, setAcControlEveningStart) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningStart)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{acControlEveningStart instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningStart)) : '--:--'}</Text>
                       </TouchableOpacity>
-                      <Text style={{ marginHorizontal: 5, color: '#999' }}>➔</Text>
+                      <Text style={{ marginHorizontal: 5, color: COLORS.textLight }}>➔</Text>
                       <TouchableOpacity onPress={() => openPicker({ value: acControlEveningEnd, type: acControlFrequency === 'everyday' ? 'time' : 'datetime', onChange: (d) => { validateTimeSelection(d, 'end', acControlFrequency, acControlEveningStart, setAcControlEveningEnd) } })}>
-                         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningEnd)) : '--:--'}</Text>
+                         <Text style={{ fontSize: 16, color: COLORS.textDark, fontWeight: '500' }}>{acControlEveningEnd instanceof Date ? (acControlFrequency === 'everyday' ? acControlEveningEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : formatOneTimeDate(acControlEveningEnd)) : '--:--'}</Text>
                       </TouchableOpacity>
                   </View>
                   {acControlFrequency !== 'once' && <AppSwitch value={acControlEveningEnabled} onValueChange={setAcControlEveningEnabled} />}
@@ -2591,13 +2592,13 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={styles.sectionTitle}>Target Depth (100%)</Text>
             <TextInput
               style={{
-                backgroundColor: '#fff',
+                backgroundColor: COLORS.white,
                 borderWidth: 1,
-                borderColor: '#ddd',
+                borderColor: COLORS.lightGray,
                 borderRadius: 8,
                 paddingHorizontal: 10,
                 paddingVertical: 8,
-                color: '#333'
+                color: COLORS.textDark
               }}
               keyboardType="numeric"
               placeholder="Enter target depth"
@@ -2687,12 +2688,12 @@ const styles = StyleSheet.create({
   },
   infoValue:{
    fontSize:16,
-   color:'#666',
+   color: COLORS.textMedium,
    marginLeft:5,
   },
   configButton:{
   width:'100%',
-  backgroundColor:'#4a90e2',
+  backgroundColor: COLORS.primary,
   padding:10,
   borderRadius:8,
   marginTop:10,
@@ -2702,17 +2703,17 @@ const styles = StyleSheet.create({
   },
   infoLabel:{
     fontSize:16,
-    color:'#666',
+    color: COLORS.textMedium,
     marginBottom:5,
   },
   actionSection:{
    width:'100%',
-   backgroundColor:'#fff',
+   backgroundColor: COLORS.card,
    borderRadius:8,
    padding:10,
    marginTop:20,
    borderWidth:1,
-   borderColor:'#ddd',
+   borderColor: COLORS.lightGray,
   },
   actionButton:{
   
@@ -2734,7 +2735,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
@@ -2743,7 +2744,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#666',
+    color: COLORS.textMedium,
   },
   scrollView: {
     padding: 20,
@@ -2754,7 +2755,7 @@ const styles = StyleSheet.create({
   deviceName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 5,
   },
   statusIndicator: {
@@ -2769,20 +2770,20 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textMedium,
   },
   controlSection: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 8,
     padding: 15,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.lightGray,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 15,
   },
   powerControl: {
@@ -2793,11 +2794,11 @@ const styles = StyleSheet.create({
   powerLabel: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#333',
+    color: COLORS.textDark,
   },
   subscribeButton: {
     width: '100%',
-    backgroundColor: '#c62828',
+    backgroundColor: COLORS.secondary,
     padding: 10,
     borderRadius: 8,
     marginTop: 12,
@@ -2805,13 +2806,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   subscribeButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
   },
   subscribeMiniButton: {
     width: '100%',
-    backgroundColor: '#c62828',
+    backgroundColor: COLORS.secondary,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
@@ -2820,7 +2821,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   subscribeMiniButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2828,11 +2829,11 @@ const styles = StyleSheet.create({
     marginTop: 0,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#455a64',
+    color: COLORS.darkGray,
   },
   subscriptionOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2845,23 +2846,23 @@ const styles = StyleSheet.create({
   subscriptionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 8,
   },
   subscriptionDesc: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textMedium,
     marginBottom: 16,
     textAlign: 'center',
   },
   overlaySubscribeButton: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: COLORS.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
   },
   overlaySubscribeButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: 'bold',
     fontSize: 16,
   },

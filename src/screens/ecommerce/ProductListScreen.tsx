@@ -164,16 +164,7 @@ const ProductListScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>VoodooTech Shop</Text>
-        <TouchableOpacity
-          style={styles.cartButton}
-          onPress={() => navigation.navigate('Cart')}
-        >
-          <Text style={styles.cartButtonText}>Cart</Text>
-        </TouchableOpacity>
-      </View>
-
+      
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}

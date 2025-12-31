@@ -196,14 +196,14 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const renderDeviceItem = ({ item }: { item: Device }) => (
     <TouchableOpacity
-      style={[styles.deviceCard, { backgroundColor: item.status === 'on' ? '#e6f7ff' : '#f5f5f5' }]}
+      style={[styles.deviceCard, { backgroundColor: item.status === 'on' ? COLORS.primaryLight : COLORS.lightGray }]}
       onPress={() => navigateToDevice(item.id)}
     >
       <View style={styles.deviceInfo}>
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceType}>{item.type}</Text>
       </View>
-      <View style={[styles.statusIndicator, { backgroundColor: item.status === 'on' ? '#4CAF50' : '#9E9E9E' }]} />
+      <View style={[styles.statusIndicator, { backgroundColor: item.status === 'on' ? COLORS.success : COLORS.gray }]} />
     </TouchableOpacity>
   );
 
@@ -216,9 +216,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }
 
   return (
-  <View style={{ flex: 1, minHeight: '100vh', backgroundColor: '#f2f5f9' }}>
+  <View style={{ flex: 1, minHeight: '100vh', backgroundColor: COLORS.background }}>
       <Modal visible={!!forceUpdateUrl} animationType="fade" transparent={false}>
-        <View style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <View style={{ flex: 1, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Card style={{ width: '90%' }} elevation="medium">
             <Text style={{ ...FONTS.h2, color: COLORS.textDark, marginBottom: 8 }}>Update Required</Text>
             <Text style={{ ...FONTS.body2, color: COLORS.textLight, marginBottom: 16 }}>A newer version of the app is available. Please update to continue.</Text>
@@ -390,7 +390,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
 const styles = StyleSheet.create({container: {
   flex: 1,
-  backgroundColor: '#f2f5f9',
+  backgroundColor: COLORS.background,
 },
 loadingContainer: {
   flex: 1,
@@ -456,12 +456,12 @@ seeAllText: {
     width: 180,
     marginRight: SIZES.margin,
     marginVertical: SIZES.margin,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: SIZES.radius,
   },
   roomCardImage: { width: '100%', height: 110, justifyContent: 'flex-end' },
@@ -490,7 +490,7 @@ devicesList: {
     alignItems: 'center',
     ...SHADOWS.small,
   },
-  deviceCardOn: { backgroundColor: '#163a63' },
+  deviceCardOn: { backgroundColor: COLORS.primaryDark },
   deviceCardOff: { backgroundColor: COLORS.white },
   deviceIconBubble: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryLight, marginRight: 12 },
   deviceIconText: { fontSize: 16 },

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
+import { COLORS } from '../../theme/theme';
 
 interface DeviceItem {
   _id?: string;
@@ -52,7 +53,7 @@ const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           <Text style={styles.type}>{item.type || 'ESP8266'}</Text>
           <Text style={styles.subscription}>{subText}</Text>
         </View>
-        <View style={[styles.statusDot, { backgroundColor: item.isConnected ? '#4CAF50' : '#9E9E9E' }]} />
+        <View style={[styles.statusDot, { backgroundColor: item.isConnected ? COLORS.success : COLORS.gray }]} />
       </TouchableOpacity>
     );
   };
@@ -60,8 +61,8 @@ const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
-        <Text style={{ marginTop: 8, color: '#666' }}>Loading devices...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ marginTop: 8, color: COLORS.textMedium }}>Loading devices...</Text>
       </View>
     );
   }
@@ -85,12 +86,12 @@ const DevicesListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#666' },
+  emptyText: { color: COLORS.textMedium },
   deviceCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
@@ -98,12 +99,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.lightGray,
   },
   info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '600', color: '#333' },
-  type: { fontSize: 13, color: '#777', marginTop: 4 },
-  subscription: { fontSize: 12, color: '#555', marginTop: 2 },
+  name: { fontSize: 16, fontWeight: '600', color: COLORS.textDark },
+  type: { fontSize: 13, color: COLORS.textLight, marginTop: 4 },
+  subscription: { fontSize: 12, color: COLORS.textMedium, marginTop: 2 },
   statusDot: { width: 12, height: 12, borderRadius: 6, marginLeft: 8 },
 });
 

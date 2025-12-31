@@ -3,43 +3,43 @@ import { Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 export const COLORS = {
-  // Primary colors
-  primary: '#3c469f',     // A vibrant blue that stands out
-  primaryDark: '#3A56D4', // Darker shade for pressed states
-  primaryLight: '#ECF0FF', // Light shade for backgrounds
-  
-  // Secondary colors
-  secondary: '#FF6B6B',   // Vibrant coral for accents
-  secondaryDark: '#E55C5C',
-  secondaryLight: '#FFE8E8',
-  
-  // Accent colors
-  accent: '#06D6A0',      // Mint green for success states
-  accentDark: '#05C091',
-  accentLight: '#E0FFF7',
-  
+  // Primary colors (Matte Indigo)
+  primary: '#5C6BC0',
+  primaryDark: '#3949AB',
+  primaryLight: '#C5CAE9',
+
+  // Secondary colors (Matte Deep Orange)
+  secondary: '#FF7043',
+  secondaryDark: '#F4511E',
+  secondaryLight: '#FFCCBC',
+
+  // Accent colors (Matte Teal)
+  accent: '#26A69A',
+  accentDark: '#00897B',
+  accentLight: '#B2DFDB',
+
   // Neutral colors
   white: '#FFFFFF',
-  black: '#000000',
-  gray: '#8D9091',
-  lightGray: '#E8E8E8',
-  darkGray: '#4D4D4D',
-  
+  black: '#263238',       // Blue Grey 900
+  gray: '#78909C',        // Blue Grey 400
+  lightGray: '#ECEFF1',   // Blue Grey 50
+  darkGray: '#455A64',    // Blue Grey 700
+
   // Functional colors
-  success: '#06D6A0',
-  warning: '#FFBE0B',
-  error: '#EF476F',
-  info: '#118AB2',
-  
+  success: '#66BB6A',     // Matte Green
+  warning: '#FFA726',     // Matte Orange
+  error: '#EF5350',       // Matte Red
+  info: '#42A5F5',        // Matte Blue
+
   // Background colors
-  background: '#99a3f8',
+  background: '#F5F7FA',  // Very light cool grey
   card: '#FFFFFF',
-  
+
   // Text colors
-  textDark: '#212529',
-  textMedium: '#495057',
-  textLight: '#6C757D',
-  textVeryLight: '#ADB5BD',
+  textDark: '#37474F',    // Blue Grey 800
+  textMedium: '#546E7A',  // Blue Grey 600
+  textLight: '#90A4AE',   // Blue Grey 300
+  textVeryLight: '#CFD8DC',// Blue Grey 100
 };
 
 export const SIZES = {
