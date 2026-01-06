@@ -234,6 +234,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const prevWaterLevelRef = React.useRef<number>(0);
   const lastFullAlertAtRef = React.useRef<number>(0);
   const fullAlertArmedRef = React.useRef<boolean>(true); // re-arm when level drops sufficiently
+  const isFirstLoadRef = React.useRef<boolean>(true);
   // Subscription plan to display price on per-device buttons
   const [billingPlan, setBillingPlan] = useState<{ id: string; name: string; price: number; currency: string; interval: string } | null>(null);
 
@@ -378,7 +379,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             }
             // Subscribe to flow updates (DB-based)
             socket.emit('flow:subscribe', { deviceId: did });
-            Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to Data updates for ${did}`, position: 'bottom' });
+          //  Toast.show({ type: 'info', text1: 'Connected', text2: `Subscribed to Data updates for ${did}`, position: 'bottom' });
           } catch (e) {
             console.warn('Failed to subscribe brightness:', e);
           }
@@ -435,7 +436,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           Toast.show({ type: 'info', text1: 'Subscribed', text2: `Brightness for ${deviceId}`, position: 'bottom' });
         });
         socket.on('flow:subscribed', ({ deviceId }) => {
-          Toast.show({ type: 'info', text1: 'Subscribed', text2: `Flow for ${deviceId}`, position: 'bottom' });
+         // Toast.show({ type: 'info', text1: 'Subscribed', text2: `Flow for ${deviceId}`, position: 'bottom' });
         });
         socket.on('reconnect', () => {
           try {
@@ -485,14 +486,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           }
         });
         socket.on('flow:update', (payload) => {
+          console.log('Flow update received:', payload);
           const frRaw = payload?.flowRate;
           const tlRaw = payload?.totalLiters;
           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
           const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-          if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
-          if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-          if (typeof fr === 'number' && isFinite(fr)) setLastFlowRate(fr);
-          if (typeof tl === 'number' && isFinite(tl)) setLastTotalLiters(tl);
+          if (typeof fr === 'number' && isFinite(fr)) {
+             setFlowRate(fr);
+             setLastFlowRate(fr);
+            // Toast.show({ type: 'info', text1: 'Flow Update', text2: `Rate: ${fr} L/m`, position: 'bottom', visibilityTime: 1000 });
+          }
+          if (typeof tl === 'number' && isFinite(tl)) {
+             setTotalLiters(tl);
+             setLastTotalLiters(tl);
+          }
           setLastFlowAt(Date.now());
         });
         socket.on('brightness:error', ({ error }) => {
@@ -560,11 +567,16 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               }
             });
             fbSocket.on('flow:update', (payload) => {
+              console.log('Fallback flow update received:', payload);
               const frRaw = payload?.flowRate;
               const tlRaw = payload?.totalLiters;
               const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
               const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-              if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
+              if (typeof fr === 'number' && isFinite(fr)) {
+                 setFlowRate(fr);
+                 setLastFlowRate(fr);
+               //  Toast.show({ type: 'info', text1: 'Flow Update (FB)', text2: `Rate: ${fr} L/m`, position: 'bottom', visibilityTime: 1000 });
+              }
               if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
             });
             fbSocket.on('connect_error', (err) => {
@@ -621,6 +633,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   }
                 });
                 fbSocket2.on('flow:update', (payload) => {
+                  console.log('Fallback 2 flow update received:', payload);
                   const frRaw = payload?.flowRate;
                   const tlRaw = payload?.totalLiters;
                   const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
@@ -679,6 +692,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       }
                     });
                     fbSocket3.on('flow:update', (payload) => {
+                      console.log('Fallback 3 flow update received:', payload);
                       const frRaw = payload?.flowRate;
                       const tlRaw = payload?.totalLiters;
                       const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
@@ -737,6 +751,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                           }
                         });
                         fbSocket4.on('flow:update', (payload) => {
+                          console.log('Fallback 4 flow update received:', payload);
                           const frRaw = payload?.flowRate;
                           const tlRaw = payload?.totalLiters;
                           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
@@ -1156,34 +1171,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     } catch (e) {}
   }, [waterLevel, onEnabled, onOperator, onThreshold, offEnabled, offOperator, offThreshold, lastAutoAt, isPowerOn, selectedDeviceIp, selectedDeviceId]);
 
-  // New rule: optional immediate auto OFF when flow rate drops below threshold
-  // Respect the UI toggle (noFlowAutoOffEnabled) so automation is OFF by default
-  useEffect(() => {
-    try {
-      if (!selectedDeviceId) return;
-      if (!noFlowAutoOffEnabled) return; // keep disabled by default
-      const fr = flowRate;
-      if (typeof fr !== 'number' || !isFinite(fr)) return;
-      const now = Date.now();
-      if (now - lastAutoAt < 2000) return; // reuse cooldown to prevent rapid toggles
-      if (fr < 5 && isPowerOn) {
-        // 1. Direct IP Control
-        if (selectedDeviceIp) {
-             esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
-                 esp8266Service.turnOff().catch(console.warn);
-             }).catch(console.warn);
-        }
-        // 2. Server Control Endpoint
-        if (selectedDeviceId) esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
-        // 3. State Update
-        toggleDeviceField('device1', false);
-
-        setIsPowerOn(false);
-        setLastAutoAt(now);
-        Toast.show({ type: 'success', text1: 'Automation', text2: `Flow low (${fr}). Power OFF`, position: 'bottom' });
-      }
-    } catch {}
-  }, [flowRate, isPowerOn, selectedDeviceId, selectedDeviceIp, lastAutoAt, noFlowAutoOffEnabled]);
+ 
 
   // Keep refs in sync to avoid stale closures in timers
   useEffect(() => { isPowerOnRef.current = isPowerOn; }, [isPowerOn]);
@@ -1203,7 +1191,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           try {
             const fr = flowRateRef.current;
             const stillOn = isPowerOnRef.current;
-            if (stillOn && typeof fr === 'number' && isFinite(fr) && fr === 0) {
+            if (stillOn && typeof fr === 'number' && isFinite(fr) && fr < 6.5) {
               // 1. Direct IP Control
               if (selectedDeviceIp) {
                    esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
@@ -1217,7 +1205,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
               setIsPowerOn(false);
               setLastAutoAt(Date.now());
-              try { Toast.show({ type: 'success', text1: 'Automation', text2: `No Flow for ${noFlowDelaySec}s. Power OFF`, position: 'bottom' }); } catch {}
+              try { 
+                Toast.show({ type: 'success', text1: 'Automation', text2: `Low Flow (<6.5) for ${noFlowDelaySec}s. Power OFF`, position: 'bottom' }); 
+              } catch {}
             }
           } catch {}
         }, Math.max(1, noFlowDelaySec) * 1000);
@@ -1480,9 +1470,19 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Alert when tank reaches 100%
   useEffect(() => {
     try {
+      if (isLoading) return;
+
       const level = Number(waterLevel);
       const prev = Number(prevWaterLevelRef.current || 0);
       const now = Date.now();
+
+      // Suppress alert on first valid data load to avoid false positives on app open
+      if (isFirstLoadRef.current) {
+        isFirstLoadRef.current = false;
+        prevWaterLevelRef.current = level;
+        return;
+      }
+
       const recentlyAlerted = now - (lastFullAlertAtRef.current || 0) < 30_000; // 30s cooldown
 
       // Re-arm alert after level drops below 95%
@@ -1517,10 +1517,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
       prevWaterLevelRef.current = level;
     } catch {}
-  }, [waterLevel]);
+  }, [waterLevel, isLoading]);
 
   const loadDeviceInfo = async (preferredDeviceId?: string | null) => {
     setIsLoading(true);
+    isFirstLoadRef.current = true;
     try {
       let useDeviceId = preferredDeviceId || selectedDeviceId;
       let devDetail: any | null = null;
@@ -1885,7 +1886,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                  <Path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
                </Svg>
             </TouchableOpacity>
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               onPress={() => navigation.navigate('Audio')} 
               style={{ marginRight: 10, padding: 4 }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1893,7 +1894,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                <Svg width={28} height={28} viewBox="0 0 24 24" fill={COLORS.primary}>
                  <Path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
                </Svg>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
          
             <Text style={[styles.deviceName, { marginBottom: 0 }]}>{deviceName}</Text>
           </View>
@@ -1964,7 +1965,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={styles.controlSection}>
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 }}>
                 <Text style={styles.sectionTitle}>Flow Control</Text>
-                {canControl && (
+                {/* {canControl && (
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <AppSwitch
                       value={noFlowAutoOffEnabled}
@@ -1973,7 +1974,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       
                     />
                   </View>
-                )}
+                )} */}
              </View>
 
              <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 10 }}>Flow Data</Text>
@@ -1989,7 +1990,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 </View>
              </View>
 
-             <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 8 }}>Auto OFF Delay when flow is 0</Text>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark }}>Auto OFF when flow &lt; 6.5 L/min</Text>
+                {canControl && (
+                  <AppSwitch
+                    value={noFlowAutoOffEnabled}
+                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                  />
+                )}
+             </View>
              <TouchableOpacity
                   onPress={() => setShowNoFlowDelayMenu((s) => !s)}
                   style={{ padding: 12, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.background }}
@@ -2142,7 +2151,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           </View>
      
         <View style={[styles.controlSection, { marginTop: 10 }]}>
-          <Text style={styles.sectionTitle}>Watering Schedule</Text>
+          <Text style={styles.sectionTitle}>Supply Watering Schedule</Text>
 
           {/* Top Row: Timer Switch | Mode Selector */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
@@ -2260,7 +2269,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
 
         <View style={[styles.controlSection, { marginTop: 10 }] }>
-          <Text style={styles.sectionTitle}>GPIO Controls</Text>
+          <Text style={styles.sectionTitle}>Main Controls</Text>
           
           <View style={{ flexDirection: 'row' }}>
             {/* Left Column */}
@@ -2351,6 +2360,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           </View>
         </View>
 
+        {device3On && (
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Watering Plants Timer</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
@@ -2422,7 +2432,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
           )}
         </View>
+        )}
 
+        {device4On && (
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Dog Feed Timer</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
@@ -2494,7 +2506,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
           )}
         </View>
+        )}
 
+        {device5On && (
         <View style={[styles.controlSection, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>AC Control Timer</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray, paddingBottom: 10 }}>
@@ -2566,6 +2580,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             </View>
           )}
         </View>
+        )}
 
         <View style={[styles.controlSection, { marginTop: 20 }]}>
           {/* <View style={{ }}>

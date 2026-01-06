@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   SwitchProps,
+  Platform,
 } from 'react-native';
 
 import { COLORS } from '../theme/theme';
@@ -77,7 +78,10 @@ export const AppSwitch: React.FC<AppSwitchProps> = ({
       disabled={disabled}
       style={[style, { opacity: disabled ? 0.6 : 1 }]}
     >
-      <Animated.View style={[styles.track, { width, height, borderRadius: radius, backgroundColor: bg }]}>
+      <Animated.View 
+        collapsable={Platform.OS === 'web' ? 'false' as any : false}
+        style={[styles.track, { width, height, borderRadius: radius, backgroundColor: bg }]}
+      >
         <Animated.Text style={[styles.label, { left: 10, opacity: onOpacity }]}>ON</Animated.Text>
         <Animated.Text style={[styles.label, { right: 10, opacity: offOpacity }]}>OFF</Animated.Text>
 

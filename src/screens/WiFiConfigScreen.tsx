@@ -17,9 +17,9 @@ import * as constantsV from '../constants/constatantsV';
 
 const WiFiConfigScreen: React.FC = () => {
   const { user } = useAuth();
-  const [ssid, setSSID] = useState('Airtel_vija_6651');
-  const [password, setPassword] = useState('air00336');
-  const [deviceIP, setDeviceIP] = useState('');
+  const [ssid, setSSID] = useState('');
+  const [password, setPassword] = useState('');
+  const [deviceIP, setDeviceIP] = useState('192.168.4.1');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
