@@ -318,6 +318,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   
   // Track whether we've received brightness via socket; used for failover
   const brightnessReceivedRef = React.useRef<boolean>(false);
+  const flowReceivedRef = React.useRef<boolean>(false);
   const fallbackTimerRef = React.useRef<any>(null);
   const fallbackPathRetriedRef = React.useRef<boolean>(false);
   const fallbackNoAuthRetriedRef = React.useRef<boolean>(false);
@@ -347,6 +348,66 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const transportList = Platform.OS === 'android' ? ['polling'] : (isDev ? ['polling'] : ['websocket', 'polling']);
         const socketPath = '/voodoo/socket.io';
         brightnessReceivedRef.current = false;
+        flowReceivedRef.current = false;
+
+        const handleFlowUpdate = (payload: any) => {
+          console.log('[Socket] Flow update received:', JSON.stringify(payload));
+          let frRaw = payload?.flowRate ?? payload?.flow_rate ?? payload?.FlowRate;
+          if (frRaw === undefined && payload?.data) {
+             frRaw = payload.data.flowRate ?? payload.data.flow_rate ?? payload.data.FlowRate;
+          }
+          let tlRaw = payload?.totalLiters ?? payload?.total_liters ?? payload?.TotalLiters;
+          if (tlRaw === undefined && payload?.data) {
+             tlRaw = payload.data.totalLiters ?? payload.data.total_liters ?? payload.data.TotalLiters;
+          }
+          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+
+          if (typeof fr === 'number' && isFinite(fr)) {
+             setFlowRate(fr);
+             setLastFlowRate(fr);
+           }
+          if (typeof tl === 'number' && isFinite(tl)) {
+             setTotalLiters(tl);
+             setLastTotalLiters(tl);
+          }
+          setLastFlowAt(Date.now());
+          flowReceivedRef.current = true;
+        };
+
+        const handleBrightnessUpdate = (payload: any) => {
+          brightnessReceivedRef.current = true;
+          let raw: number | undefined;
+          // Unwrap data if present
+          const data = payload?.data || payload;
+
+          if (typeof data?.brightness === 'number') {
+            raw = data.brightness;
+          } else if (typeof data?.value === 'number') {
+            raw = data.value;
+          } else if (typeof data?.brightness === 'string') {
+            const parsed = parseFloat(data.brightness);
+            raw = isNaN(parsed) ? undefined : parsed;
+          } else if (typeof data?.value === 'string') {
+            const parsed = parseFloat(data.value);
+            raw = isNaN(parsed) ? undefined : parsed;
+          } else if (typeof payload === 'string') {
+            const parsed = parseFloat(payload);
+            raw = isNaN(parsed) ? undefined : parsed;
+          } else if (typeof payload === 'number') {
+            raw = payload;
+          }
+
+          if (typeof raw === 'number' && isFinite(raw)) {
+            const smoothed = smoothValue(raw);
+            setBrightness(smoothed);
+            const filled = brightnessToPercent(smoothed, targetValueRef.current);
+            setWaterLevel(filled);
+            setLastBrightness(raw);
+            setLastBrightnessAt(Date.now());
+          }
+        };
+
         const socket = io(appConstants.CHAT_BASE_URL, {
           transports: transportList,
           upgrade: transportList.includes('websocket'),
@@ -451,64 +512,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             socket.emit('flow:subscribe', { deviceId: did });
           } catch (e) {}
         });
-        socket.on('brightness:update', (payload) => {
-          brightnessReceivedRef.current = true;
-          let raw: number | undefined;
-
-          if (typeof payload?.brightness === 'number') {
-            raw = payload.brightness;
-          } else if (typeof payload?.value === 'number') {
-            raw = payload.value;
-          } else if (typeof payload?.brightness === 'string') {
-            const parsed = parseFloat(payload.brightness);
-            raw = isNaN(parsed) ? undefined : parsed;
-          } else if (typeof payload?.value === 'string') {
-            const parsed = parseFloat(payload.value);
-            raw = isNaN(parsed) ? undefined : parsed;
-          } else if (typeof payload === 'string') {
-            const parsed = parseFloat(payload);
-            raw = isNaN(parsed) ? undefined : parsed;
-          } else if (typeof payload === 'number') {
-            raw = payload;
-          }
-            
-         
-        
-          if (typeof raw === 'number' && isFinite(raw)) {
-            const smoothed = smoothValue(raw);
-            setBrightness(smoothed);
-            // Treat helper as "filled" computation (100 - normalized)
-            const filled = brightnessToPercent(smoothed, targetValueRef.current);
-            setWaterLevel(filled);
-            // Toast.show({ type: 'info', text1: 'Data Update', text2: `Received: ${raw} (Target: ${targetInput})`, position: 'bottom' });
-            setLastBrightness(raw);
-            setLastBrightnessAt(Date.now());
-          }
-        });
-        socket.on('flow:update', (payload) => {
-          console.log('Flow update received:', payload);
-          const frRaw = payload?.flowRate;
-          const tlRaw = payload?.totalLiters;
-          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-          if (typeof fr === 'number' && isFinite(fr)) {
-             setFlowRate(fr);
-             setLastFlowRate(fr);
-            // Toast.show({ type: 'info', text1: 'Flow Update', text2: `Rate: ${fr} L/m`, position: 'bottom', visibilityTime: 1000 });
-          }
-          if (typeof tl === 'number' && isFinite(tl)) {
-             setTotalLiters(tl);
-             setLastTotalLiters(tl);
-          }
-          setLastFlowAt(Date.now());
-        });
+        socket.on('brightness:update', handleBrightnessUpdate);
+        socket.on('flow:update', handleFlowUpdate);
         socket.on('brightness:error', ({ error }) => {
           // Suppress noisy device polling timeouts and missing IP warnings
           const msg = String(error || '');
           if (/timeout/i.test(msg) || /Missing device IP/i.test(msg)) return;
           console.warn('Brightness socket error:', msg);
         });
-        // If no brightness arrives within 7s, switch to fallback host
+        // If no brightness or flow arrives within timeout, switch to fallback host
         if (fallbackTimerRef.current) {
           clearTimeout(fallbackTimerRef.current);
         }
@@ -516,7 +528,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           console.warn('Fallback socket disabled by config. Skipping fallback attempts.');
         } else {
         fallbackTimerRef.current = setTimeout(async () => {
-          if (!brightnessReceivedRef.current) {
+          if (!brightnessReceivedRef.current && !flowReceivedRef.current) {
             try { socket.disconnect(); } catch {}
             const fbSocket = io(appConstants.CHAT_FALLBACK_URL, {
               transports: transportList,
@@ -550,35 +562,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 fbSocket.emit('flow:subscribe', { deviceId: did });
               } catch (e) {}
             });
-            fbSocket.on('brightness:update', (payload) => {
-              brightnessReceivedRef.current = true;
-              let raw: number | undefined;
-              if (typeof payload?.brightness === 'number') raw = payload.brightness;
-              else if (typeof payload?.value === 'number') raw = payload.value;
-              else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
-              else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
-              else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
-              else if (typeof payload === 'number') raw = payload;
-              if (typeof raw === 'number' && isFinite(raw)) {
-                const smoothed = smoothValue(raw);
-                setBrightness(smoothed);
-                const filled = brightnessToPercent(smoothed, targetValueRef.current);
-                setWaterLevel(filled);
-              }
-            });
-            fbSocket.on('flow:update', (payload) => {
-              console.log('Fallback flow update received:', payload);
-              const frRaw = payload?.flowRate;
-              const tlRaw = payload?.totalLiters;
-              const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-              const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-              if (typeof fr === 'number' && isFinite(fr)) {
-                 setFlowRate(fr);
-                 setLastFlowRate(fr);
-               //  Toast.show({ type: 'info', text1: 'Flow Update (FB)', text2: `Rate: ${fr} L/m`, position: 'bottom', visibilityTime: 1000 });
-              }
-              if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-            });
+            fbSocket.on('brightness:update', handleBrightnessUpdate);
+            fbSocket.on('flow:update', handleFlowUpdate);
             fbSocket.on('connect_error', (err) => {
               const msg = err?.message || String(err || 'Unknown error');
               console.warn('Fallback socket connect error:', msg);
@@ -616,31 +601,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     fbSocket2.emit('flow:subscribe', { deviceId: did });
                   } catch (e) {}
                 });
-                fbSocket2.on('brightness:update', (payload) => {
-                  brightnessReceivedRef.current = true;
-                  let raw: number | undefined;
-                  if (typeof payload?.brightness === 'number') raw = payload.brightness;
-                  else if (typeof payload?.value === 'number') raw = payload.value;
-                  else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
-                  else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
-                  else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
-                  else if (typeof payload === 'number') raw = payload;
-                  if (typeof raw === 'number' && isFinite(raw)) {
-                    const smoothed = smoothValue(raw);
-                    setBrightness(smoothed);
-                    const filled = brightnessToPercent(smoothed, targetValueRef.current);
-                    setWaterLevel(filled);
-                  }
-                });
-                fbSocket2.on('flow:update', (payload) => {
-                  console.log('Fallback 2 flow update received:', payload);
-                  const frRaw = payload?.flowRate;
-                  const tlRaw = payload?.totalLiters;
-                  const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-                  const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-                  if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
-                  if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-                });
+                fbSocket2.on('brightness:update', handleBrightnessUpdate);
+                fbSocket2.on('flow:update', handleFlowUpdate);
                 fbSocket2.on('connect_error', (err2) => {
                   const msg2 = err2?.message || String(err2 || 'Unknown error');
                   console.warn('Fallback socket (default path) connect error:', msg2);
@@ -675,31 +637,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                         fbSocket3.emit('flow:subscribe', { deviceId: did });
                       } catch (e) {}
                     });
-                    fbSocket3.on('brightness:update', (payload) => {
-                      brightnessReceivedRef.current = true;
-                      let raw: number | undefined;
-                      if (typeof payload?.brightness === 'number') raw = payload.brightness;
-                      else if (typeof payload?.value === 'number') raw = payload.value;
-                      else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
-                      else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
-                      else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
-                      else if (typeof payload === 'number') raw = payload;
-                      if (typeof raw === 'number' && isFinite(raw)) {
-                        const smoothed = smoothValue(raw);
-                        setBrightness(smoothed);
-                        const filled = brightnessToPercent(smoothed, targetValueRef.current);
-                        setWaterLevel(filled);
-                      }
-                    });
-                    fbSocket3.on('flow:update', (payload) => {
-                      console.log('Fallback 3 flow update received:', payload);
-                      const frRaw = payload?.flowRate;
-                      const tlRaw = payload?.totalLiters;
-                      const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-                      const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-                      if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
-                      if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-                    });
+                    fbSocket3.on('brightness:update', handleBrightnessUpdate);
+                    fbSocket3.on('flow:update', handleFlowUpdate);
                     fbSocket3.on('connect_error', (err3) => {
                       const msg3 = err3?.message || String(err3 || 'Unknown error');
                       console.warn('Fallback socket (no auth) connect error:', msg3);
@@ -734,31 +673,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                             fbSocket4.emit('flow:subscribe', { deviceId: did });
                           } catch (e) {}
                         });
-                        fbSocket4.on('brightness:update', (payload) => {
-                          brightnessReceivedRef.current = true;
-                          let raw: number | undefined;
-                          if (typeof payload?.brightness === 'number') raw = payload.brightness;
-                          else if (typeof payload?.value === 'number') raw = payload.value;
-                          else if (typeof payload?.brightness === 'string') { const parsed = parseFloat(payload.brightness); raw = isNaN(parsed) ? undefined : parsed; }
-                          else if (typeof payload?.value === 'string') { const parsed = parseFloat(payload.value); raw = isNaN(parsed) ? undefined : parsed; }
-                          else if (typeof payload === 'string') { const parsed = parseFloat(payload); raw = isNaN(parsed) ? undefined : parsed; }
-                          else if (typeof payload === 'number') raw = payload;
-                          if (typeof raw === 'number' && isFinite(raw)) {
-                            const smoothed = smoothValue(raw);
-                            setBrightness(smoothed);
-                            const filled = brightnessToPercent(smoothed, targetValueRef.current);
-                            setWaterLevel(filled);
-                          }
-                        });
-                        fbSocket4.on('flow:update', (payload) => {
-                          console.log('Fallback 4 flow update received:', payload);
-                          const frRaw = payload?.flowRate;
-                          const tlRaw = payload?.totalLiters;
-                          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-                          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-                          if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
-                          if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
-                        });
+                        fbSocket4.on('brightness:update', handleBrightnessUpdate);
+                        fbSocket4.on('flow:update', handleFlowUpdate);
                         fbSocket4.on('connect_error', (err4) => {
                           const msg4 = err4?.message || String(err4 || 'Unknown error');
                           console.warn('Fallback socket (HTTP) connect error:', msg4);
@@ -802,6 +718,67 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     };
   }, []);
 
+  // Polling fallback to ensure data freshness regardless of socket status
+  useEffect(() => {
+    let isMounted = true;
+    const intervalId = setInterval(async () => {
+      if (!selectedDeviceId) return;
+      try {
+        const state = await esp8266Service.getDeviceStateFromServer(selectedDeviceId);
+        if (state && isMounted) {
+          // Log polled state for debugging
+          console.log('[Polling] State:', JSON.stringify(state));
+
+          // 1. Update Flow Rate
+          let frRaw = state.flowRate ?? state.flow_rate ?? state.FlowRate;
+          if (frRaw === undefined && state.data) {
+             frRaw = state.data.flowRate ?? state.data.flow_rate;
+          }
+          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+          if (typeof fr === 'number' && isFinite(fr)) {
+            setFlowRate(fr);
+            setLastFlowRate(fr);
+          }
+
+          // 2. Update Total Liters
+          let tlRaw = state.totalLiters ?? state.total_liters ?? state.TotalLiters;
+           if (tlRaw === undefined && state.data) {
+             tlRaw = state.data.totalLiters ?? state.data.total_liters;
+          }
+          const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
+          if (typeof tl === 'number' && isFinite(tl)) {
+            setTotalLiters(tl);
+            setLastTotalLiters(tl);
+          }
+          
+          setLastFlowAt(Date.now());
+
+          // 3. Update Brightness / Water Level if available
+          let brRaw = state.brightness ?? state.value ?? state.waterLevel;
+          if (brRaw === undefined && state.data) {
+             brRaw = state.data.brightness ?? state.data.value;
+          }
+           const br = typeof brRaw === 'number' ? brRaw : (typeof brRaw === 'string' ? parseFloat(brRaw) : undefined);
+           if (typeof br === 'number' && isFinite(br)) {
+              const smoothed = smoothValue(br);
+              setBrightness(smoothed);
+              const filled = brightnessToPercent(smoothed, targetValueRef.current);
+              setWaterLevel(filled);
+              setLastBrightness(br);
+              setLastBrightnessAt(Date.now());
+           }
+        }
+      } catch (e) {
+         console.warn('[Polling] Failed:', e);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedDeviceId]);
+
   // Respond to route param changes when navigating to this screen repeatedly
   useEffect(() => {
     const nextDeviceId = route?.params?.deviceId;
@@ -827,6 +804,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => {
     if (socketRef && selectedDeviceId) {
       try {
+          brightnessReceivedRef.current = false;
+          flowReceivedRef.current = false;
           socketRef.emit('brightness:unsubscribe', { deviceId: selectedDeviceId });
         if (selectedDeviceIp) {
           socketRef.emit('brightness:subscribe', { deviceId: selectedDeviceId, ip: selectedDeviceIp });
@@ -1662,8 +1641,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         // Reflect server's device1 state in the main Power switch
         setIsPowerOn(device1On);
         // Flow data
-        const frRaw = devDetail?.flowRate ?? serverState.flowRate;
-        const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters;
+        console.log('[InitialLoad] ServerState:', JSON.stringify(serverState));
+        const frRaw = devDetail?.flowRate ?? serverState.flowRate ?? serverState.flow_rate ?? serverState.FlowRate;
+        const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters ?? serverState.total_liters ?? serverState.TotalLiters;
         const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
         const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
         if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
