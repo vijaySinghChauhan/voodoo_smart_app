@@ -28,7 +28,7 @@ import subscriptionService from '../../services/subscriptions/subscriptionServic
 import { SimpleDateTime } from '../../components/SimpleDateTime';
 import { AppSwitch } from '../../components/AppSwitch';
 import { DateTimePickerManager, DateTimePickerManagerRef } from '../../components/DateTimePickerManager';
-import { COLORS } from '../../theme/theme';
+import { COLORS, SHADOWS } from '../../theme/theme';
 import Svg, { Path } from 'react-native-svg';
 
 
@@ -494,7 +494,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setSocketConnected(false);
         });
         socket.on('brightness:subscribed', ({ deviceId }) => {
-          Toast.show({ type: 'info', text1: 'Subscribed', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+        //  Toast.show({ type: 'info', text1: 'Subscribed', text2: `Brightness for ${deviceId}`, position: 'bottom' });
         });
         socket.on('flow:subscribed', ({ deviceId }) => {
          // Toast.show({ type: 'info', text1: 'Subscribed', text2: `Flow for ${deviceId}`, position: 'bottom' });
@@ -682,17 +682,17 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       }
                     });
                     fbSocket3.on('brightness:subscribed', ({ deviceId }) => {
-                      Toast.show({ type: 'info', text1: 'Subscribed (fallback no auth)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+                      // Toast.show({ type: 'info', text1: 'Subscribed (fallback no auth)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
                     });
                   }
                 });
                 fbSocket2.on('brightness:subscribed', ({ deviceId }) => {
-                  Toast.show({ type: 'info', text1: 'Subscribed (fallback default path)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+                //  Toast.show({ type: 'info', text1: 'Subscribed (fallback default path)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
                 });
               }
             });
             fbSocket.on('brightness:subscribed', ({ deviceId }) => {
-              Toast.show({ type: 'info', text1: 'Subscribed (fallback)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
+            //  Toast.show({ type: 'info', text1: 'Subscribed (fallback)', text2: `Brightness for ${deviceId}`, position: 'bottom' });
             });
           }
         }, Platform.OS === 'android' ? 20000 : 10000);
@@ -2731,6 +2731,7 @@ const styles = StyleSheet.create({
    marginTop:20,
    borderWidth:1,
    borderColor: COLORS.lightGray,
+   ...SHADOWS.large,
   },
   actionButton:{
   
@@ -2798,6 +2799,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
+ 
+    ...SHADOWS.large,
+       elevation: 20,
   },
   sectionTitle: {
     fontSize: 18,

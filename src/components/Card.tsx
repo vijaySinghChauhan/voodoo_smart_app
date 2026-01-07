@@ -11,7 +11,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({ 
   children, 
   style, 
-  elevation = 'small' 
+  elevation = 'large' 
 }) => {
   const getShadowStyle = () => {
     switch (elevation) {

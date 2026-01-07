@@ -248,7 +248,7 @@ const ChatScreen = ({ route }: any) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
       >
-        <Card elevation="medium" style={styles.chatContainer}>
+        <Card elevation="large" style={styles.chatContainer}>
           {connectionError ? (
             <Text style={styles.errorBanner}>{connectionError}</Text>
           ) : null}

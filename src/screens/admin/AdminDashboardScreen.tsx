@@ -84,15 +84,15 @@ const AdminDashboardScreen: React.FC = () => {
         <Text style={styles.title}>Admin Dashboard</Text>
 
         <View style={styles.cardsRow}>
-          <Card style={styles.card} elevation="small">
+          <Card style={styles.card} elevation="large">
             <Text style={styles.cardValue}>{stats?.users?.total ?? 0}</Text>
             <Text style={styles.cardLabel}>Total Users</Text>
           </Card>
-          <Card style={styles.card} elevation="small">
+          <Card style={styles.card} elevation="large">
             <Text style={styles.cardValue}>{stats?.devices?.total ?? 0}</Text>
             <Text style={styles.cardLabel}>Total Devices</Text>
           </Card>
-          <Card style={styles.card} elevation="small">
+          <Card style={styles.card} elevation="large">
             <Text style={styles.cardValue}>{stats?.subscriptions?.total ?? 0}</Text>
             <Text style={styles.cardLabel}>Active Subscriptions</Text>
           </Card>

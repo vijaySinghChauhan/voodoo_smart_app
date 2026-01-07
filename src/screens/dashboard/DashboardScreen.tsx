@@ -219,7 +219,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   <View style={{ flex: 1, minHeight: '100vh', backgroundColor: COLORS.background }}>
       <Modal visible={!!forceUpdateUrl} animationType="fade" transparent={false}>
         <View style={{ flex: 1, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Card style={{ width: '90%' }} elevation="medium">
+          <Card style={{ width: '90%' }} elevation="large">
             <Text style={{ ...FONTS.h2, color: COLORS.textDark, marginBottom: 8 }}>Update Required</Text>
             <Text style={{ ...FONTS.body2, color: COLORS.textLight, marginBottom: 16 }}>A newer version of the app is available. Please update to continue.</Text>
             <Button
@@ -236,15 +236,15 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         {/* Statistics Cards */}
         <View style={styles.statsContainer}>
-          <Card style={styles.statCard} elevation="small">
+          <Card style={styles.statCard} elevation="large">
             <Text style={styles.statValue}>{rooms.length}</Text>
             <Text style={styles.statLabel}>Rooms</Text>
           </Card>
-          <Card style={styles.statCard} elevation="small">
+          <Card style={styles.statCard} elevation="large">
             <Text style={styles.statValue}>{totalDevices}</Text>
             <Text style={styles.statLabel}>Devices</Text>
           </Card>
-          <Card style={styles.statCard} elevation="small">
+          <Card style={styles.statCard} elevation="large">
             <Text style={styles.statValue}>{activeDevices}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </Card>
