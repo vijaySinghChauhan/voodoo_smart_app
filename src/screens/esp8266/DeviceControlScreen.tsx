@@ -1887,6 +1887,30 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Refresh</Text>
           </TouchableOpacity>
         </View>
+          <View style={styles.controlSection}>
+           <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor Control'}</Text>
+            {canControl ? (
+              <AppSwitch
+                value={isPowerOn}
+                onValueChange={(val) => {
+                  setIsPowerOn(val);
+                  toggleDeviceField('device1', val);
+                }}
+              />
+            ) : null}
+          </View>
+          {!canControl ? (
+            <TouchableOpacity
+              style={styles.subscribeMiniButton}
+              onPress={() => navigateToSubscriptionCheckout()}
+            >
+              <Text style={styles.subscribeMiniButtonText}>
+                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          </View>
         {/* Display: Tank Filled percent */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <Text style={styles.percentageText}>Tank Filled %: {typeof waterLevel === 'number' ? Math.round(waterLevel) : '—'}</Text>
@@ -1920,28 +1944,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
         {/* Flow Control Card */}
         <View style={styles.controlSection}>
-           <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor Control'}</Text>
-            {canControl ? (
-              <AppSwitch
-                value={isPowerOn}
-                onValueChange={(val) => {
-                  setIsPowerOn(val);
-                  toggleDeviceField('device1', val);
-                }}
-              />
-            ) : null}
-          </View>
-          {!canControl ? (
-            <TouchableOpacity
-              style={styles.subscribeMiniButton}
-              onPress={() => navigateToSubscriptionCheckout()}
-            >
-              <Text style={styles.subscribeMiniButtonText}>
-                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
+       
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 8 }}>
                 <Text style={styles.powerLabel}>Auto OFF Delay when flow is low</Text>
                 {canControl && (
