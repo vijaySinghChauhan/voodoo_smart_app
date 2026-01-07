@@ -1,13 +1,13 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
-import Svg, { Rect, Path, Ellipse, Defs, LinearGradient, Stop, ClipPath } from 'react-native-svg';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import Svg, { Rect, Path, Ellipse, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 type WaterTankProps = {
   percentage: number;
   flowRate?: number;
 };
 
-const WaterTank: React.FC<WaterTankProps> = ({ percentage, flowRate }) => {
+const WaterTank: React.FC<WaterTankProps> = ({ percentage }) => {
   const level = Math.max(0, Math.min(100, percentage));
 
   const W = 200;
@@ -44,8 +44,20 @@ const WaterTank: React.FC<WaterTankProps> = ({ percentage, flowRate }) => {
       {/* Back shell */}
       <Rect x={cx - radius} y={topY} width={radius * 2} height={bodyHeight} rx={28} fill="url(#plastic)" />
 
-      {/* Water */}
-      <Rect x={cx - radius} y={waterY} width={radius * 2} height={bottomY - waterY} rx={28} fill="url(#water)" />
+      {/* Water (rounded bottom corners only) */}
+      {(() => {
+        const xLeft = cx - radius;
+        const xRight = cx + radius;
+        const cr = 28;
+        const d = `M ${xLeft} ${waterY}
+                   L ${xLeft} ${bottomY - cr}
+                   A ${cr} ${cr} 0 0 0 ${xLeft + cr} ${bottomY}
+                   L ${xRight - cr} ${bottomY}
+                   A ${cr} ${cr} 0 0 0 ${xRight} ${bottomY - cr}
+                   L ${xRight} ${waterY}
+                   Z`;
+        return <Path d={d} fill="url(#water)" />;
+      })()}
 
       {/* Water surface */}
       <Ellipse cx={cx} cy={waterY} rx={radius} ry={ry} fill="#8fd8ff" />
@@ -73,11 +85,7 @@ const WaterTank: React.FC<WaterTankProps> = ({ percentage, flowRate }) => {
       <Rect x={cx - 95} y={topY - 18} width={90} height={10} rx={5} fill="#9aa7b4" />
       <Rect x={cx - 5} y={topY - 18} width={10} height={22} rx={5} fill="#7b8794" />
 
-      {/* Legs */}
-      <Rect x={cx - radius + 18} y={bottomY + 6} width={14} height={26} rx={6} fill="#9aa7b4" />
-      <Rect x={cx - 7} y={bottomY + 10} width={14} height={22} rx={6} fill="#9aa7b4" />
-      <Rect x={cx + radius - 32} y={bottomY + 6} width={14} height={26} rx={6} fill="#9aa7b4" />
-    </Svg>
+   </Svg>
     </View>
   );
 };

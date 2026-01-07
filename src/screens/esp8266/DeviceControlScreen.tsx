@@ -2786,7 +2786,7 @@ const styles = StyleSheet.create({
   },
   controlSection: {
     backgroundColor: COLORS.card,
-    borderRadius: 8,
+    borderRadius: 15,
     padding: 15,
     marginBottom: 20,
     borderWidth: 1,
