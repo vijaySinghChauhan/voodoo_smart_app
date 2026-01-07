@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   header: { padding: SIZES.padding },
   title: { ...FONTS.h2, color: COLORS.textDark },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginHorizontal: SIZES.padding, ...SHADOWS.small },
+  card: { backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginHorizontal: SIZES.padding, ...SHADOWS.large },
   name: { ...FONTS.h3, color: COLORS.textDark },
   meta: { ...FONTS.caption, color: COLORS.textLight, marginTop: 4 },
   sectionTitle: { ...FONTS.body2, color: COLORS.textDark },

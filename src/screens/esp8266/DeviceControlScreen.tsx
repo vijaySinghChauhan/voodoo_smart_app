@@ -1889,8 +1889,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
         {/* Display: Tank Filled percent */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={styles.percentageText}>Tank Filled %: {waterLevel ?? '—'}         Water Flow: {flowRate ?? '—'}</Text>
+          <Text style={styles.percentageText}>Tank Filled %: {typeof waterLevel === 'number' ? Math.round(waterLevel) : '—'}</Text>
+          <Text style={styles.percentageText}>Water Flow: {typeof flowRate === 'number' ? flowRate : 0}</Text>
         </View>
+
         <WaterTank percentage={waterLevel ?? 0} flowRate={flowRate ?? 0} />
         <TouchableOpacity
           style={{ marginTop: 10 }}
@@ -1900,7 +1902,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             Toast.show({ type: 'info', text1: 'Debug Mode', text2: !showDebugPanel ? 'Enabled' : 'Disabled', position: 'bottom' });
           }}
         >
-          <Text style={{ color: COLORS.textMedium }}>Exact Data: {brightness ?? '—'}</Text>
+          <Text style={{ color: COLORS.textMedium }}>Exact Data: {typeof brightness === 'number' ? brightness.toFixed(1) : '—'}</Text>
         </TouchableOpacity>
 
         {showDebugPanel && (
@@ -1945,16 +1947,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={styles.controlSection}>
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 }}>
                 <Text style={styles.sectionTitle}>Flow Control</Text>
-                {/* {canControl && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <AppSwitch
-                      value={noFlowAutoOffEnabled}
-                      onValueChange={(v) => { setNoFlowAutoOffEnabled(v) }}
-                      
-                      
-                    />
-                  </View>
-                )} */}
+                {canControl && (
+                  <AppSwitch
+                    value={noFlowAutoOffEnabled}
+                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
+                  />
+                )}
              </View>
 
              <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 10 }}>Flow Data</Text>
@@ -1971,13 +1969,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              </View>
 
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark }}>Auto OFF when flow &lt; 6.5 L/min</Text>
-                {canControl && (
-                  <AppSwitch
-                    value={noFlowAutoOffEnabled}
-                    onValueChange={(v) => { setNoFlowAutoOffEnabled(v); persistRules(); }}
-                  />
-                )}
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark }}>Auto OFF Delay when flow is 0</Text>
              </View>
              <TouchableOpacity
                   onPress={() => setShowNoFlowDelayMenu((s) => !s)}
@@ -2801,7 +2793,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.lightGray,
  
     ...SHADOWS.large,
-       elevation: 20,
   },
   sectionTitle: {
     fontSize: 18,

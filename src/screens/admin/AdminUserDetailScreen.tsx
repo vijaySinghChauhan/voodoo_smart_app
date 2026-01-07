@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   sub: { ...FONTS.caption, color: COLORS.textLight },
   section: { paddingHorizontal: SIZES.padding, marginTop: SIZES.margin },
   sectionTitle: { ...FONTS.h3, color: COLORS.textDark, marginBottom: 8 },
-  card: { backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.small },
+  card: { backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.large },
   cardTitle: { ...FONTS.body2, color: COLORS.textDark },
   cardSub: { ...FONTS.caption, color: COLORS.textLight }
 });

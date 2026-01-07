@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
-import { COLORS } from '../../theme/theme';
+import { COLORS, SHADOWS } from '../../theme/theme';
 
 interface DeviceItem {
   _id?: string;
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: COLORS.lightGray,
+    ...SHADOWS.large,
   },
   info: { flex: 1 },
   name: { fontSize: 16, fontWeight: '600', color: COLORS.textDark },

@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   title: { ...FONTS.h2, color: COLORS.textDark },
   section: { paddingHorizontal: SIZES.padding, marginTop: SIZES.margin },
   sectionTitle: { ...FONTS.h3, color: COLORS.textDark, marginBottom: 8 },
-  card: { flexDirection:'row', alignItems:'center', backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.small },
+  card: { flexDirection:'row', alignItems:'center', backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.large },
   name: { ...FONTS.body2, color: COLORS.textDark },
   meta: { ...FONTS.caption, color: COLORS.textLight },
   buyBtn: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingHorizontal: 14, paddingVertical: 10 },

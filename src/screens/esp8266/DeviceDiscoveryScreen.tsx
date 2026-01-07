@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
+import { SHADOWS } from '../../theme/theme';
 
 interface Device {
   ip: string;
@@ -334,6 +335,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#ddd',
+    ...SHADOWS.large,
   },
   deviceName: {
     fontSize: 16,

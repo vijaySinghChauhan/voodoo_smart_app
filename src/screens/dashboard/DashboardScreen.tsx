@@ -488,7 +488,7 @@ devicesList: {
     marginBottom: SIZES.margin,
     flexDirection: 'row',
     alignItems: 'center',
-    ...SHADOWS.small,
+    ...SHADOWS.large,
   },
   deviceCardOn: { backgroundColor: COLORS.primaryDark },
   deviceCardOff: { backgroundColor: COLORS.white },
@@ -528,7 +528,7 @@ devicesList: {
     borderRadius: SIZES.radius,
     marginRight: SIZES.margin,
     marginVertical: SIZES.small,
-    ...SHADOWS.medium,
+    ...SHADOWS.large,
   },
 productImage: {
   width: '100%',

@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   searchBtn: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingHorizontal: 10, paddingVertical: 6 },
   searchTxt: { ...FONTS.body3, color: COLORS.white },
   center: { flex:1, alignItems:'center', justifyContent:'center' },
-  card: { flexDirection:'row', alignItems:'center', backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.small },
+  card: { flexDirection:'row', alignItems:'center', backgroundColor: COLORS.white, borderRadius: SIZES.radius, padding: SIZES.padding, marginBottom: 10, ...SHADOWS.large },
   name: { ...FONTS.h4, color: COLORS.textDark },
   meta: { ...FONTS.caption, color: COLORS.textLight },
   badges: { alignItems:'flex-end' },
