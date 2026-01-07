@@ -11,14 +11,14 @@ const WaterTank: React.FC<WaterTankProps> = ({ percentage }) => {
   const level = Math.max(0, Math.min(100, percentage));
 
   const W = 200;
-  const H = 420;
+  const H = 280;
   const cx = W / 2;
 
   const radius = 70;
   const bodyHeight = 230;
   const ry = 18;
 
-  const topY = 110;
+  const topY = 40;
   const bottomY = topY + bodyHeight;
 
   const waterHeight = (level / 100) * bodyHeight;
@@ -93,7 +93,7 @@ const WaterTank: React.FC<WaterTankProps> = ({ percentage }) => {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 0,
   },
 
 });

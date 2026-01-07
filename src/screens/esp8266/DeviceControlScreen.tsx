@@ -1916,10 +1916,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Received At: {lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : 'Never'}</Text>
           </View>
         )}
+     
+
+        {/* Flow Control Card */}
         <View style={styles.controlSection}>
-          <Text style={styles.sectionTitle}>Motor Control</Text>
-          <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor'}</Text>
+           <View style={styles.powerControl}>
+            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor Control'}</Text>
             {canControl ? (
               <AppSwitch
                 value={isPowerOn}
@@ -1940,13 +1942,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
               </Text>
             </TouchableOpacity>
           ) : null}
-
-        </View>
-
-        {/* Flow Control Card */}
-        <View style={styles.controlSection}>
-             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 }}>
-                <Text style={styles.sectionTitle}>Flow Control</Text>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 8 }}>
+                <Text style={styles.powerLabel}>Auto OFF Delay when flow is low</Text>
                 {canControl && (
                   <AppSwitch
                     value={noFlowAutoOffEnabled}
@@ -1954,8 +1951,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   />
                 )}
              </View>
-
-             <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 10 }}>Flow Data</Text>
+{/* 
              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
                 <View style={{ flex: 1 }}>
                    <Text style={{ fontSize: 14, color: COLORS.textMedium }}>Flow Rate</Text>
@@ -1966,10 +1962,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    <Text style={{ fontSize: 14, color: COLORS.textMedium }}>Total Liters</Text>
                    <Text style={{ fontSize: 18, color: COLORS.textDark, marginTop: 4 }}>{typeof totalLiters === 'number' ? `${totalLiters} L` : '0 L'}</Text>
                 </View>
-             </View>
+             </View> */}
 
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: COLORS.textDark }}>Auto OFF Delay when flow is 0</Text>
              </View>
              <TouchableOpacity
                   onPress={() => setShowNoFlowDelayMenu((s) => !s)}
@@ -1989,7 +1984,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       }}
                       style={{ paddingVertical: 10, paddingHorizontal: 12 }}
                     >
-                      <Text style={{ color: COLORS.textDark }}>{sec}s</Text>
+                      <Text style={{ color: COLORS.textDark }}>{sec} seconds</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -2015,7 +2010,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     </View>
                   )}
                </View>
-               <Text style={{ fontSize: 14, color: COLORS.textMedium, marginBottom: 8 }}>When level is</Text>
                <View style={{ flexDirection: 'row' }}>
                   <TouchableOpacity
                       onPress={() => setShowOnOperatorMenu((s) => !s)}
@@ -2034,7 +2028,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 {/* Menus for ON Rule */}
                {showOnOperatorMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
-                  {[{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than or equal' }].map((opt) => (
+                  {[{ key: 'lt', label: 'Less than' }].map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => { setOnOperator(opt.key as 'lt' | 'ge'); setShowOnOperatorMenu(false); persistRules(); }}
@@ -2075,7 +2069,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     </View>
                   )}
                </View>
-               <Text style={{ fontSize: 14, color: COLORS.textMedium, marginBottom: 8 }}>More than</Text>
                <View style={{ flexDirection: 'row' }}>
                   <TouchableOpacity
                       onPress={() => setShowOffOperatorMenu((s) => !s)}
@@ -2094,7 +2087,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 {/* Menus for OFF Rule */}
                 {showOffOperatorMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
-                  {([{ key: 'lt', label: 'Less than' }, { key: 'ge', label: 'More than' }] as const).map((opt) => (
+                  {([ { key: 'ge', label: 'More than' }] as const).map((opt) => (
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => { setOffOperator(opt.key); setShowOffOperatorMenu(false); persistRules(); }}
