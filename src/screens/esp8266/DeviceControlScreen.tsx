@@ -237,8 +237,16 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const isFirstLoadRef = React.useRef<boolean>(true);
   // Subscription plan to display price on per-device buttons
   const [billingPlan, setBillingPlan] = useState<{ id: string; name: string; price: number; currency: string; interval: string } | null>(null);
-
-  const canControl = true;
+  const canControl = React.useMemo(() => {
+    if (user?.role === 'admin') return true;
+    if (subscriptionActive !== 1) return false;
+    if (!subscriptionEndDate) return false;
+    const exp = new Date(String(subscriptionEndDate));
+    if (isNaN(exp.getTime())) return false;
+    const now = new Date();
+    exp.setHours(23, 59, 59, 999);
+    return exp.getTime() >= now.getTime();
+  }, [user?.role, subscriptionActive, subscriptionEndDate]);
   
   // React.useMemo(() => {
   //   if (subscriptionActive !== 1 ) return false;
@@ -1203,6 +1211,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Supply Water Timer Logic
   useEffect(() => {
     if (!rulesLoaded || !supplyWaterTimerEnabled || !selectedDeviceId) return;
+    if (!canControl) return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1308,6 +1317,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Watering Plants Timer Logic
   useEffect(() => {
     if (!rulesLoaded || !wateringPlantsTimerEnabled || !selectedDeviceId) return;
+    if (!canControl) return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1358,6 +1368,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Dog Feed Timer Logic
   useEffect(() => {
     if (!rulesLoaded || !dogFeedTimerEnabled || !selectedDeviceId) return;
+    if (!canControl) return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1409,6 +1420,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // AC Control Timer Logic
   useEffect(() => {
     if (!rulesLoaded || !acControlTimerEnabled || !selectedDeviceId) return;
+    if (!canControl) return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1683,6 +1695,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
   const toggleDeviceField = async (field: 'device1'|'device2'|'device3'|'device4'|'device5', value: boolean) => {
     try {
+      if (!canControl) {
+        Toast.show({ type: 'error', text1: 'Subscription', text2: 'Subscription inactive. Please subscribe.', position: 'bottom' });
+        return;
+      }
       // Log toggle intent
       await logService.logButtonClick(`Toggle ${field}`, { value });
       if (!selectedDeviceId) throw new Error('No device selected');
@@ -1729,6 +1745,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   };
 
   const handlePowerToggle = async (value: boolean) => {
+    if (!canControl) {
+      Toast.show({ type: 'error', text1: 'Subscription', text2: 'Subscription inactive. Please subscribe.', position: 'bottom' });
+      return;
+    }
     try { await logService.logButtonClick('Power Toggle', { value }); } catch (e) {}
     setIsPowerOn(value);
     
@@ -1903,7 +1923,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         </View>
           <View style={styles.controlSection}>
            <View style={styles.powerControl}>
-            <Text style={styles.powerLabel}>{subLabels?.subdevice1 || 'Motor Control'}</Text>
+            <Text style={styles.powerLabel}>{'Motor Control'}</Text>
             {canControl ? (
               <AppSwitch
                 value={isPowerOn}
@@ -2140,12 +2160,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             {/* Timer Switch */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, color: COLORS.textDark, marginRight: 10 }}>Timer:</Text>
-              <AppSwitch
-                value={supplyWaterTimerEnabled}
-                onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
-                
-                
-              />
+              {canControl && (
+                <AppSwitch
+                  value={supplyWaterTimerEnabled}
+                  onValueChange={(v) => { setSupplyWaterTimerEnabled(v) }}
+                />
+              )}
             </View>
 
             {/* Vertical Divider */}
@@ -2258,7 +2278,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={{ flex: 1, paddingRight: 10 }}>
               {/* Device 2: Door Lock */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
-                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice2 || 'Door Lock'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{'Door Lock'}</Text>
                 {canControl ? (
                     <AppSwitch
                       value={device2On}
@@ -2284,7 +2304,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
               {/* Device 4: Dog Feed */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
-                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice4 || 'Dog Feed'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{'Dog Feed'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device4On}
@@ -2307,7 +2327,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <View style={{ flex: 1, paddingLeft: 10 }}>
               {/* Device 3: Watering Plants */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
-                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice3 || 'Watering'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{'Watering'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device3On}
@@ -2324,7 +2344,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
 
               {/* Device 5: AC Control */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
-                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{subLabels?.subdevice5 || 'AC Control'}</Text>
+                <Text style={{ fontSize: 16, color: COLORS.textDark }}>{'Bulb/Fan'}</Text>
                  {canControl ? (
                     <AppSwitch
                       value={device5On}

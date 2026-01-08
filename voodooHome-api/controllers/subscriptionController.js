@@ -5,7 +5,7 @@ const { pool } = require('../config/db');
 exports.getPlans = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, code, name, price, currency, interval FROM subscription_plans WHERE is_active=1 ORDER BY price ASC'
+      'SELECT id, code, name, price, currency, plan_interval AS interval FROM subscription_plans WHERE is_active=1 ORDER BY price ASC'
     );
     const plans = rows.map(r => ({
       id: String(r.id),

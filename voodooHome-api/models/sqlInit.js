@@ -189,7 +189,7 @@ async function initSqlSchema() {
       description TEXT NULL,
       price DECIMAL(10,2) NOT NULL,
       currency VARCHAR(10) NOT NULL DEFAULT 'INR',
-      interval VARCHAR(20) NOT NULL DEFAULT 'month',
+      plan_interval VARCHAR(20) NOT NULL DEFAULT 'month',
       duration_days INT NOT NULL DEFAULT 30,
       scope ENUM('subdevice','bundle') NOT NULL DEFAULT 'bundle',
       is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -307,6 +307,10 @@ async function initSqlSchema() {
   } catch (e) {
   }
   try {
+    await pool.query("ALTER TABLE subscription_plans CHANGE COLUMN `interval` plan_interval VARCHAR(20) NOT NULL DEFAULT 'month'");
+  } catch (e) {
+  }
+  try {
     const genCode = async (col) => {
       while (true) {
         const n = String(Math.floor(10000 + Math.random() * 90000));
@@ -360,7 +364,7 @@ async function initSqlSchema() {
       // Helper to insert plan and items
       const addPlan = async (code, name, price, interval, durationDays, scope, feats) => {
         const [res] = await pool.query(
-          'INSERT INTO subscription_plans (code, name, price, interval, duration_days, scope) VALUES (?,?,?,?,?,?)',
+          'INSERT INTO subscription_plans (code, name, price, plan_interval, duration_days, scope) VALUES (?,?,?,?,?,?)',
           [code, name, price, interval, durationDays, scope]
         );
         const planId = res.insertId;
@@ -397,7 +401,7 @@ async function initSqlSchema() {
     // Ensure subdevice-count permutations exist (idempotent)
     const addSimplePlanIfNotExists = async (code, name, price, interval, durationDays, scope) => {
       await pool.query(
-        'INSERT IGNORE INTO subscription_plans (code, name, price, interval, duration_days, scope) VALUES (?,?,?,?,?,?)',
+        'INSERT IGNORE INTO subscription_plans (code, name, price, plan_interval, duration_days, scope) VALUES (?,?,?,?,?,?)',
         [code, name, price, interval, durationDays, scope]
       );
     };
