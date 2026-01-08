@@ -11,6 +11,7 @@ export const mockUser = {
   subscriptionType: 'Premium',
   subscriptionStartDate: '2025-01-01',
   subscriptionExpiryDate: '2025-12-31',
+  subdeviceIds: ['d2', 'd4', 'd6'],
 };
 
 export const mockUsers = [
@@ -63,12 +64,16 @@ export const mockRooms = [
 ];
 
 export const mockSubscriptionPlans = [
-  { id: 'plan_d1', name: 'Motor Control Premium', price: 99, interval: 'month', deviceIndex: 1 },
-  { id: 'plan_d2', name: 'Smart Plug Pro', price: 49, interval: 'month', deviceIndex: 2 },
-  { id: 'plan_d3', name: 'Plant Care Plus', price: 79, interval: 'month', deviceIndex: 3 },
-  { id: 'plan_d4', name: 'Pet Feeder Smart', price: 89, interval: 'month', deviceIndex: 4 },
-  { id: 'plan_d5', name: 'AC Master', price: 149, interval: 'month', deviceIndex: 5 },
-  { id: 'plan_all', name: 'Home Automation Bundle', price: 299, interval: 'month', deviceIndex: 0 }, // 0 = all
+  { id: 'plan_1_month', name: '1 Subdevice Monthly', price: 49.0, currency: 'INR', interval: 'month' },
+  { id: 'plan_1_year', name: '1 Subdevice Annual', price: 499.0, currency: 'INR', interval: 'year' },
+  { id: 'plan_2_month', name: '2 Subdevices Monthly', price: 89.0, currency: 'INR', interval: 'month' },
+  { id: 'plan_2_year', name: '2 Subdevices Annual', price: 899.0, currency: 'INR', interval: 'year' },
+  { id: 'plan_3_month', name: '3 Subdevices Monthly', price: 129.0, currency: 'INR', interval: 'month' },
+  { id: 'plan_3_year', name: '3 Subdevices Annual', price: 1299.0, currency: 'INR', interval: 'year' },
+  { id: 'plan_4_month', name: '4 Subdevices Monthly', price: 169.0, currency: 'INR', interval: 'month' },
+  { id: 'plan_4_year', name: '4 Subdevices Annual', price: 1699.0, currency: 'INR', interval: 'year' },
+  { id: 'plan_5_month', name: '5 Subdevices Monthly', price: 199.0, currency: 'INR', interval: 'month' },
+  { id: 'plan_5_year', name: '5 Subdevices Annual', price: 1999.0, currency: 'INR', interval: 'year' }
 ];
 
 export const mockDevices = [
@@ -138,4 +143,3 @@ export const mockSubscriptions = [
     planId: 'plan_premium'
   }
 ];
-

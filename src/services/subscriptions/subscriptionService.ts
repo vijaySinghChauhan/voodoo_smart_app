@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL, OFFLINE_MODE } from '../../constants/constatantsV';
-import { mockSubscriptions } from '../mock/mockData';
+import { mockSubscriptions, mockSubscriptionPlans } from '../mock/mockData';
 
 export interface Subscription {
   id: string;
@@ -21,6 +21,9 @@ class SubscriptionService {
   }
 
   async getPlans() {
+    if (OFFLINE_MODE) {
+      return mockSubscriptionPlans as Array<{ id: string; name: string; price: number; currency: string; interval: string }>;
+    }
     const { data } = await axios.get(`${this.baseUrl}/plans`);
     return data.data as Array<{ id: string; name: string; price: number; currency: string; interval: string }>;
   }

@@ -11,6 +11,7 @@ interface User {
   beta?: number | string | boolean;
   tester?: number | string | boolean;
   token?: string;
+  subdeviceIds?: string[];
 }
 
 interface AuthContextType {

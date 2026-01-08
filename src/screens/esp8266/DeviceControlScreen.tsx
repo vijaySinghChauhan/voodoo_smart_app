@@ -1883,9 +1883,23 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={styles.statusText}>{deviceStatus?.connected ? 'Connected' : 'Disconnected'}</Text>
           </View>
       
-          <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 8 }}>
-            <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Refresh</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <TouchableOpacity onPress={handleRefresh} style={{ marginRight: 16 }}>
+              <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Refresh</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                const did = route?.params?.deviceId || selectedDeviceId;
+                if (!did) {
+                  Toast.show({ type: 'error', text1: 'No Device', text2: 'Select a device first', position: 'bottom' });
+                  return;
+                }
+                navigation.navigate('DeviceAccess', { deviceId: did, deviceName });
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Access</Text>
+            </TouchableOpacity>
+          </View>
         </View>
           <View style={styles.controlSection}>
            <View style={styles.powerControl}>

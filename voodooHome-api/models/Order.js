@@ -7,6 +7,7 @@ class Order {
     this.paymentId = row.payment_id;
     this.amount = Number(row.amount);
     this.status = row.status;
+    this.subscriptionType = row.subscription_type || null;
     this.createdAt = row.created_at;
     this.shippingAddress = {
       name: row.ship_name,
@@ -21,9 +22,9 @@ class Order {
 
   async save(){
     const [res] = await pool.query(
-      `INSERT INTO orders (user_id,payment_id,amount,status,ship_name,ship_email,ship_phone,ship_address,ship_city,ship_state,ship_zip)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      [this.user, this.paymentId || null, this.amount, this.status || 'pending',
+      `INSERT INTO orders (user_id,payment_id,amount,status,subscription_type,ship_name,ship_email,ship_phone,ship_address,ship_city,ship_state,ship_zip)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [this.user, this.paymentId || null, this.amount, this.status || 'pending', this.subscriptionType || null,
        this.shippingAddress?.name || null,
        this.shippingAddress?.email || null,
        this.shippingAddress?.phone || null,

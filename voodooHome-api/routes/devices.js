@@ -13,10 +13,15 @@ const {
   resetESPDevice,
   disableESPDevice,
   switchESPDevice,
-  getDeviceEnergy
+  getDeviceEnergy,
+  shareDevice,
+  getDeviceUsers,
+  removeDeviceUser,
+  subscribeSubdevice,
+  registerESPDevicePublic,
+  claimDevice,
+  getDeviceBrightness
 } = require('../controllers/deviceController');
-const { registerESPDevicePublic, claimDevice } = require('../controllers/deviceController');
-const { getDeviceBrightness } = require('../controllers/deviceController');
 const { protect } = require('../middleware/auth');
 
 router.route('/')
@@ -45,5 +50,9 @@ router.post('/:id/disable', protect, disableESPDevice);
 router.get('/:id/switch', protect, switchESPDevice);
 router.get('/:id/energy', protect, getDeviceEnergy);
 router.get('/:id/brightness', protect, getDeviceBrightness);
+router.post('/:id/share', protect, shareDevice);
+router.get('/:id/users', protect, getDeviceUsers);
+router.delete('/:id/users/:email', protect, removeDeviceUser);
+router.post('/:id/subscribe-subdevice', protect, subscribeSubdevice);
 
 module.exports = router;

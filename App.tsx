@@ -27,6 +27,7 @@ import WiFiConfigScreen from './src/screens/WiFiConfigScreen';
 import DeviceDiscoveryScreen from './src/screens/esp8266/DeviceDiscoveryScreen';
 import DeviceControlScreen from './src/screens/esp8266/DeviceControlScreen';
 import DevicesListScreen from './src/screens/esp8266/DevicesListScreen';
+import CommonDevicesScreen from './src/screens/esp8266/CommonDevicesScreen';
 
 // Chat Screen
 import ChatScreen from './src/screens/chat/ChatScreen';
@@ -186,6 +187,13 @@ const AppDrawer = () => {
           return { headerShown: isRoot };
         }}
       />
+      {Array.isArray(user?.subdeviceIds) && user!.subdeviceIds!.length > 0 && (
+        <Drawer.Screen
+          name="Common Devices"
+          component={CommonDevicesScreen}
+          options={{ title: 'Common Devices' }}
+        />
+      )}
       <Drawer.Screen name="Shop" component={EcommerceStack} 
         options={({ route, navigation }) => {
           const routeName = getFocusedRouteNameFromRoute(route) ?? 'ProductList';

@@ -1,5 +1,7 @@
 const Device = require('../models/Device');
 const Room = require('../models/Room');
+const User = require('../models/User');
+const { pool } = require('../config/db');
 const axios = require('axios');
 
 // @desc    Get all devices for a user
@@ -7,7 +9,7 @@ const axios = require('axios');
 // @access  Private
 exports.getDevices = async (req, res) => {
   try {
-    const devices = await Device.find({ user: req.user.id });
+    const devices = await Device.findAccessibleByUser(req.user.id);
     
     res.json({
       success: true,
@@ -31,8 +33,8 @@ exports.getDevice = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -92,8 +94,8 @@ exports.updateDevice = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to update this device' });
     }
 
@@ -144,8 +146,8 @@ exports.deleteDevice = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to delete this device' });
     }
 
@@ -174,8 +176,8 @@ exports.checkDeviceStatus = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -218,8 +220,8 @@ exports.configureDeviceWifi = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to configure this device' });
     }
 
@@ -254,8 +256,8 @@ exports.controlDevice = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to control this device' });
     }
 
@@ -327,8 +329,8 @@ exports.getDeviceState = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    // Make sure user owns device
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -360,7 +362,7 @@ exports.getDeviceState = async (req, res) => {
 // @access  Public
 exports.registerESPDevicePublic = async (req, res) => {
   try {
-    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, device2, brightness, flowRate, totalLiters } = req.body || {};
+    const { name, deviceType, macAddress, ipAddress, ssid, firmwareVersion, device2, brightness, flowRate, totalLiters, isOn } = req.body || {};
     if (!macAddress) {
       return res.status(400).json({ message: 'macAddress is required' });
     }
@@ -461,7 +463,8 @@ exports.resetESPDevice = async (req, res) => {
   try {
     const device = await Device.findById(req.params.id);
     if (!device) return res.status(404).json({ message: 'Device not found' });
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -482,7 +485,8 @@ exports.disableESPDevice = async (req, res) => {
   try {
     const device = await Device.findById(req.params.id);
     if (!device) return res.status(404).json({ message: 'Device not found' });
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -514,7 +518,8 @@ exports.switchESPDevice = async (req, res) => {
 
     const device = await Device.findById(req.params.id);
     if (!device) return res.status(404).json({ message: 'Device not found' });
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -541,7 +546,8 @@ exports.getDeviceEnergy = async (req, res) => {
   try {
     const device = await Device.findById(req.params.id);
     if (!device) return res.status(404).json({ message: 'Device not found' });
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -571,7 +577,8 @@ exports.getDeviceBrightness = async (req, res) => {
   try {
     const device = await Device.findById(req.params.id);
     if (!device) return res.status(404).json({ message: 'Device not found' });
-    if (String(device.user) !== String(req.user.id)) {
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
       return res.status(401).json({ message: 'Not authorized to access this device' });
     }
 
@@ -594,6 +601,109 @@ exports.getDeviceBrightness = async (req, res) => {
     return res.json({ success: true, data: { brightness } });
   } catch (error) {
     console.error('ESP brightness error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.shareDevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
+      return res.status(401).json({ message: 'Not authorized to share this device' });
+    }
+    const { email, accessLevel } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    const shareUser = await User.findOne({ email });
+    if (!shareUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await pool.query(
+      'INSERT IGNORE INTO device_users (device_id, user_id, access_level) VALUES (?,?,?)',
+      [device.id, shareUser.id, accessLevel || 'read-write']
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getDeviceUsers = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+    const [rows] = await pool.query(
+      `
+      SELECT u.email, u.role, du.created_at AS addedAt
+      FROM device_users du
+      JOIN users u ON u.id = du.user_id
+      WHERE du.device_id = ?
+      ORDER BY du.created_at DESC
+      `,
+      [device.id]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.removeDeviceUser = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+    const email = req.params.email;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    const shareUser = await User.findOne({ email });
+    if (!shareUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await pool.query('DELETE FROM device_users WHERE device_id=? AND user_id=?', [device.id, shareUser.id]);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.subscribeSubdevice = async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    const allowed = await Device.userHasAccess(device.id, req.user.id);
+    if (!allowed) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+    const { subDeviceKey, planId } = req.body || {};
+    if (!subDeviceKey) {
+      return res.status(400).json({ message: 'subDeviceKey is required' });
+    }
+    await pool.query(
+      `
+      UPDATE subdevices
+      SET plan_id = ?, subscription_active = 1, subscription_end_date = DATE_ADD(NOW(), INTERVAL 30 DAY)
+      WHERE device_id = ? AND subkey = ?
+      `,
+      [planId || null, device.id, subDeviceKey]
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

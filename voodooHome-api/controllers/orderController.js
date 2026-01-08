@@ -5,12 +5,12 @@ const Order = require('../models/Order');
 // @access  Private
 exports.createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentId, amount } = req.body;
+    const { items, shippingAddress, paymentId, amount, subscriptionType } = req.body;
     const user = req.user.id;
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'No order items' });
     }
-    const order = new Order({ user, shippingAddress, paymentId, amount });
+    const order = new Order({ user, shippingAddress, paymentId, amount, subscriptionType });
     const createdOrder = await order.save();
     // Persist line items to SQL order_items
     await Order.addItems(createdOrder.id, items);
