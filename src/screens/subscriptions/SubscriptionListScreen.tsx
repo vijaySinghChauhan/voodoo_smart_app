@@ -8,7 +8,6 @@ const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) =
   const [plans, setPlans] = useState<any[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);

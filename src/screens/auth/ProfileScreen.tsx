@@ -10,12 +10,14 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import logService from '../../services/logging/logService';
 
 const ProfileScreen: React.FC = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
+  const navigation = useNavigation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -125,6 +127,15 @@ const ProfileScreen: React.FC = () => {
                 </Text>
               )}
             </View>
+          )}
+
+          {!user.subscriptionId && (
+            <TouchableOpacity
+              style={[styles.button, styles.subscribeButton]}
+              onPress={() => navigation.navigate('Subscriptions' as never)}
+            >
+              <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+            </TouchableOpacity>
           )}
 
           {isEditing ? (
@@ -277,6 +288,15 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: '#ff6b6b',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  subscribeButton: {
+    backgroundColor: '#4a90e2',
+    marginTop: 10,
+  },
+  subscribeButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

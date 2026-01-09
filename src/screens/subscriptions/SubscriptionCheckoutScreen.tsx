@@ -46,6 +46,12 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
         keyId = 'rzp_test_q6jv7paIUDvF6t';
       }
 
+      const { orderId } = await paymentService.createRazorpayOrder({
+        amount: Math.round(plan.price * 100),
+        currency: plan.currency || 'INR',
+        planId: plan.id
+      });
+
       const options = {
         description: 'Subscription purchase',
         image: 'https://your-app-logo-url.png',
@@ -53,7 +59,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
         key: keyId,
         amount: Math.round(plan.price * 100),
         name: 'VoodooTech Smart',
-        order_id: '',
+        order_id: orderId || '',
         prefill: {},
         theme: { color: COLORS.primary },
       } as any;

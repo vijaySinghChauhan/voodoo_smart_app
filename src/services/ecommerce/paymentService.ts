@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as constantsV from '../../constants/constatantsV';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class PaymentService {
   [x: string]: any;
@@ -8,6 +9,27 @@ class PaymentService {
   async getRazorpayKey(): Promise<string> {
     const res = await axios.get(`${this.baseUrl}/key`);
     return res.data?.keyId || '';
+  }
+
+  private async getAuthHeader() {
+    const token = await AsyncStorage.getItem('auth_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async createRazorpayOrder(payload: { amount: number; currency?: string; planId?: string }): Promise<{ orderId?: string }> {
+    try {
+      const headers = await this.getAuthHeader();
+      const res = await axios.post(`${this.baseUrl}/razorpay/order`, {
+        amount: payload.amount,
+        currency: payload.currency || 'INR',
+        planId: payload.planId || ''
+      }, { headers });
+      const id = res.data?.order?.id;
+      return { orderId: id };
+    } catch (err) {
+      console.error('Create Razorpay order error:', err);
+      return { orderId: undefined };
+    }
   }
 
   async initiatePhonePePayment(payload: {

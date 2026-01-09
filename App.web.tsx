@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -90,19 +90,7 @@ const RoomsStack = () => (
 
 const EcommerceStack = () => (
   <Stack.Navigator initialRouteName="ProductList">
-    <Stack.Screen name="ProductList" component={ProductListScreen} 
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{ marginRight: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open cart"
-            >
-              <Text style={{ fontSize: 20 }}>🛒</Text>
-            </TouchableOpacity>
-          ),
-        })}/>
+    <Stack.Screen name="ProductList" component={ProductListScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product Details' }} />
     <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
     <Stack.Screen name="Checkout" component={CheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
@@ -161,18 +149,23 @@ function AppDrawer() {
       <Drawer.Screen name="Rooms" component={RoomsStack} />
       <Drawer.Screen name="Devices" component={ESP8266Stack} />
       <Drawer.Screen name="Shop" component={EcommerceStack} 
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{ marginRight: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open cart"
-            >
-              <Text style={{ fontSize: 20 }}>🛒</Text>
-            </TouchableOpacity>
-          ),
-        })}/>
+        options={({ route, navigation }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ProductList';
+          const isRoot = routeName === 'ProductList';
+          return {
+            headerShown: isRoot,
+            headerRight: isRoot ? () => (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Cart')}
+                style={{ marginRight: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open cart"
+              >
+                <Text style={{ fontSize: 20 }}>🛒</Text>
+              </TouchableOpacity>
+            ) : undefined,
+          };
+        }}/>
       <Drawer.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
       <Drawer.Screen name="Subscriptions" component={SubscriptionsStack} />
       <Drawer.Screen name="Addresses" component={AddressListScreen} options={{ title: 'My Addresses' }} />

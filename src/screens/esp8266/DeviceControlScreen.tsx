@@ -24,6 +24,7 @@ import logService from '../../services/logging/logService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from '../../services/notifications/notificationService';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
+ 
 
 import { SimpleDateTime } from '../../components/SimpleDateTime';
 import { AppSwitch } from '../../components/AppSwitch';
@@ -93,6 +94,10 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const brightnessBufferRef = React.useRef<number[]>([]);
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
+  const subdeviceIds = React.useMemo<string[]>(
+    () => Array.isArray((user as any)?.subdeviceIds) ? ((user as any).subdeviceIds as string[]) : [],
+    [user]
+  );
   const [activeSocketHost, setActiveSocketHost] = useState<string | null>(null);
   // Debug panel state
   const [socketConnected, setSocketConnected] = useState<boolean>(false);
@@ -175,6 +180,78 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   
   const pickerRef = useRef<DateTimePickerManagerRef>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    const verify = async () => {
+      try {
+        if (user?.role === 'admin') {
+          if (!cancelled) {
+            setSubscriptionActive(1);
+            setSubscriptionEndDate('2999-12-31');
+          }
+          return;
+        }
+        const subId = user?.subscriptionId;
+        if (!subId) {
+          if (!cancelled) {
+            setSubscriptionActive(0);
+            setSubscriptionEndDate(null);
+          }
+          return;
+        }
+        const subs = await subscriptionService.listMy();
+        const subsAny: any[] = Array.isArray(subs) ? (subs as any[]) : [];
+        let matched: any = subsAny.find((s: any) => String(s.plan) === String(subId));
+        if (!matched) {
+          const plans = await subscriptionService.getPlans();
+          const plansAny: any[] = Array.isArray(plans) ? (plans as any[]) : [];
+          const planMatch = plansAny.find((p: any) => String(p.id) === String(subId));
+          if (planMatch) {
+            matched = { status: 'active', endDate: null };
+          }
+        }
+        if (matched) {
+          const end = matched.endDate || null;
+          const statusRaw = matched.status;
+          
+          const exp = end ? new Date(String(end)) : null;
+          let active = true;
+          if (typeof statusRaw === 'number') {
+            active = statusRaw === 1;
+          } else if (typeof statusRaw === 'boolean') {
+            active = statusRaw;
+          } else if (typeof statusRaw === 'string') {
+            const s = statusRaw.trim().toLowerCase();
+            active = s === 'active' || s === '1' || s === 'true';
+          }
+          if (exp && !isNaN(exp.getTime())) {
+            const now = new Date();
+            exp.setHours(23, 59, 59, 999);
+            active = active && exp.getTime() >= now.getTime();
+          }
+          if (!cancelled) {
+            setSubscriptionActive(active ? 1 : 0);
+            setSubscriptionEndDate(end ? String(end) : null);
+          }
+        } else {
+          if (!cancelled) {
+            setSubscriptionActive(0);
+            setSubscriptionEndDate(null);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setSubscriptionActive(0);
+          setSubscriptionEndDate(null);
+        }
+      }
+    };
+    verify();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.subscriptionId, user?.role]);
+
   const validateTimeSelection = (
     newDate: Date,
     type: 'start' | 'end',
@@ -235,18 +312,14 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const lastFullAlertAtRef = React.useRef<number>(0);
   const fullAlertArmedRef = React.useRef<boolean>(true); // re-arm when level drops sufficiently
   const isFirstLoadRef = React.useRef<boolean>(true);
-  // Subscription plan to display price on per-device buttons
-  const [billingPlan, setBillingPlan] = useState<{ id: string; name: string; price: number; currency: string; interval: string } | null>(null);
+  // Subscription control gating
   const canControl = React.useMemo(() => {
     if (user?.role === 'admin') return true;
-    if (subscriptionActive !== 1) return false;
-    if (!subscriptionEndDate) return false;
-    const exp = new Date(String(subscriptionEndDate));
-    if (isNaN(exp.getTime())) return false;
-    const now = new Date();
-    exp.setHours(23, 59, 59, 999);
-    return exp.getTime() >= now.getTime();
-  }, [user?.role, subscriptionActive, subscriptionEndDate]);
+    const deviceId = selectedDeviceId || '';
+    if (deviceId && subdeviceIds.includes(deviceId)) return true;
+    if (!user?.subscriptionId) return false;
+    return subscriptionActive === 1;
+  }, [user?.role, selectedDeviceId, subdeviceIds, user?.subscriptionId, subscriptionActive]);
   
   // React.useMemo(() => {
   //   if (subscriptionActive !== 1 ) return false;
@@ -258,33 +331,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   //   return exp.getTime() >= now.getTime();
   // }, [subscriptionActive, subscriptionEndDate]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const ps = await subscriptionService.getPlans();
-        const preferred = ps?.find((p) => p.id === 'monthly_99');
-        // fallback to cheapest plan if monthly not found
-        const cheapest = ps && ps.length ? ps.reduce((min, p) => (p.price < min.price ? p : min), ps[0]) : null;
-        setBillingPlan(preferred || cheapest || null);
-
-      } catch (_) {
-        // fallback local default
-        setBillingPlan({ id: 'monthly_99', name: 'Monthly', price: 99, currency: 'INR', interval: 'month' });
-      }
-    })();
-  }, []);
-
-  const navigateToSubscriptionCheckout = (planOverride?: { id: string; name: string; price: number; currency: string; interval: string }) => {
-    const plan = planOverride || billingPlan;
-    if (!plan) {
-      Toast.show({ type: 'error', text1: 'Plans unavailable', text2: 'Please try again later', position: 'bottom' });
-      return;
-    }
-    try { logService.logButtonClick('Subscribe Device'); } catch {}
-    const parent = navigation?.getParent?.();
-    if (parent) parent.navigate('Subscriptions', { screen: 'SubscriptionCheckout', params: { plan } });
-    else navigation.navigate('SubscriptionCheckout', { plan });
-  };
+ 
   
 // Smooth brightness to reduce jitter
 const smoothValue = (newVal: number) => {
@@ -1933,18 +1980,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                   toggleDeviceField('device1', val);
                 }}
               />
-            ) : null}
+            ) : (
+              <Text style={{ fontSize: 18 }}>🔒</Text>
+            )}
           </View>
-          {!canControl ? (
-            <TouchableOpacity
-              style={styles.subscribeMiniButton}
-              onPress={() => navigateToSubscriptionCheckout()}
-            >
-              <Text style={styles.subscribeMiniButtonText}>
-                {billingPlan ? `Subscribe ₹${billingPlan.price}/${billingPlan.interval}` : 'Subscribe'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
           </View>
         {/* Display: Tank Filled percent */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -2297,9 +2336,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       
                     />
                 ) : (
-                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
-                    </TouchableOpacity>
+                    <Text style={{ fontSize: 18 }}>🔒</Text>
                 )}
               </View>
 
@@ -2313,11 +2350,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       
                       
                     />
-                ) : (
-                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
-                    </TouchableOpacity>
-                )}
+                 ) : (
+                    <Text style={{ fontSize: 18 }}>🔒</Text>
+                 )}
               </View>
             </View>
 
@@ -2336,11 +2371,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       
                       
                     />
-                ) : (
-                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
-                    </TouchableOpacity>
-                )}
+                 ) : (
+                    <Text style={{ fontSize: 18 }}>🔒</Text>
+                 )}
               </View>
 
               {/* Device 5: AC Control */}
@@ -2353,11 +2386,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       
                       
                     />
-                ) : (
-                    <TouchableOpacity onPress={() => navigateToSubscriptionCheckout()}>
-                        <Text style={{ color: COLORS.primary, fontSize: 12 }}>Sub</Text>
-                    </TouchableOpacity>
-                )}
+                 ) : (
+                    <Text style={{ fontSize: 18 }}>🔒</Text>
+                 )}
               </View>
             </View>
           </View>
@@ -2681,18 +2712,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           >
             <Text style={styles.buttonText}>Save Configuration</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.configButton]}
-            onPress={() => {
-              try { logService.logButtonClick('Subscribe'); } catch {}
-              // Navigate to Subscriptions in the Drawer
-              const parent = navigation?.getParent?.();
-              if (parent) parent.navigate('Subscriptions');
-              else navigation.navigate('Subscriptions');
-            }}
-          >
-            <Text style={styles.buttonText}>Subscribe</Text>
-          </TouchableOpacity>
+          
           
           <TouchableOpacity
             style={[styles.actionButton, styles.resetButton]}
