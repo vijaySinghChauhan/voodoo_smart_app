@@ -266,6 +266,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
         // fallback to cheapest plan if monthly not found
         const cheapest = ps && ps.length ? ps.reduce((min, p) => (p.price < min.price ? p : min), ps[0]) : null;
         setBillingPlan(preferred || cheapest || null);
+
       } catch (_) {
         // fallback local default
         setBillingPlan({ id: 'monthly_99', name: 'Monthly', price: 99, currency: 'INR', interval: 'month' });

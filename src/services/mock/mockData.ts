@@ -11,6 +11,7 @@ export const mockUser = {
   subscriptionType: 'Premium',
   subscriptionStartDate: '2025-01-01',
   subscriptionExpiryDate: '2025-12-31',
+  subscriptionId: 'plan_1_month',
   subdeviceIds: ['d2', 'd4', 'd6'],
 };
 

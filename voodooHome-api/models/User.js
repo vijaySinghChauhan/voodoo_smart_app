@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 
 class User {
-  constructor({ id, name, email, password, avatar, role, phone, beta, tester, created_at, last_login, subdevice_ids }) {
+  constructor({ id, name, email, password, avatar, role, phone, beta, tester, created_at, last_login, subdevice_ids, subscription_id }) {
     this._id = id; // keep _id for controller compatibility
     this.id = id;
     this.name = name;
@@ -15,6 +15,7 @@ class User {
     this.tester = typeof tester === 'number' ? tester : (tester ? 1 : 0);
     this.createdAt = created_at;
     this.lastLogin = last_login;
+    this.subscriptionId = subscription_id ? String(subscription_id) : null;
     try {
       if (Array.isArray(subdevice_ids)) {
         this.subdeviceIds = subdevice_ids.map(v => String(v));
@@ -47,12 +48,12 @@ class User {
   }
 
   static async findById(id) {
-    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,beta,tester,created_at,last_login,subdevice_ids FROM users WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,beta,tester,created_at,last_login,subdevice_ids,subscription_id FROM users WHERE id = ? LIMIT 1', [id]);
     return rows[0] ? new User(rows[0]) : null;
   }
 
   static async findByIdAndUpdate(id, fields) {
-    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone','beta','tester','subdeviceIds'].includes(k));
+    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone','beta','tester','subdeviceIds','subscriptionId'].includes(k));
     if (keys.length === 0) {
       return await User.findById(id);
     }
@@ -61,6 +62,7 @@ class User {
     for (const key of keys) {
       let col = key === 'lastLogin' ? 'last_login' : key === 'createdAt' ? 'created_at' : key;
       if (key === 'subdeviceIds') col = 'subdevice_ids';
+      if (key === 'subscriptionId') col = 'subscription_id';
       updates.push(`${col} = ?`);
       if (key === 'subdeviceIds') {
         const val = Array.isArray(fields[key]) ? fields[key] : [];
@@ -80,8 +82,8 @@ class User {
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(this.password, salt);
       const [res] = await pool.query(
-        'INSERT INTO users (name,email,password,avatar,role,phone,subdevice_ids,created_at) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)',
-        [this.name, this.email, hashed, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || [])]
+        'INSERT INTO users (name,email,password,avatar,role,phone,subdevice_ids,subscription_id,created_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)',
+        [this.name, this.email, hashed, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null]
       );
       this._id = res.insertId;
       this.id = res.insertId;
@@ -89,8 +91,8 @@ class User {
     } else {
       // update
       const [res] = await pool.query(
-        'UPDATE users SET name=?, email=?, avatar=?, role=?, phone=?, subdevice_ids=?, last_login=? WHERE id=?',
-        [this.name, this.email, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || []), this.lastLogin || null, this._id]
+        'UPDATE users SET name=?, email=?, avatar=?, role=?, phone=?, subdevice_ids=?, subscription_id=?, last_login=? WHERE id=?',
+        [this.name, this.email, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null, this.lastLogin || null, this._id]
       );
       return this;
     }

@@ -16,7 +16,7 @@ interface User {
   subscriptionType?: string;
   subscriptionStartDate?: string;
   subscriptionExpiryDate?: string;
-  subdeviceIds?: string[];
+  subscriptionId?: string | null;
 }
 
 interface AuthResponse {

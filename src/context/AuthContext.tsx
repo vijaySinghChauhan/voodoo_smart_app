@@ -12,6 +12,7 @@ interface User {
   tester?: number | string | boolean;
   token?: string;
   subdeviceIds?: string[];
+  subscriptionId?: string | null;
 }
 
 interface AuthContextType {

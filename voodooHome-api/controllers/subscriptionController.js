@@ -62,6 +62,9 @@ exports.purchase = async (req, res) => {
       endDate,
       autoRenew: true
     });
+    try {
+      await pool.query('UPDATE users SET subscription_id=? WHERE id=?', [String(planRow.id), req.user.id]);
+    } catch (_) {}
     res.status(201).json({ success: true, data: sub });
   } catch (err) {
     console.error('Purchase subscription error:', err);
