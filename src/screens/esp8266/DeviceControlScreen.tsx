@@ -177,6 +177,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const rulesLoadedRef = React.useRef<boolean>(false);
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<any>(null);
+  const supplyRestartBlockedRef = React.useRef<boolean>(false);
   
   const pickerRef = useRef<DateTimePickerManagerRef>(null);
 
@@ -1186,6 +1187,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (offEnabled) {
         const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
         if (offMet && isPowerOn) {
+          try {
+            const n = new Date();
+            const m = checkSchedule(n, morningScheduleEnabled, supplyWaterFrequency, morningStartTime, morningEndTime);
+            const e = checkSchedule(n, eveningScheduleEnabled, supplyWaterFrequency, eveningStartTime, eveningEndTime);
+            if ((m.active || e.active) && supplyWaterTimerEnabled) {
+              supplyRestartBlockedRef.current = true;
+            }
+          } catch {}
           // 1. Direct IP Control
           if (selectedDeviceIp) {
                esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
@@ -1227,6 +1236,14 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             const fr = flowRateRef.current;
             const stillOn = isPowerOnRef.current;
             if (stillOn && typeof fr === 'number' && isFinite(fr) && fr < 6.5) {
+              try {
+                const n = new Date();
+                const m = checkSchedule(n, morningScheduleEnabled, supplyWaterFrequency, morningStartTime, morningEndTime);
+                const e = checkSchedule(n, eveningScheduleEnabled, supplyWaterFrequency, eveningStartTime, eveningEndTime);
+                if ((m.active || e.active) && supplyWaterTimerEnabled) {
+                  supplyRestartBlockedRef.current = true;
+                }
+              } catch {}
               // 1. Direct IP Control
               if (selectedDeviceIp) {
                    esp8266Service.setDeviceIP(selectedDeviceIp).then(() => {
@@ -1303,6 +1320,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         // 1. App says it's OFF (!isPowerOn)
         // 2. We haven't forced it recently (e.g. every 30s) to handle stale "ON" state
         const shouldForce = Date.now() - lastForcedOn > 30000; // 30s (was 5 mins)
+        if (!supplyRestartBlockedRef.current) {
 
         if (!isPowerOn) {
            // Standard trigger
@@ -1330,8 +1348,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
            esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
            setLastForcedOn(Date.now());
         }
+        }
       } else {
         setSupplyWaterTimerStatus('Waiting');
+        supplyRestartBlockedRef.current = false;
         if (isPowerOn) {
              if (morningFinished || eveningFinished) {
                  // Device 1 is Main Power
@@ -1977,6 +1997,16 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 value={isPowerOn}
                 onValueChange={(val) => {
                   setIsPowerOn(val);
+                  try {
+                    if (!val && supplyWaterTimerEnabled) {
+                      const n = new Date();
+                      const m = checkSchedule(n, morningScheduleEnabled, supplyWaterFrequency, morningStartTime, morningEndTime);
+                      const e = checkSchedule(n, eveningScheduleEnabled, supplyWaterFrequency, eveningStartTime, eveningEndTime);
+                      if (m.active || e.active) {
+                        supplyRestartBlockedRef.current = true;
+                      }
+                    }
+                  } catch {}
                   toggleDeviceField('device1', val);
                 }}
               />
