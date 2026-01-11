@@ -7,12 +7,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
 import * as constantsV from './src/constants/constatantsV';
 import authService from './src/services/auth/authService';
 import userService from './src/services/users/userService';
 import { notificationService } from './src/services/notifications/notificationService';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { COLORS } from './src/theme/theme';
 
 // Splash Screen
 import SplashScreen from './src/screens/SplashScreen';
@@ -71,6 +74,7 @@ import { PaperProvider } from 'react-native-paper';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
+const Tab = createBottomTabNavigator();
 
 function ChatStack() {
   return (
@@ -94,7 +98,7 @@ export const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Login" component={LoginScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
-    <Stack.Screen name="DashboardMain" component={AppDrawer} />
+    <Stack.Screen name="DashboardMain" component={MainTabs} />
 
   </Stack.Navigator>
 );
@@ -243,6 +247,34 @@ const AppDrawer = () => {
         </>
       )}
     </Drawer.Navigator>
+  );
+};
+
+const MainTabs = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textLight,
+        tabBarIcon: ({ color, size }) => {
+          const name =
+            route.name === 'Home'
+              ? 'home-outline'
+              : route.name === 'Devices'
+              ? 'cube-outline'
+              : route.name === 'Subscriptions'
+              ? 'card-outline'
+              : 'person-outline';
+          return <Ionicons name={name} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={AppDrawer} />
+      <Tab.Screen name="Devices" component={ESP8266Stack} />
+      <Tab.Screen name="Subscriptions" component={SubscriptionsStack} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
   );
 };
 
@@ -465,11 +497,7 @@ const AppNavigator = () => {
         } catch (e) { /* ignore */ }
       }}
     >
-      {user ? (
-        <AppDrawer />
-      ) : (
-        <AuthStack />
-      )}
+      {user ? <MainTabs /> : <AuthStack />}
       {/* Incoming Call Modal */}
       <Modal
         transparent
@@ -502,9 +530,12 @@ const AppNavigator = () => {
                   setIncomingModalVisible(false);
                   setIncomingPayload(null);
                   if (navigationRef.isReady()) {
-                    (navigationRef as any).navigate('Audio', {
-                      screen: 'AudioCall',
-                      params: { targetUserId, targetUserName, incoming: true },
+                    (navigationRef as any).navigate('Home', {
+                      screen: 'Audio',
+                      params: {
+                        screen: 'AudioCall',
+                        params: { targetUserId, targetUserName, incoming: true },
+                      },
                     });
                   } else {
                     pendingIncomingRef.current = { targetUserId, targetUserName } as any;

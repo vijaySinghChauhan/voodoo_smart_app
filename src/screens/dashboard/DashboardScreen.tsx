@@ -400,6 +400,7 @@ loadingContainer: {
 },
 scrollContent: {
   padding: SIZES.padding,
+  paddingBottom: SIZES.padding * 3.5,
 },
   header: {
     marginBottom: SIZES.margin,
@@ -441,7 +442,7 @@ sectionHeader: {
   flexDirection: 'row',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: SIZES.margin / 2,
+  marginBottom: SIZES.margin / 3,
 },
 sectionTitle: {
   ...FONTS.h3,
