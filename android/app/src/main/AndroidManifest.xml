@@ -36,6 +36,10 @@
       android:theme="@style/AppTheme"
       android:supportsRtl="true"
       android:usesCleartextTraffic="true">
+      
+      <meta-data
+        android:name="android.app.shortcuts"
+        android:resource="@xml/shortcuts" />
 
       <activity
         android:name=".MainActivity"
@@ -54,6 +58,18 @@
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="voodoohomeS2" android:host="payment" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="voodoohomeS2" android:host="shortcut" android:pathPrefix="/motor/toggle" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="voodoohomeS2" android:host="shortcut" android:pathPrefix="/lock/toggle" />
         </intent-filter>
       </activity>
     </application>

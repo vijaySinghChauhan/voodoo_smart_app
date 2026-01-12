@@ -20,16 +20,56 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    
+    var startOptions = launchOptions ?? [:]
+    if let shortcutItem = startOptions[.shortcutItem] as? UIApplicationShortcutItem {
+      var urlString: String?
+      switch shortcutItem.type {
+      case "shortcut_motor":
+        urlString = "voodoohomeS2://shortcut/motor/toggle"
+      case "shortcut_lock":
+        urlString = "voodoohomeS2://shortcut/lock/toggle"
+      default:
+        urlString = nil
+      }
+      if let s = urlString, let url = URL(string: s) {
+        startOptions[.url] = url
+        let rctKey = UIApplication.LaunchOptionsKey(rawValue: "RCTLaunchOptionsURLKey")
+        startOptions[rctKey] = s
+      }
+    }
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
     factory.startReactNative(
       withModuleName: "voodoohomeS2",
       in: window,
-      launchOptions: launchOptions
+      launchOptions: startOptions
     )
 
     return true
+  }
+  
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    return RCTLinkingManager.application(app, open: url, options: options)
+  }
+  
+  func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+    var urlString: String?
+    switch shortcutItem.type {
+    case "shortcut_motor":
+      urlString = "voodoohomeS2://shortcut/motor/toggle"
+    case "shortcut_lock":
+      urlString = "voodoohomeS2://shortcut/lock/toggle"
+    default:
+      urlString = nil
+    }
+    if let s = urlString, let url = URL(string: s) {
+      _ = self.application(application, open: url, options: [:])
+      completionHandler(true)
+    } else {
+      completionHandler(false)
+    }
   }
 }
 

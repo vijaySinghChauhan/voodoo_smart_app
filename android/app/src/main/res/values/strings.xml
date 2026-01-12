@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">voodooSmart</string>
+    <string name="shortcut_motor_short">Motor On/Off</string>
+    <string name="shortcut_motor_long">Motor On/Off</string>
+    <string name="shortcut_lock_short">Lock/Unlock</string>
+    <string name="shortcut_lock_long">Lock/Unlock</string>
 </resources>

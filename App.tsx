@@ -88,6 +88,7 @@ import orderService from './src/services/ecommerce/orderService';
 import cartService from './src/services/ecommerce/cartService';
 import DeviceAccessScreen from './src/screens/esp8266/DeviceAccessScreen';
 import { PaperProvider } from 'react-native-paper';
+import esp8266Service from './src/services/esp8266/esp8266Service';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -370,6 +371,7 @@ const AppNavigator = () => {
   const logService = require('./src/services/logging/logService').default;
   const callSignalSocketRef = React.useRef<Socket | null>(null);
   // Deep link subscription stored locally for cleanup
+  const shortcutLockTimeoutRef = React.useRef<any>(null);
   
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -455,10 +457,85 @@ const AppNavigator = () => {
 
   // Handle deep link callbacks for payments (e.g., PhonePe)
   React.useEffect(() => {
+    const handleShortcut = async (url: string) => {
+      try {
+        const u = new URL(url);
+        const host = u.host;
+        const path = u.pathname || '';
+        if (host !== 'shortcut') return;
+        const list = await esp8266Service.getDevicesFromServer();
+        if (!Array.isArray(list) || list.length === 0) {
+          Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
+          return;
+        }
+        if (path.startsWith('/motor/toggle')) {
+          const target = list.find((d: any) => {
+            const t = String(d.deviceType || d.type || '').toLowerCase();
+            const n = String(d.name || '').toLowerCase();
+            return t.includes('motor') || n.includes('motor');
+          }) || list[0];
+          const devId = String((target as any).id || '');
+          if (!devId) {
+            Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+            return;
+          }
+          if (typeof (target as any).device2 !== 'undefined') {
+            const raw = (target as any).device2;
+            const current = typeof raw === 'number' ? raw === 1 : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true') : !!raw;
+            const nextVal = current ? 0 : 1;
+            const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
+            if (ok) {
+              Toast.show({ type: 'success', text1: 'Motor', text2: nextVal === 1 ? 'ON' : 'OFF', position: 'bottom' });
+            } else {
+              Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
+            }
+          } else {
+            Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'device2 not available', position: 'bottom' });
+          }
+          return;
+        }
+        if (path.startsWith('/lock/toggle')) {
+          const target = list.find((d: any) => {
+            const t = String(d.deviceType || d.type || '').toLowerCase();
+            const n = String(d.name || '').toLowerCase();
+            const hasDevice2 = typeof (d as any).device2 !== 'undefined';
+            return t.includes('door') || t.includes('lock') || n.includes('door') || n.includes('lock') || hasDevice2;
+          }) || list[0];
+          const devId = String((target as any).id || '');
+          if (!devId) {
+            Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+            return;
+          }
+          const raw = (target as any).device2;
+          const current = typeof raw === 'number' ? raw === 1 : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true') : !!raw;
+          const nextVal = current ? 0 : 1;
+          const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
+          if (ok) {
+            Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
+            if (shortcutLockTimeoutRef.current) {
+              clearTimeout(shortcutLockTimeoutRef.current);
+              shortcutLockTimeoutRef.current = null;
+            }
+            if (nextVal === 1) {
+              shortcutLockTimeoutRef.current = setTimeout(async () => {
+                try {
+                  const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
+                  if (ok2) {
+                    Toast.show({ type: 'success', text1: 'Door', text2: 'Auto-off', position: 'bottom' });
+                  }
+                } catch {}
+              }, 3000);
+            }
+          } else {
+            Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
+          }
+          return;
+        }
+      } catch {}
+    };
     const handler = async (event: { url: string }) => {
       try {
         const url = event.url;
-        // Expecting scheme like: voodoohomeS2://payment/phonepe?status=success&txnId=...
         if (url && url.includes('://payment/phonepe')) {
           const query = url.split('?')[1] || '';
           const params = new URLSearchParams(query);
@@ -470,6 +547,8 @@ const AppNavigator = () => {
           } else {
             Toast.show({ type: 'error', text1: 'Payment Failed', text2: 'Could not verify payment', position: 'bottom' });
           }
+        } else if (url && url.includes('://shortcut/')) {
+          await handleShortcut(url);
         }
       } catch (err) {
         Toast.show({ type: 'error', text1: 'Payment Error', text2: 'Callback handling failed', position: 'bottom' });
@@ -479,6 +558,92 @@ const AppNavigator = () => {
     return () => {
       subscription.remove();
     };
+  }, []);
+  
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const url = await Linking.getInitialURL();
+        if (url && url.includes('://shortcut/')) {
+          await (async () => {
+            const u = url;
+            try {
+              const parsed = new URL(u);
+              const host = parsed.host;
+              const path = parsed.pathname || '';
+              if (host !== 'shortcut') return;
+              const list = await esp8266Service.getDevicesFromServer();
+              if (!Array.isArray(list) || list.length === 0) {
+                Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
+                return;
+              }
+              if (path.startsWith('/motor/toggle')) {
+                const target = list.find((d: any) => {
+                  const t = String(d.deviceType || d.type || '').toLowerCase();
+                  const n = String(d.name || '').toLowerCase();
+                  return t.includes('motor') || n.includes('motor');
+                }) || list[0];
+                const devId = String((target as any).id || '');
+                if (!devId) {
+                  Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                  return;
+                }
+                if (typeof (target as any).device2 !== 'undefined') {
+                  const raw = (target as any).device2;
+                  const current = typeof raw === 'number' ? raw === 1 : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true') : !!raw;
+                  const nextVal = current ? 0 : 1;
+                  const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
+                  if (ok) {
+                    Toast.show({ type: 'success', text1: 'Motor', text2: nextVal === 1 ? 'ON' : 'OFF', position: 'bottom' });
+                  } else {
+                    Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
+                  }
+                } else {
+                  Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'device2 not available', position: 'bottom' });
+                }
+                return;
+              }
+              if (path.startsWith('/lock/toggle')) {
+                const target = list.find((d: any) => {
+                  const t = String(d.deviceType || d.type || '').toLowerCase();
+                  const n = String(d.name || '').toLowerCase();
+                  const hasDevice2 = typeof (d as any).device2 !== 'undefined';
+                  return t.includes('door') || t.includes('lock') || n.includes('door') || n.includes('lock') || hasDevice2;
+                }) || list[0];
+                const devId = String((target as any).id || '');
+                if (!devId) {
+                  Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                  return;
+                }
+                const raw = (target as any).device2;
+                const current = typeof raw === 'number' ? raw === 1 : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true') : !!raw;
+                const nextVal = current ? 0 : 1;
+                const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
+                if (ok) {
+                  Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
+                  if (shortcutLockTimeoutRef.current) {
+                    clearTimeout(shortcutLockTimeoutRef.current);
+                    shortcutLockTimeoutRef.current = null;
+                  }
+                  if (nextVal === 1) {
+                    shortcutLockTimeoutRef.current = setTimeout(async () => {
+                      try {
+                        const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
+                        if (ok2) {
+                          Toast.show({ type: 'success', text1: 'Door', text2: 'Auto-off', position: 'bottom' });
+                        }
+                      } catch {}
+                    }, 3000);
+                  }
+                } else {
+                  Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
+                }
+              }
+            } catch {}
+          })();
+        }
+      } catch {}
+    })();
   }, []);
   
   if (showSplash) {

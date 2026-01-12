@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_motor"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_motor_short"
+        android:shortcutLongLabel="@string/shortcut_motor_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="voodoohomeS2://shortcut/motor/toggle"
+            android:targetClass="com.voodoohomes2.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_lock"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_lock_short"
+        android:shortcutLongLabel="@string/shortcut_lock_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="voodoohomeS2://shortcut/lock/toggle"
+            android:targetClass="com.voodoohomes2.MainActivity" />
+    </shortcut>
+</shortcuts>
