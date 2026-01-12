@@ -2,6 +2,15 @@ import axios from 'axios';
 import * as constantsV from '../../constants/constatantsV';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export interface Coupon {
+  code: string;
+  description?: string;
+  discountType: 'percent' | 'flat';
+  value: number;
+  applicablePlanIds?: string[];
+  expiresAt?: string;
+}
+
 class PaymentService {
   [x: string]: any;
   private baseUrl: string = constantsV.BASE_URL + '/payments';
@@ -55,6 +64,19 @@ class PaymentService {
     } catch (err) {
       console.error('PhonePe initiate error:', err);
       return { redirectUrl: undefined };
+    }
+  }
+
+  async getCoupons(): Promise<Coupon[]> {
+    try {
+      const res = await axios.get(`${this.baseUrl}/coupons`);
+      const list = res.data?.data || res.data?.coupons || [];
+      return list as Coupon[];
+    } catch {
+      return [
+        { code: 'WELCOME10', description: '10% off', discountType: 'percent', value: 10 },
+        { code: 'SAVE50', description: '₹50 off', discountType: 'flat', value: 50 },
+      ];
     }
   }
 }

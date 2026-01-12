@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import addressApi from '../../services/ecommerce/addressApi';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 type Address = {
   id: string;
@@ -107,7 +108,14 @@ const AddressListScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>My Addresses</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color="#222" />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.title}>My Addresses</Text>
+        </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddressEdit')}>
           <Text style={styles.addText}>Add New</Text>
         </TouchableOpacity>

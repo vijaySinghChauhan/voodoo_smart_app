@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import cartService from '../../services/ecommerce/cartService';
 import productService from '../../services/ecommerce/productService';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface CartItem {
   id: string;
@@ -186,7 +187,14 @@ const CartScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Shopping Cart</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color="#222" />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.title}>Shopping Cart</Text>
+        </View>
       </View>
 
       {isLoading ? (

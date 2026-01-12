@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 import RazorpayCheckout from 'react-native-razorpay';
-import paymentService from '../../services/ecommerce/paymentService';
+import paymentService, { Coupon } from '../../services/ecommerce/paymentService';
 import Toast from 'react-native-toast-message';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface SubscriptionCheckoutProps {
   navigation: any;
@@ -15,11 +16,49 @@ interface SubscriptionCheckoutProps {
 const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navigation, route }) => {
   const plan = route?.params?.plan;
   const [isProcessing, setIsProcessing] = useState(false);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
 
   const summaryText = useMemo(() => {
     if (!plan) return '';
     return `${plan.name} • ${plan.price} ${plan.currency}/${plan.interval}`;
   }, [plan]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await paymentService.getCoupons();
+        setCoupons(list || []);
+      } catch {}
+    })();
+  }, []);
+
+  const computeAmount = (price: number) => {
+    if (!selectedCoupon) return price;
+    if (selectedCoupon.discountType === 'percent') {
+      const off = (price * selectedCoupon.value) / 100;
+      return Math.max(0, price - off);
+    }
+    return Math.max(0, price - selectedCoupon.value);
+  };
+
+  const applyCoupon = (c: Coupon) => {
+    if (!plan) return;
+    if (Array.isArray(c.applicablePlanIds) && c.applicablePlanIds.length > 0) {
+      const ok = c.applicablePlanIds.includes(plan.id);
+      if (!ok) {
+        Toast.show({ type: 'info', text1: 'Not Applicable', text2: 'Coupon not valid for this plan', position: 'bottom' });
+        return;
+      }
+    }
+    setSelectedCoupon(c);
+    Toast.show({ type: 'success', text1: 'Coupon Applied', text2: c.code, position: 'bottom' });
+  };
+
+  const removeCoupon = () => {
+    setSelectedCoupon(null);
+    Toast.show({ type: 'info', text1: 'Coupon Removed', position: 'bottom' });
+  };
 
   /*
   const handleConfirm = async () => {
@@ -46,8 +85,9 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
         keyId = 'rzp_test_q6jv7paIUDvF6t';
       }
 
+      const finalAmount = computeAmount(plan.price);
       const { orderId } = await paymentService.createRazorpayOrder({
-        amount: Math.round(plan.price * 100),
+        amount: Math.round(finalAmount * 100),
         currency: plan.currency || 'INR',
         planId: plan.id
       });
@@ -57,7 +97,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
         image: 'https://your-app-logo-url.png',
         currency: plan.currency || 'INR',
         key: keyId,
-        amount: Math.round(plan.price * 100),
+        amount: Math.round(finalAmount * 100),
         name: 'VoodooTech Smart',
         order_id: orderId || '',
         prefill: {},
@@ -91,8 +131,9 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
     setIsProcessing(true);
     try {
       const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
+      const finalAmount = computeAmount(plan.price);
       const { redirectUrl } = await paymentService.initiatePhonePePayment({
-        amount: plan.price,
+        amount: finalAmount,
         currency: plan.currency || 'INR',
         customerName: undefined,
         customerPhone: undefined,
@@ -137,7 +178,14 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Subscription Checkout</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.title}>Subscription Checkout</Text>
+        </View>
       </View>
 
       {!plan ? (
@@ -147,6 +195,41 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
           <Text style={styles.name}>{plan.name}</Text>
           <Text style={styles.meta}>{summaryText}</Text>
           <View style={{ height: 1, backgroundColor: COLORS.border, marginVertical: 12 }} />
+          <Text style={styles.sectionTitle}>Apply Coupon</Text>
+          {coupons.length > 0 ? (
+            <FlatList
+              data={coupons}
+              keyExtractor={(item) => item.code}
+              horizontal
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.couponChip, selectedCoupon?.code === item.code ? styles.couponChipActive : undefined]}
+                  onPress={() => applyCoupon(item)}
+                  disabled={isProcessing}
+                >
+                  <Text style={styles.couponText}>{item.code}</Text>
+                </TouchableOpacity>
+              )}
+              showsHorizontalScrollIndicator={false}
+            />
+          ) : (
+            <Text style={styles.meta}>No coupons available</Text>
+          )}
+          {selectedCoupon && (
+            <View style={styles.couponRow}>
+              <Text style={styles.appliedTxt}>Applied: {selectedCoupon.code}</Text>
+              <TouchableOpacity onPress={removeCoupon} disabled={isProcessing}>
+                <Text style={styles.removeTxt}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.amountRow}>
+            <Text style={styles.sectionTitle}>Payable</Text>
+            <Text style={styles.payableTxt}>
+              {computeAmount(plan.price).toFixed(2)} {plan.currency || 'INR'}
+            </Text>
+          </View>
           <Text style={styles.sectionTitle}>Terms</Text>
           <Text style={styles.terms}>
             - Auto-renew enabled. You can cancel anytime.
@@ -189,6 +272,15 @@ const styles = StyleSheet.create({
   phonepeBtn: { backgroundColor: '#6b1f9d' },
   cancelTxt: { ...FONTS.body3, color: COLORS.textDark },
   payTxt: { ...FONTS.body3, color: COLORS.white }
+  ,
+  couponChip: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: SIZES.radius, paddingVertical: 6, paddingHorizontal: 10, marginRight: 8, ...SHADOWS.small },
+  couponChipActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
+  couponText: { ...FONTS.small, color: COLORS.textDark },
+  couponRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  appliedTxt: { ...FONTS.small, color: COLORS.textDark },
+  removeTxt: { ...FONTS.small, color: COLORS.error },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 10 },
+  payableTxt: { ...FONTS.h4, color: COLORS.primary }
 });
 
 export default SubscriptionCheckoutScreen;

@@ -419,7 +419,7 @@ scrollContent: {
 statsContainer: {
   flexDirection: 'row',
   justifyContent: 'space-between',
-  marginBottom: SIZES.margin * 1.5,
+  marginBottom: SIZES.base,
 },
 statCard: {
   width: '30%',
@@ -436,13 +436,13 @@ statLabel: {
   color: COLORS.textLight,
 },
 section: {
-  marginBottom: SIZES.margin * 1.5,
+  marginBottom: SIZES.base,
 },
 sectionHeader: {
   flexDirection: 'row',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: SIZES.margin / 3,
+  marginBottom: SIZES.base / 3,
 },
 sectionTitle: {
   ...FONTS.h3,
@@ -455,8 +455,8 @@ seeAllText: {
   roomsList: { paddingRight: SIZES.padding },
   roomCardImageWrap: {
     width: 180,
-    marginRight: SIZES.margin,
-    marginVertical: SIZES.margin,
+    marginRight: SIZES.margin / 2,
+    marginVertical: SIZES.base / 4,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -486,7 +486,7 @@ devicesList: {
     width: '48%',
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
-    marginBottom: SIZES.margin,
+    marginBottom: SIZES.base / 4,
     flexDirection: 'row',
     alignItems: 'center',
     ...SHADOWS.large,
@@ -513,7 +513,7 @@ devicesList: {
     color: COLORS.textLight,
     fontStyle: 'italic',
     textAlign: 'center',
-    marginVertical: SIZES.margin,
+    marginVertical: SIZES.base,
   },
   quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.base },
   quickItem: { alignItems: 'center', width: '23%' },
@@ -521,13 +521,13 @@ devicesList: {
   quickEmoji: { fontSize: 20 },
   quickLabel: { ...FONTS.small, color: COLORS.textLight, marginTop: 6 },
   productsList: {
-    paddingRight: SIZES.padding,
+    paddingRight: SIZES.padding / 2,
   },
   productCard: {
     width: 150,
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
-    marginRight: SIZES.margin,
+    marginRight: SIZES.margin / 2,
     marginVertical: SIZES.small,
     ...SHADOWS.large,
   },

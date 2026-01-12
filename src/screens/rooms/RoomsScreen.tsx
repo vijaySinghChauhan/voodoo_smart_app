@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface Room {
   id: string;
@@ -110,39 +111,6 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleDeleteRoom = (room: Room) => {
-    Alert.alert(
-      'Delete Room',
-      `Are you sure you want to delete "${room.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await roomService.deleteRoom(room.id);
-              Toast.show({
-                type: 'success',
-                text1: 'Success',
-                text2: 'Room deleted successfully',
-                position: 'bottom'
-              });
-              loadRooms();
-            } catch (error) {
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Failed to delete room',
-                position: 'bottom'
-              });
-            }
-          } 
-        },
-      ]
-    );
-  };
-
   const getRoomImage = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('living'))
@@ -179,7 +147,14 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Rooms</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color="#222" />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.headerTitle}>Your Rooms</Text>
+        </View>
       </View>
 
       {rooms.length === 0 ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import productService from '../../services/ecommerce/productService';
 import cartService from '../../services/ecommerce/cartService';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface Product {
   id: string;
@@ -32,11 +33,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  useEffect(() => {
-    loadProductDetails();
-  }, []);
-
-  const loadProductDetails = async () => {
+  const loadProductDetails = useCallback(async () => {
     setIsLoading(true);
     try {
       const productData = await productService.getProductById(productId);
@@ -51,7 +48,11 @@ const ProductDetailScreen = ({ route, navigation }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [productId]);
+
+  useEffect(() => {
+    loadProductDetails();
+  }, [loadProductDetails]);
 
   const handleQuantityChange = (delta: number) => {
     const newQuantity = quantity + delta;
@@ -116,6 +117,14 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+            <Icon name="arrow-back" size={24} color="#222" />
+          </TouchableOpacity>
+        ) : null}
+        <Text style={{ fontSize: 18, fontWeight: '600', color: '#222' }}>Product Details</Text>
+      </View>
       <ScrollView>
         <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
         

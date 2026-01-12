@@ -133,17 +133,72 @@ const EcommerceStack = () => (
 const ESP8266Stack = () => (
   <Stack.Navigator initialRouteName="DevicesList">
     <Stack.Screen name="DevicesList" component={DevicesListScreen} options={{ title: 'Devices', headerShown: false }} />
-    <Stack.Screen name="DeviceDiscovery" component={DeviceDiscoveryScreen} options={{ title: 'Discover Devices' }} />
-    <Stack.Screen name="DeviceControl" component={DeviceControlScreen} options={{ title: 'Device Control', headerShown: false }} />
-    <Stack.Screen name="DeviceAccess" component={DeviceAccessScreen} options={{ title: 'Manage Access' }} />
-    <Stack.Screen name="WiFiConfig" component={WiFiConfigScreen} options={{ title: 'WiFi Configuration' }} />
+    <Stack.Screen
+      name="DeviceDiscovery"
+      component={DeviceDiscoveryScreen}
+      options={({ navigation }) => ({
+        title: 'Discover Devices',
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
+    <Stack.Screen
+      name="DeviceControl"
+      component={DeviceControlScreen}
+      options={({ navigation }) => ({
+        title: 'Device Control',
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
+    <Stack.Screen
+      name="DeviceAccess"
+      component={DeviceAccessScreen}
+      options={({ navigation }) => ({
+        title: 'Manage Access',
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
+    <Stack.Screen
+      name="WiFiConfig"
+      component={WiFiConfigScreen}
+      options={({ navigation }) => ({
+        title: 'WiFi Configuration',
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
   </Stack.Navigator>
 );
 
 const SubscriptionsStack = () => (
   <Stack.Navigator initialRouteName="SubscriptionList">
     <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions', headerShown: false }} />
-    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
+    <Stack.Screen
+      name="SubscriptionCheckout"
+      component={SubscriptionCheckoutScreen as React.ComponentType<any>}
+      options={({ navigation }) => ({
+        title: 'Checkout',
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
   </Stack.Navigator>
 );
 
@@ -270,7 +325,16 @@ const MainTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={AppDrawer} />
+      <Tab.Screen
+        name="Home"
+        component={AppDrawer}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Home', { screen: 'Dashboard' });
+          },
+        })}
+      />
       <Tab.Screen name="Devices" component={ESP8266Stack} />
       <Tab.Screen name="Subscriptions" component={SubscriptionsStack} />
       <Tab.Screen name="Profile" component={ProfileScreen} />

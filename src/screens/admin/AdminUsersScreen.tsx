@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Activity
 import { SafeAreaView } from 'react-native-safe-area-context';
 import adminService from '../../services/admin/adminService';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const AdminUsersScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
       const list = await adminService.listUsers(search);
@@ -17,9 +18,9 @@ const AdminUsersScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('AdminUserDetail', { user: item })}>
@@ -36,7 +37,16 @@ const AdminUsersScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}><Text style={styles.title}>Manage Users</Text></View>
+      <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.title}>Manage Users</Text>
+        </View>
+      </View>
       <View style={styles.searchRow}>
         <TextInput value={search} onChangeText={setSearch} placeholder="Search name, email, phone"
           style={styles.input} placeholderTextColor={COLORS.textLight} />

@@ -14,6 +14,7 @@ import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
 import { AppSwitch } from '../../components/AppSwitch';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface Device {
   id: string;
@@ -64,7 +65,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
       loadRoomDevices();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, loadRoomDetails, loadRoomDevices]);
 
   const loadRoomDetails = useCallback(async () => {
     setIsLoading(true);
@@ -202,7 +203,14 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.roomName}>{room?.name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color="#222" />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.roomName}>{room?.name}</Text>
+        </View>
         <TouchableOpacity
           style={styles.editButton}
           onPress={async () => { try { await logService.logButtonClick('Edit Room', { roomId }); } catch (e) {} ; navigation.navigate('AddEditRoom', { room }); }}

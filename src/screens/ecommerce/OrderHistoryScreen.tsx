@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import orderService, { Order } from '../../services/ecommerce/orderService';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const OrderHistoryScreen = ({ navigation }) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -99,7 +100,14 @@ const OrderHistoryScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Order History</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <Icon name="arrow-back" size={24} color="#222" />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.title}>Order History</Text>
+        </View>
       </View>
 
       {orders.length > 0 ? (
