@@ -12,6 +12,8 @@
  * Copyright (c) hammerjs
  * Licensed under the MIT license */
 
+/*! http://mths.be/base64 v0.1.0 by @mathias | MIT license */
+
 /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
 /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */

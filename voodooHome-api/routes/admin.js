@@ -10,8 +10,13 @@ router.use(protect, authorize('admin'));
 router.get('/users', adminController.listUsers);
 
 // User drilldowns
+router.get('/users/:id', adminController.getUser);
+router.put('/users/:id', adminController.updateUser);
 router.get('/users/:id/rooms', adminController.getUserRooms);
 router.get('/users/:id/devices', adminController.getUserDevices);
+
+// Device update (admin)
+router.put('/devices/:id', adminController.updateDevice);
 
 // Stats dashboard
 router.get('/stats', adminController.getStats);

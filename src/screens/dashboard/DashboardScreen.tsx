@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   ImageBackground,
   Modal,
   Linking,
-  Alert,
 } from 'react-native';
 import { Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +23,8 @@ import Button from '../../components/Button';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../../theme/theme';
 import logService from '../../services/logging/logService';
 import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface Room {
   id: string;
@@ -47,6 +48,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [activeDevices, setActiveDevices] = useState(0);
   const [totalDevices, setTotalDevices] = useState(0);
   const [forceUpdateUrl, setForceUpdateUrl] = useState<string | null>(null);
+  const [motorOn, setMotorOn] = useState<boolean>(false);
+  const [lockOn, setLockOn] = useState<boolean>(false);
+  const { user } = useAuth();
+  const lockTimeoutRef = useRef<any>(null);
 
   // Prevent blank screen on slow/blocked network: enforce per-call timeouts
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
@@ -106,6 +111,15 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     checkAppUpdate();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (lockTimeoutRef.current) {
+        clearTimeout(lockTimeoutRef.current);
+        lockTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const normalizeVersion = (v: string) => String(v || '').trim();
   const compareVersions = (a: string, b: string) => {
     const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10) || 0);
@@ -129,6 +143,38 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       // Load devices
       const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
       setDevices(devicesData);
+      try {
+        const candidate = devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          return t.includes('motor') || n.includes('motor');
+        }) || devicesData[0];
+        if (candidate) {
+          const onGuess = typeof (candidate as any).isOn !== 'undefined'
+            ? !!(candidate as any).isOn
+            : String((candidate as any).status || '').toLowerCase() === 'on';
+          setMotorOn(onGuess);
+        } else {
+          setMotorOn(false);
+        }
+      } catch {}
+      try {
+        const lockTarget = devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          const hasDevice2 = typeof (d as any).device2 !== 'undefined';
+          return t.includes('door') || t.includes('lock') || n.includes('door') || n.includes('lock') || hasDevice2;
+        }) || devicesData[0];
+        if (lockTarget && typeof (lockTarget as any).device2 !== 'undefined') {
+          const raw = (lockTarget as any).device2;
+          const on = typeof raw === 'number' ? raw === 1
+            : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true')
+            : !!raw;
+          setLockOn(on);
+        } else {
+          setLockOn(false);
+        }
+      } catch {}
 
       // Load products from API
       const productsData = await withTimeout(productService.getProducts(), 6000, []);
@@ -203,7 +249,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceType}>{item.type}</Text>
       </View>
-      <View style={[styles.statusIndicator, { backgroundColor: item.status === 'on' ? COLORS.success : COLORS.gray }]} />
+      <View style={[styles.statusIndicator, { backgroundColor: item.status === 'on' ? COLORS.info : COLORS.gray }]} />
     </TouchableOpacity>
   );
 
@@ -236,20 +282,140 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         {/* Statistics Cards */}
         <View style={styles.statsContainer}>
-          <Card style={styles.statCard} elevation="large">
-            <Text style={styles.statValue}>{rooms.length}</Text>
-            <Text style={styles.statLabel}>Rooms</Text>
+          <Card style={{ ...styles.statCard, ...styles.statCardRooms }} elevation="large">
+            <Text style={[styles.statValue, styles.statValueRooms]}>{rooms.length}</Text>
+            <Text style={[styles.statLabel, styles.statLabelRooms]}>Rooms</Text>
           </Card>
-          <Card style={styles.statCard} elevation="large">
-            <Text style={styles.statValue}>{totalDevices}</Text>
-            <Text style={styles.statLabel}>Devices</Text>
+          <Card style={{ ...styles.statCard, ...styles.statCardDevices }} elevation="large">
+            <Text style={[styles.statValue, styles.statValueDevices]}>{totalDevices}</Text>
+            <Text style={[styles.statLabel, styles.statLabelDevices]}>Devices</Text>
           </Card>
-          <Card style={styles.statCard} elevation="large">
-            <Text style={styles.statValue}>{activeDevices}</Text>
-            <Text style={styles.statLabel}>Active</Text>
+          <Card style={{ ...styles.statCard, ...styles.statCardActive }} elevation="large">
+            <Text style={[styles.statValue, styles.statValueActive]}>{activeDevices}</Text>
+            <Text style={[styles.statLabel, styles.statLabelActive]}>Active</Text>
           </Card>
         </View>
-
+   {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickRow}>
+            {[
+              { label: 'Rooms', emoji: '🛋️', onPress: async () => { try { await logService.logButtonClick('Quick Rooms'); } catch (e) {} ; navigation.navigate('Rooms'); } },
+              { label: 'Motor On/Off', emoji: '🔘', visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'), onPress: async () => { 
+                  try { await logService.logButtonClick('Quick Motor Toggle'); } catch (e) {}
+                  try {
+                    const list = await esp8266Service.getDevicesFromServer();
+                    if (!Array.isArray(list) || list.length === 0) {
+                      Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
+                      return;
+                    }
+                    const target = list.find((d: any) => {
+                      const typeStr = String(d.deviceType || d.type || '').toLowerCase();
+                      const nameStr = String(d.name || '').toLowerCase();
+                      const hasDevice1 = typeof (d as any).device1 !== 'undefined';
+                      return typeStr.includes('motor') || nameStr.includes('motor') || hasDevice1;
+                    }) || list[0];
+                    const devId = String((target as any).id || '');
+                    if (!devId) {
+                      Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                      return;
+                    }
+                    if (typeof (target as any).device1 !== 'undefined') {
+                      const currentRaw = (target as any).device1;
+                      const current = typeof currentRaw === 'number' ? currentRaw === 1
+                        : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
+                        : !!currentRaw;
+                      const nextVal = current ? 0 : 1;
+                      const ok = await esp8266Service.updateDeviceOnServer(devId, { device1: nextVal });
+                      if (ok) {
+                        Toast.show({ type: 'success', text1: 'Motor', text2: nextVal === 1 ? 'ON' : 'OFF', position: 'bottom' });
+                        setMotorOn(nextVal === 1);
+                      } else {
+                        Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device1', position: 'bottom' });
+                      }
+                    } else {
+                      const isOn = typeof (target as any).isOn !== 'undefined'
+                        ? !!(target as any).isOn
+                        : String((target as any).status || '').toLowerCase() === 'on';
+                      const nextAction: 'on' | 'off' = isOn ? 'off' : 'on';
+                      const ok = await esp8266Service.controlDeviceOnServer(devId, nextAction);
+                      if (ok) {
+                        Toast.show({ type: 'success', text1: 'Motor', text2: nextAction.toUpperCase(), position: 'bottom' });
+                        setMotorOn(nextAction === 'on');
+                      } else {
+                        Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Control endpoint error', position: 'bottom' });
+                      }
+                    }
+                  } catch (err) {
+                    Toast.show({ type: 'error', text1: 'Error', text2: 'Unable to toggle motor', position: 'bottom' });
+                  }
+                } },
+              { label: 'Lock/Unlock', emoji: lockOn ? '🔒' : '🔓', visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'), onPress: async () => {
+                  try { await logService.logButtonClick('Quick Door Toggle'); } catch (e) {}
+                  try {
+                    const list = await esp8266Service.getDevicesFromServer();
+                    if (!Array.isArray(list) || list.length === 0) {
+                      Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
+                      return;
+                    }
+                    const target = list.find((d: any) => {
+                      const typeStr = String(d.deviceType || d.type || '').toLowerCase();
+                      const nameStr = String(d.name || '').toLowerCase();
+                      const hasDevice2 = typeof (d as any).device2 !== 'undefined';
+                      return typeStr.includes('door') || typeStr.includes('lock') || nameStr.includes('door') || nameStr.includes('lock') || hasDevice2;
+                    }) || list[0];
+                    const devId = String((target as any).id || '');
+                    if (!devId) {
+                      Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                      return;
+                    }
+                    const currentRaw = (target as any).device2;
+                    const current = typeof currentRaw === 'number' ? currentRaw === 1
+                      : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
+                      : !!currentRaw;
+                    const nextVal = current ? 0 : 1;
+                    const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
+                    if (ok) {
+                      Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
+                      setLockOn(nextVal === 1);
+                      if (lockTimeoutRef.current) {
+                        clearTimeout(lockTimeoutRef.current);
+                        lockTimeoutRef.current = null;
+                      }
+                      if (nextVal === 1) {
+                        lockTimeoutRef.current = setTimeout(async () => {
+                          try {
+                            const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
+                            if (ok2) {
+                              Toast.show({ type: 'success', text1: 'Door', text2: 'Auto-off', position: 'bottom' });
+                              setLockOn(false);
+                            }
+                          } catch {}
+                        }, 3000);
+                      }
+                    } else {
+                      Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
+                    }
+                  } catch {
+                    Toast.show({ type: 'error', text1: 'Error', text2: 'Unable to toggle door', position: 'bottom' });
+                  }
+                } },
+              { label: 'Shop', emoji: '🛒', onPress: async () => { try { await logService.logButtonClick('Quick Shop'); } catch (e) {} ; navigation.navigate('Shop', { screen: 'ProductList' }); } },
+              { label: 'Subscriptions', emoji: '�', onPress: async () => { try { await logService.logButtonClick('Quick Subscriptions'); } catch (e) {} ; navigation.navigate('Subscriptions'); } },
+            ].filter((a: any) => (a.visible === undefined ? true : !!a.visible)).map((a) => (
+              <TouchableOpacity key={a.label} style={styles.quickItem} activeOpacity={0.85} onPress={a.onPress}>
+                <View style={[styles.quickIcon, a.label === 'Motor On/Off' ? (motorOn ? styles.quickIconOn : styles.quickIconOff) : undefined]}>
+                  {a.label === 'Lock/Unlock' ? (
+                    <Ionicons name={lockOn ? 'lock-closed-outline' : 'lock-open-outline'} size={22} color={COLORS.textDark} />
+                  ) : (
+                    <Text style={styles.quickEmoji}>{a.emoji}</Text>
+                  )}
+                </View>
+                <Text style={styles.quickLabel}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
         {/* Rooms Section (matches screenshot style) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -366,23 +532,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Quick Actions (icons row) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickRow}>
-            {[
-              { label: 'Good Morning', emoji: '🌅' },
-              { label: 'Good Night', emoji: '🌙' },
-              { label: 'Movie Time', emoji: '🎬' },
-              { label: 'Dinner', emoji: '🍽️' },
-            ].map((a) => (
-              <TouchableOpacity key={a.label} style={styles.quickItem} activeOpacity={0.85}>
-                <View style={styles.quickIcon}><Text style={styles.quickEmoji}>{a.emoji}</Text></View>
-                <Text style={styles.quickLabel}>{a.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+     
       </ScrollView>
     </View>
   );
@@ -421,20 +571,29 @@ statsContainer: {
   justifyContent: 'space-between',
   marginBottom: SIZES.base,
 },
-statCard: {
-  width: '30%',
-  alignItems: 'center',
-  padding: SIZES.padding / 2,
-},
-statValue: {
-  ...FONTS.h2,
-  color: COLORS.primary,
-  marginBottom: SIZES.base / 2,
-},
-statLabel: {
-  ...FONTS.body3,
-  color: COLORS.textLight,
-},
+  statCard: {
+    width: '30%',
+    alignItems: 'center',
+    padding: SIZES.padding / 2,
+  },
+  statCardRooms: { backgroundColor: COLORS.primaryLight },
+  statCardDevices: { backgroundColor: COLORS.primaryLight },
+  statCardActive: { backgroundColor: COLORS.primaryLight },
+  statValue: {
+    ...FONTS.h2,
+    color: COLORS.textDark,
+    marginBottom: SIZES.base / 2,
+  },
+  statValueRooms: { color: COLORS.primaryDark },
+  statValueDevices: { color: COLORS.primaryDark },
+  statValueActive: { color: COLORS.primaryDark },
+  statLabel: {
+    ...FONTS.body3,
+    color: COLORS.textMedium,
+  },
+  statLabelRooms: { color: COLORS.primary },
+  statLabelDevices: { color: COLORS.primary },
+  statLabelActive: { color: COLORS.primary },
 section: {
   marginBottom: SIZES.base,
 },
@@ -491,7 +650,7 @@ devicesList: {
     alignItems: 'center',
     ...SHADOWS.large,
   },
-  deviceCardOn: { backgroundColor: COLORS.primaryDark },
+  deviceCardOn: { backgroundColor: COLORS.primaryLight },
   deviceCardOff: { backgroundColor: COLORS.white },
   deviceIconBubble: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryLight, marginRight: 12 },
   deviceIconText: { fontSize: 16 },
@@ -506,7 +665,8 @@ devicesList: {
   deviceSubTextOff: { color: COLORS.textLight },
   powerButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
   powerDot: { width: 14, height: 14, borderRadius: 7 },
-  powerDotOn: { backgroundColor: COLORS.accent },
+  powerDotOn: { backgroundColor: COLORS.info },
+  statusIndicator: { width: 10, height: 10, borderRadius: 5 },
   powerDotOff: { backgroundColor: COLORS.gray },
   emptyText: {
     ...FONTS.body2,
@@ -515,9 +675,11 @@ devicesList: {
     textAlign: 'center',
     marginVertical: SIZES.base,
   },
-  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.base },
-  quickItem: { alignItems: 'center', width: '23%' },
-  quickIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', ...SHADOWS.small },
+  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.base, flexWrap: 'nowrap' },
+  quickItem: { alignItems: 'center', width: '19%' },
+  quickIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', ...SHADOWS.small },
+  quickIconOn: { backgroundColor: COLORS.warning },
+  quickIconOff: { backgroundColor: COLORS.primaryLight },
   quickEmoji: { fontSize: 20 },
   quickLabel: { ...FONTS.small, color: COLORS.textLight, marginTop: 6 },
   productsList: {

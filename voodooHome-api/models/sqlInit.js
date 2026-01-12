@@ -9,6 +9,8 @@ async function initSqlSchema() {
       password VARCHAR(255) NOT NULL,
       avatar VARCHAR(255),
       phone VARCHAR(30),
+      user_id VARCHAR(5),
+      plan_id VARCHAR(5),
       subscription_type VARCHAR(50),
       subscription_id VARCHAR(100),
       subdevice_ids JSON NULL,
@@ -228,6 +230,26 @@ async function initSqlSchema() {
   }
   try {
     await pool.query("ALTER TABLE users ADD COLUMN subscription_id VARCHAR(100) NULL");
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN user_id VARCHAR(5) NULL");
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN plan_id VARCHAR(5) NULL");
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE users ADD UNIQUE INDEX idx_users_user_id (user_id)");
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE users ADD UNIQUE INDEX idx_users_plan_id (plan_id)");
   } catch (e) {
     // ignore if exists
   }

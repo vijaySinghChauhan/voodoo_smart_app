@@ -47,36 +47,8 @@ const AdminDashboardScreen: React.FC = () => {
     );
   }
 
-  const makeWeeklyFallback = (weeks = 8) => {
-    const now = new Date();
-    const monday = new Date(now);
-    const day = monday.getDay();
-    const diffToMonday = (day + 6) % 7; // 0->6, 1->0, ...
-    monday.setDate(monday.getDate() - diffToMonday);
-    const res: Array<{ label: string; value: number }> = [];
-    for (let i = weeks - 1; i >= 0; i--) {
-      const start = new Date(monday);
-      start.setDate(monday.getDate() - i * 7);
-      const yyyy = start.getFullYear();
-      const mm = String(start.getMonth() + 1).padStart(2, '0');
-      const dd = String(start.getDate()).padStart(2, '0');
-      res.push({ label: `Wk ${yyyy}-${mm}-${dd}`, value: 0 });
-    }
-    return res;
-  };
-
-  const randInt = (min:number, max:number) => Math.floor(Math.random() * (max - min + 1)) + min;
-  const makeWeeklyDemo = (weeks = 8, min = 2, max = 12) => {
-    const base = makeWeeklyFallback(weeks);
-    return base.map(b => ({ label: b.label, value: randInt(min, max) }));
-  };
-
-  const userData = ((stats?.users?.trend || []).length
-    ? (stats?.users?.trend || []).map((d:any) => ({ label: d.week_start ? `Wk ${String(d.week_start)}` : String(d.day), value: d.count }))
-    : makeWeeklyDemo(8, 3, 12));
-  const subsData = ((stats?.subscriptions?.trend || []).length
-    ? (stats?.subscriptions?.trend || []).map((d:any) => ({ label: d.week_start ? `Wk ${String(d.week_start)}` : String(d.day), value: d.count }))
-    : makeWeeklyDemo(8, 1, 8));
+  const userData = (stats?.users?.trend || []).map((d:any) => ({ label: d.week_start ? `Wk ${String(d.week_start)}` : String(d.day), value: d.count }));
+  const subsData = (stats?.subscriptions?.trend || []).map((d:any) => ({ label: d.week_start ? `Wk ${String(d.week_start)}` : String(d.day), value: d.count }));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,24 +72,29 @@ const AdminDashboardScreen: React.FC = () => {
 
         <View style={{ marginTop: SIZES.margin }}>
           <Text style={styles.sectionTitle}>Users (last 8 weeks)</Text>
-          <BarChart data={userData} />
+          {userData.length > 0 ? (
+            <BarChart data={userData} />
+          ) : (
+            <Text style={styles.noData}>No data</Text>
+          )}
         </View>
 
         <View style={{ marginTop: SIZES.margin }}>
           <Text style={styles.sectionTitle}>Subscriptions (last 8 weeks)</Text>
-          <BarChart data={subsData} />
+          {subsData.length > 0 ? (
+            <BarChart data={subsData} />
+          ) : (
+            <Text style={styles.noData}>No data</Text>
+          )}
         </View>
 
         <View style={{ marginTop: SIZES.margin }}>
           <Text style={styles.sectionTitle}>Logs (30-day pie)</Text>
-          <PieChart
-            data={((stats?.logs?.pie || []).length ? (stats?.logs?.pie || []) : [
-              { type: 'login', count: randInt(20, 40) },
-              { type: 'device_toggle', count: randInt(30, 60) },
-              { type: 'error', count: randInt(1, 10) },
-              { type: 'purchase', count: randInt(5, 15) }
-            ]).map((row:any) => ({ label: row.type, value: row.count }))}
-          />
+          {(stats?.logs?.pie || []).length > 0 ? (
+            <PieChart data={(stats?.logs?.pie || []).map((row:any) => ({ label: row.type, value: row.count }))} />
+          ) : (
+            <Text style={styles.noData}>No data</Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -134,6 +111,7 @@ const styles = StyleSheet.create({
   cardValue: { ...FONTS.h2, color: COLORS.primary },
   cardLabel: { ...FONTS.body3, color: COLORS.textLight },
   sectionTitle: { ...FONTS.h3, color: COLORS.textDark, marginBottom: 8 },
+  noData: { ...FONTS.body3, color: COLORS.textLight },
   barLabel: { ...FONTS.body3, color: COLORS.textLight },
   barBg: { height: 10, backgroundColor: '#eee', borderRadius: 5 },
   barFill: { height: 10, backgroundColor: COLORS.primary, borderRadius: 5 },

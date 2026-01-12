@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 
 class User {
-  constructor({ id, name, email, password, avatar, role, phone, beta, tester, created_at, last_login, subdevice_ids, subscription_id }) {
+  constructor({ id, name, email, password, avatar, role, phone, beta, tester, created_at, last_login, subdevice_ids, subscription_id, plan_id, user_id }) {
     this._id = id; // keep _id for controller compatibility
     this.id = id;
     this.name = name;
@@ -16,6 +16,8 @@ class User {
     this.createdAt = created_at;
     this.lastLogin = last_login;
     this.subscriptionId = subscription_id ? String(subscription_id) : null;
+    this.planId = plan_id ? String(plan_id) : null;
+    this.userIdCode = user_id ? String(user_id) : null;
     try {
       if (Array.isArray(subdevice_ids)) {
         this.subdeviceIds = subdevice_ids.map(v => String(v));
@@ -48,12 +50,12 @@ class User {
   }
 
   static async findById(id) {
-    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,beta,tester,created_at,last_login,subdevice_ids,subscription_id FROM users WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await pool.query('SELECT id,name,email,avatar,role,phone,beta,tester,created_at,last_login,subdevice_ids,subscription_id,plan_id,user_id FROM users WHERE id = ? LIMIT 1', [id]);
     return rows[0] ? new User(rows[0]) : null;
   }
 
   static async findByIdAndUpdate(id, fields) {
-    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone','beta','tester','subdeviceIds','subscriptionId'].includes(k));
+    const keys = Object.keys(fields).filter(k => ['name','email','avatar','password','lastLogin','role','phone','beta','tester','subdeviceIds','subscriptionId','planId'].includes(k));
     if (keys.length === 0) {
       return await User.findById(id);
     }
@@ -63,6 +65,7 @@ class User {
       let col = key === 'lastLogin' ? 'last_login' : key === 'createdAt' ? 'created_at' : key;
       if (key === 'subdeviceIds') col = 'subdevice_ids';
       if (key === 'subscriptionId') col = 'subscription_id';
+      if (key === 'planId') col = 'plan_id';
       updates.push(`${col} = ?`);
       if (key === 'subdeviceIds') {
         const val = Array.isArray(fields[key]) ? fields[key] : [];
@@ -78,21 +81,31 @@ class User {
 
   async save() {
     if (!this._id) {
-      // insert
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(this.password, salt);
+      const generatedPlanId = (this.planId && String(this.planId).length === 5) ? String(this.planId) : String(Math.floor(10000 + Math.random() * 90000));
+      let generatedUserId = (this.userIdCode && String(this.userIdCode).length === 5) ? String(this.userIdCode) : null;
+      if (!generatedUserId) {
+        for (let i = 0; i < 5; i++) {
+          const candidate = String(Math.floor(10000 + Math.random() * 90000));
+          const [rows] = await pool.query('SELECT id FROM users WHERE user_id = ? LIMIT 1', [candidate]);
+          if (!rows || !rows[0]) { generatedUserId = candidate; break; }
+        }
+        if (!generatedUserId) generatedUserId = String(Math.floor(10000 + Math.random() * 90000));
+      }
       const [res] = await pool.query(
-        'INSERT INTO users (name,email,password,avatar,role,phone,subdevice_ids,subscription_id,created_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)',
-        [this.name, this.email, hashed, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null]
+        'INSERT INTO users (name,email,password,avatar,role,phone,user_id,plan_id,subdevice_ids,subscription_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)',
+        [this.name, this.email, hashed, this.avatar || null, this.role || 'user', this.phone || null, generatedUserId, generatedPlanId, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null]
       );
       this._id = res.insertId;
       this.id = res.insertId;
+      this.planId = generatedPlanId;
+      this.userIdCode = generatedUserId;
       return this;
     } else {
-      // update
       const [res] = await pool.query(
-        'UPDATE users SET name=?, email=?, avatar=?, role=?, phone=?, subdevice_ids=?, subscription_id=?, last_login=? WHERE id=?',
-        [this.name, this.email, this.avatar || null, this.role || 'user', this.phone || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null, this.lastLogin || null, this._id]
+        'UPDATE users SET name=?, email=?, avatar=?, role=?, phone=?, user_id=?, plan_id=?, subdevice_ids=?, subscription_id=?, last_login=? WHERE id=?',
+        [this.name, this.email, this.avatar || null, this.role || 'user', this.phone || null, this.userIdCode || null, this.planId || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null, this.lastLogin || null, this._id]
       );
       return this;
     }
