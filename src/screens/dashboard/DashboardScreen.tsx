@@ -99,7 +99,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           const m1 = html.match(re1); if (m1) candidates.push(m1[1]);
           const m2 = html.match(re2); if (m2) candidates.push(m2[1]);
           const m3 = html.match(re3); if (m3) candidates.push(m3[1]);
-          const latestVersion = normalizeVersion(candidates.find(Boolean));
+          const latestVersion = normalizeVersion(candidates.find(Boolean) || '');
           const storeUrl = `https://play.google.com/store/apps/details?id=${packageName}`;
           const newer = latestVersion && compareVersions(latestVersion, currentVersion) > 0;
           if (newer) setForceUpdateUrl(storeUrl);
@@ -142,7 +142,18 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
       // Load devices
       const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
-      setDevices(devicesData);
+      const normalizedDevices: Device[] = devicesData.map((d: any) => {
+        const statusRaw = typeof d?.isOn !== 'undefined' ? (d.isOn ? 'on' : 'off') : String(d?.status || '').toLowerCase();
+        const status: 'on' | 'off' = statusRaw === 'on' ? 'on' : 'off';
+        return {
+          id: String(d?.id || ''),
+          name: String(d?.name || 'Device'),
+          type: String(d?.type || d?.deviceType || 'Device'),
+          status,
+          roomId: d?.room ? String(d.room) : null,
+        };
+      });
+      setDevices(normalizedDevices);
       try {
         const candidate = devicesData.find((d: any) => {
           const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
@@ -181,9 +192,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       setProducts(productsData.slice(0, 5)); // Show only first 5 products on dashboard
 
       // Calculate statistics
-      const active = devicesData.filter(device => device.status === 'on').length;
+      const active = normalizedDevices.filter(device => device.status === 'on').length;
       setActiveDevices(active);
-      setTotalDevices(devicesData.length);
+      setTotalDevices(normalizedDevices.length);
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -262,14 +273,14 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }
 
   return (
-  <View style={{ flex: 1, minHeight: '100vh', backgroundColor: COLORS.background }}>
+  <View style={{ flex: 1, minHeight: SIZES.height, backgroundColor: COLORS.background }}>
       <Modal visible={!!forceUpdateUrl} animationType="fade" transparent={false}>
         <View style={{ flex: 1, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Card style={{ width: '90%' }} elevation="large">
             <Text style={{ ...FONTS.h2, color: COLORS.textDark, marginBottom: 8 }}>Update Required</Text>
             <Text style={{ ...FONTS.body2, color: COLORS.textLight, marginBottom: 16 }}>A newer version of the app is available. Please update to continue.</Text>
             <Button
-              title="Update Now"
+              label="Update Now"
               onPress={() => {
                 if (forceUpdateUrl) Linking.openURL(forceUpdateUrl);
               }}
@@ -534,6 +545,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
      
       </ScrollView>
+      {Platform.OS === 'web' && (
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>VooDoo Smart Home © 2026</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -714,6 +730,18 @@ productPrice: {
 },
   productCategory: {
     ...FONTS.small,
+    color: COLORS.textLight,
+  },
+  footer: {
+    padding: SIZES.padding,
+    backgroundColor: COLORS.card,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    ...FONTS.body3,
     color: COLORS.textLight,
   },
 });

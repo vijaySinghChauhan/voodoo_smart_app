@@ -4,4 +4,12 @@
     <string name="shortcut_motor_long">Motor On/Off</string>
     <string name="shortcut_lock_short">Lock/Unlock</string>
     <string name="shortcut_lock_long">Lock/Unlock</string>
+    <string name="shortcut_device1_on_short">Device1 On</string>
+    <string name="shortcut_device1_on_long">Turn Device1 On</string>
+    <string name="shortcut_device1_off_short">Device1 Off</string>
+    <string name="shortcut_device1_off_long">Turn Device1 Off</string>
+    <string name="shortcut_device2_on_short">Device2 On</string>
+    <string name="shortcut_device2_on_long">Turn Device2 On</string>
+    <string name="shortcut_device2_off_short">Device2 Off</string>
+    <string name="shortcut_device2_off_long">Turn Device2 Off</string>
 </resources>

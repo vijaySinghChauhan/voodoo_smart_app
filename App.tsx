@@ -468,6 +468,38 @@ const AppNavigator = () => {
           Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
           return;
         }
+        if (path.startsWith('/device1/on') || path.startsWith('/device1/off')) {
+          const target = list.find((d: any) => typeof (d as any).device1 !== 'undefined') || list[0];
+          const devId = String((target as any).id || '');
+          if (!devId) {
+            Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+            return;
+          }
+          const value = path.startsWith('/device1/on') ? 1 : 0;
+          const ok = await esp8266Service.updateDeviceOnServer(devId, { device1: value });
+          if (ok) {
+            Toast.show({ type: 'success', text1: 'Device1', text2: value === 1 ? 'ON' : 'OFF', position: 'bottom' });
+          } else {
+            Toast.show({ type: 'error', text1: 'Failed to set', text2: 'Could not update device1', position: 'bottom' });
+          }
+          return;
+        }
+        if (path.startsWith('/device2/on') || path.startsWith('/device2/off')) {
+          const target = list.find((d: any) => typeof (d as any).device2 !== 'undefined') || list[0];
+          const devId = String((target as any).id || '');
+          if (!devId) {
+            Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+            return;
+          }
+          const value = path.startsWith('/device2/on') ? 1 : 0;
+          const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: value });
+          if (ok) {
+            Toast.show({ type: 'success', text1: 'Device2', text2: value === 1 ? 'ON' : 'OFF', position: 'bottom' });
+          } else {
+            Toast.show({ type: 'error', text1: 'Failed to set', text2: 'Could not update device2', position: 'bottom' });
+          }
+          return;
+        }
         if (path.startsWith('/motor/toggle')) {
           const target = list.find((d: any) => {
             const t = String(d.deviceType || d.type || '').toLowerCase();
@@ -575,6 +607,38 @@ const AppNavigator = () => {
               const list = await esp8266Service.getDevicesFromServer();
               if (!Array.isArray(list) || list.length === 0) {
                 Toast.show({ type: 'error', text1: 'No devices found', position: 'bottom' });
+                return;
+              }
+              if (path.startsWith('/device1/on') || path.startsWith('/device1/off')) {
+                const target = list.find((d: any) => typeof (d as any).device1 !== 'undefined') || list[0];
+                const devId = String((target as any).id || '');
+                if (!devId) {
+                  Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                  return;
+                }
+                const value = path.startsWith('/device1/on') ? 1 : 0;
+                const ok = await esp8266Service.updateDeviceOnServer(devId, { device1: value });
+                if (ok) {
+                  Toast.show({ type: 'success', text1: 'Device1', text2: value === 1 ? 'ON' : 'OFF', position: 'bottom' });
+                } else {
+                  Toast.show({ type: 'error', text1: 'Failed to set', text2: 'Could not update device1', position: 'bottom' });
+                }
+                return;
+              }
+              if (path.startsWith('/device2/on') || path.startsWith('/device2/off')) {
+                const target = list.find((d: any) => typeof (d as any).device2 !== 'undefined') || list[0];
+                const devId = String((target as any).id || '');
+                if (!devId) {
+                  Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
+                  return;
+                }
+                const value = path.startsWith('/device2/on') ? 1 : 0;
+                const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: value });
+                if (ok) {
+                  Toast.show({ type: 'success', text1: 'Device2', text2: value === 1 ? 'ON' : 'OFF', position: 'bottom' });
+                } else {
+                  Toast.show({ type: 'error', text1: 'Failed to set', text2: 'Could not update device2', position: 'bottom' });
+                }
                 return;
               }
               if (path.startsWith('/motor/toggle')) {
@@ -823,7 +887,7 @@ function App(): React.JSX.Element {
         <Toast />
   
       </AuthProvider>
-            </PaperProvider>
+      </PaperProvider>
     </SafeAreaProvider>
   );
 }

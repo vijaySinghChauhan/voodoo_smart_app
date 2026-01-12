@@ -1,12 +1,14 @@
 import 'react-native-gesture-handler';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { NavigationContainer, getFocusedRouteNameFromRoute, createNavigationContainerRef } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { COLORS, FONTS, SIZES } from './src/theme/theme';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
@@ -42,6 +44,7 @@ import WifiConnection from './src/services/esp8266/wifiConnection';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
+const navigationRef = createNavigationContainerRef();
 
 
 
@@ -199,9 +202,75 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {user ? <AppDrawer /> : <AuthStack />}
     </NavigationContainer>
+  );
+}
+
+function WebFooterTabs() {
+  const { user } = useAuth();
+  if (!user) return null;
+  const itemStyle = { alignItems: 'center', justifyContent: 'center' } as const;
+  const labelStyle = { ...FONTS.small, color: COLORS.textMedium } as const;
+  return (
+    <View
+      style={{
+        height: 64,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.lightGray,
+        backgroundColor: COLORS.card,
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+      }}
+    >
+      <TouchableOpacity
+        style={itemStyle}
+        onPress={() => navigationRef.isReady() && navigationRef.navigate('Dashboard')}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Home"
+      >
+        <Ionicons name="home-outline" size={22} color={COLORS.textDark} />
+        <Text style={labelStyle}>Home</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={itemStyle}
+        onPress={() => navigationRef.isReady() && navigationRef.navigate('Rooms')}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Rooms"
+      >
+        <Ionicons name="grid-outline" size={22} color={COLORS.textDark} />
+        <Text style={labelStyle}>Rooms</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={itemStyle}
+        onPress={() => navigationRef.isReady() && navigationRef.navigate('Devices')}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Devices"
+      >
+        <Ionicons name="cube-outline" size={22} color={COLORS.textDark} />
+        <Text style={labelStyle}>Devices</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={itemStyle}
+        onPress={() => navigationRef.isReady() && navigationRef.navigate('Shop', { screen: 'ProductList' })}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Shop"
+      >
+        <Ionicons name="cart-outline" size={22} color={COLORS.textDark} />
+        <Text style={labelStyle}>Shop</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={itemStyle}
+        onPress={() => navigationRef.isReady() && navigationRef.navigate('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Profile"
+      >
+        <Ionicons name="person-outline" size={22} color={COLORS.textDark} />
+        <Text style={labelStyle}>Profile</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -210,7 +279,12 @@ export default function App() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <AppNavigator />
+          <View style={{ flex: 1, minHeight: SIZES.height }}>
+            <View style={{ flex: 1 }}>
+              <AppNavigator />
+            </View>
+            <WebFooterTabs />
+          </View>
           <Toast />
         </AuthProvider>
       </GestureHandlerRootView>

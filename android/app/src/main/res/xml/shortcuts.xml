@@ -9,17 +9,19 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="voodoohomeS2://shortcut/motor/toggle"
+            android:targetPackage="com.voodoohomes2"
             android:targetClass="com.voodoohomes2.MainActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="shortcut_lock"
         android:enabled="true"
-        android:icon="@mipmap/ic_launcher_round"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/shortcut_lock_short"
         android:shortcutLongLabel="@string/shortcut_lock_long">
         <intent
             android:action="android.intent.action.VIEW"
             android:data="voodoohomeS2://shortcut/lock/toggle"
+            android:targetPackage="com.voodoohomes2"
             android:targetClass="com.voodoohomes2.MainActivity" />
     </shortcut>
 </shortcuts>
