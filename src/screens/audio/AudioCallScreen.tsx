@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Vibration, Platform, PermissionsAndroid } from 'react-native';
-import InCallManager from 'react-native-incall-manager';
 import { useNavigation } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { io, Socket } from 'socket.io-client';
@@ -10,6 +9,25 @@ import { useAuth } from '../../context/AuthContext';
 // WebRTC imports
 import { mediaDevices, RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, MediaStream } from 'react-native-webrtc';
 import userService from '../../services/users/userService';
+
+const InCallManagerSafe: any = (() => {
+  try {
+    if (Platform.OS === 'web') return {};
+    const mod = require('react-native-incall-manager');
+    return (mod && (mod.default || mod)) || {};
+  } catch {
+    return {
+      start: () => {},
+      stop: () => {},
+      startRingtone: () => {},
+      stopRingtone: () => {},
+      setForceSpeakerphoneOn: () => {},
+      setSpeakerphoneOn: () => {},
+      setMicrophoneMute: () => {},
+      vibrate: () => {},
+    };
+  }
+})();
 
 type AudioStackParamList = {
   UserAudioList: undefined;
@@ -245,9 +263,9 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     setCallState('connecting');
     // Pre-activate audio session and route to speaker
     try {
-      InCallManager.start({ media: 'audio' });
-      InCallManager.setForceSpeakerphoneOn(true);
-      InCallManager.setSpeakerphoneOn(true);
+      InCallManagerSafe.start({ media: 'audio' });
+      InCallManagerSafe.setForceSpeakerphoneOn(true);
+      InCallManagerSafe.setSpeakerphoneOn(true);
       setSpeakerOn(true);
     } catch (_) {}
     // Notify target user of incoming call
@@ -302,8 +320,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           setRemoteAudioTracks(tracks?.length || 0);
           // Reinforce audio routing to speaker when remote audio arrives
           try {
-            InCallManager.setForceSpeakerphoneOn(true);
-            InCallManager.setSpeakerphoneOn(true);
+            InCallManagerSafe.setForceSpeakerphoneOn(true);
+            InCallManagerSafe.setSpeakerphoneOn(true);
           } catch (_) {}
           // Start timer when remote audio arrives
           if (callStateRef.current !== 'in_call') {
@@ -323,8 +341,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           tracks.forEach((t: any) => (t.enabled = true));
           setRemoteAudioTracks(tracks?.length || 0);
           try {
-            InCallManager.setForceSpeakerphoneOn(true);
-            InCallManager.setSpeakerphoneOn(true);
+            InCallManagerSafe.setForceSpeakerphoneOn(true);
+            InCallManagerSafe.setSpeakerphoneOn(true);
           } catch (_) {}
           if (callStateRef.current !== 'in_call') {
             setCallState('in_call');
@@ -366,9 +384,9 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     setCallState('connecting');
     // Activate audio session immediately and route to speaker
     try {
-      InCallManager.start({ media: 'audio' });
-      InCallManager.setForceSpeakerphoneOn(true);
-      InCallManager.setSpeakerphoneOn(true);
+      InCallManagerSafe.start({ media: 'audio' });
+      InCallManagerSafe.setForceSpeakerphoneOn(true);
+      InCallManagerSafe.setSpeakerphoneOn(true);
       setSpeakerOn(true);
     } catch (_) {}
     if (!pcRef.current) {
@@ -464,16 +482,16 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     }
   };
 
-  const toggleSpeaker = (next?: boolean) => {
-    const desired = typeof next === 'boolean' ? next : !speakerOn;
-    setSpeakerOn(desired);
-    try {
-      InCallManager.setForceSpeakerphoneOn(desired);
-      InCallManager.setSpeakerphoneOn(desired);
-    } catch (e) {
-      console.warn('toggleSpeaker error', e);
-    }
-  };
+    const toggleSpeaker = (next?: boolean) => {
+      const desired = typeof next === 'boolean' ? next : !speakerOn;
+      setSpeakerOn(desired);
+      try {
+      InCallManagerSafe.setForceSpeakerphoneOn(desired);
+      InCallManagerSafe.setSpeakerphoneOn(desired);
+      } catch (e) {
+        console.warn('toggleSpeaker error', e);
+      }
+    };
 
   const declineCall = () => {
     socketRef.current?.emit('webrtc:decline', { room: roomRef.current });
@@ -491,26 +509,26 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
     endCall();
   };
 
-  const endCall = () => {
-    // Cleanup streams and peer connection
-    try { localStreamRef.current?.getTracks()?.forEach((t: any) => t.stop()); } catch (e) {}
-    try { pcRef.current?.close(); } catch (e) {}
-    pcRef.current = null;
-    setCallState('ended');
-    // Stop any in-call audio and ringtone
-    try {
-      InCallManager.stopRingtone();
-      InCallManager.stop();
-    } catch (_) {}
-  };
+    const endCall = () => {
+      // Cleanup streams and peer connection
+      try { localStreamRef.current?.getTracks()?.forEach((t: any) => t.stop()); } catch (e) {}
+      try { pcRef.current?.close(); } catch (e) {}
+      pcRef.current = null;
+      setCallState('ended');
+      // Stop any in-call audio and ringtone
+      try {
+        InCallManagerSafe.stopRingtone();
+        InCallManagerSafe.stop();
+      } catch (_) {}
+    };
 
   // Drive ringtone and audio routing from call state
   useEffect(() => {
     if (callState === 'ringing') {
       try {
-        InCallManager.start({ media: 'audio' });
+        InCallManagerSafe.start({ media: 'audio' });
         // Provide full argument list: ringtone id, vibrate pattern, iOS category, duration seconds
-        InCallManager.startRingtone('default', [0, 500, 500], 'AVAudioSessionCategorySoloAmbient', 30);
+        InCallManagerSafe.startRingtone('default', [0, 500, 500], 'AVAudioSessionCategorySoloAmbient', 30);
       } catch (_) {
         // Fallback to vibration if native module not available
         if (Platform.OS !== 'web') {
@@ -519,17 +537,17 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
       }
     } else if (callState === 'in_call' || callState === 'connecting') {
       try {
-        InCallManager.stopRingtone();
-        InCallManager.start({ media: 'audio' });
-        InCallManager.setForceSpeakerphoneOn(true);
-        InCallManager.setMicrophoneMute(false);
+        InCallManagerSafe.stopRingtone();
+        InCallManagerSafe.start({ media: 'audio' });
+        InCallManagerSafe.setForceSpeakerphoneOn(true);
+        InCallManagerSafe.setMicrophoneMute(false);
       } catch (_) { /* ignore */ }
       // Stop vibration
       Vibration.cancel();
     } else if (callState === 'ended' || callState === 'idle') {
       try {
-        InCallManager.stopRingtone();
-        InCallManager.stop();
+        InCallManagerSafe.stopRingtone();
+        InCallManagerSafe.stop();
       } catch (_) { /* ignore */ }
       Vibration.cancel();
     }

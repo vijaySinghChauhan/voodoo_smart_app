@@ -1,7 +1,8 @@
 /* ESP8266 Full Sketch – With WiFi LED, Ultrasonic, Flow Sensor, Dashboard, Relays
    THIS VERSION COMPILES WITHOUT ERRORS
 */
-
+#define ARDUINOJSON_USE_LONG_LONG 0
+#define ARDUINOJSON_ENABLE_PROGMEM 1
 // ----------------------------------------------------------
 //  Includes
 // ----------------------------------------------------------
@@ -17,6 +18,10 @@
 // Moisture configuration
 #define MOISTURE_PIN        A0
 #define MOISTURE_THRESHOLD 450
+
+unsigned long lastHealthCheck = 0;
+const unsigned long HEALTH_INTERVAL = 60000;  // 60 seconds
+
 // Ultrasonic
 const int TRIGGER_PIN      = 12;  // D6
 const int ECHO_PIN         = 14;  // D5
@@ -105,6 +110,34 @@ String brightnessToPercent(float rawBrightness, int target) {
   percent = constrain(percent, 0, 100);
   return String(100 - percent, 2);
 }
+void wifiHealthCheck() {
+  if (millis() - lastHealthCheck < HEALTH_INTERVAL) return;
+  lastHealthCheck = millis();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi unhealthy — forcing recovery");
+
+    WiFi.disconnect(true);
+    delay(500);
+
+    WiFi.mode(WIFI_OFF);
+    delay(500);
+
+    WiFi.mode(WIFI_AP_STA);
+    if (ssid.length() > 0) {
+      WiFi.begin(ssid.c_str(), password.c_str());
+    } else {
+      WiFi.begin();
+    }
+  }
+
+  if (ESP.getFreeHeap() < 8000) {
+    Serial.println("Low heap — restarting ESP");
+    ESP.restart();
+  }
+  Serial.print("Heap: ");
+Serial.println(ESP.getFreeHeap());
+}
 
 // ----------------------------------------------------------
 // Setup
@@ -145,7 +178,7 @@ void setup() {
   // AP Mode
     
   WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
+  WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
   WiFi.begin(); 
@@ -182,9 +215,12 @@ void setup() {
 void loop() {
 //  digitalWrite(WIFI_LED_PIN, LOW);
   // setColor(255, 0, 0, 0, 0);   // Red
-  server.handleClient();
+server.handleClient();
+yield();
   ensureWiFiConnected();
   controlIrrigation();
+
+
   // FLOW sensor every 1s
   // if (millis() - lastFlowSample >= 1000) {
   //   detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
@@ -212,12 +248,13 @@ void loop() {
       Serial.println("Distance");
             Serial.println(lastDistance);
 
-   
+       wifiHealthCheck();
     if (WiFi.status() == WL_CONNECTED) {
       digitalWrite(WIFI_LED_PIN, HIGH);
       //  setColor(0, 255, 0, 0, 0);   // Green
 
       sendDataToServer(lastDistance);
+    
       Serial.println("Distance");
       Serial.println(lastDistance);
         Serial.println("WIFI connected");
@@ -628,7 +665,8 @@ void sendDataToServer(float brightnessValue) {
 
   WiFiClientSecure client;
   client.setInsecure();
-
+client.setTimeout(12000);
+client.setHandshakeTimeout(12000);
   HTTPClient https;
   if (!https.begin(client, API_URL)) return;
 
@@ -652,7 +690,9 @@ void sendDataToServer(float brightnessValue) {
     String resp = https.getString();
     Serial.println("Server Response:");
     Serial.println(resp);
-    DynamicJsonDocument doc(4096);
+    //DynamicJsonDocument doc(4096);
+    StaticJsonDocument<1024> doc;
+
     if (deserializeJson(doc,resp)==DeserializationError::Ok) {
 
       JsonObject data = doc["data"];
@@ -675,7 +715,7 @@ void sendDataToServer(float brightnessValue) {
           digitalWrite(Device2, HIGH);
           delay(200);
            digitalWrite(Device2, LOW);
-           sendDataToServer(lastDistance);
+          // sendDataToServer(lastDistance);
       } else {
           digitalWrite(Device2, LOW);
       }
@@ -695,5 +735,7 @@ void sendDataToServer(float brightnessValue) {
     }
   }
 
-  https.end();
+ https.end();
+  client.stop();
+  yield();
 }

@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
-import WifiManager from 'react-native-wifi-reborn';
+import { View, TextInput, Button, Text, StyleSheet, Platform } from 'react-native';
 import * as constantsV from '../../constants/constatantsV';
+
+const WifiManagerSafe: any = (() => {
+  try {
+    if (Platform.OS === 'web') {
+      return { connectToProtectedSSID: async () => {} };
+    }
+    const mod = require('react-native-wifi-reborn');
+    return (mod && (mod.default || mod)) || {};
+  } catch {
+    return { connectToProtectedSSID: async () => {} };
+  }
+})();
 
 const WifiConnection = () => {
   const [ssid, setSsid] = useState('');
@@ -11,7 +22,7 @@ const WifiConnection = () => {
   const sendCredentials = async () => {
     try {
       // Connect to ESP's AP
-      await WifiManager.connectToProtectedSSID('voodootech_setup', 'voodootech123', false, false);
+      await WifiManagerSafe.connectToProtectedSSID('voodootech_setup', 'voodootech123', false, false);
       
       // Send credentials to ESP
     await fetch(constantsV.BASE_URL + '/connect', {
@@ -29,7 +40,7 @@ const WifiConnection = () => {
         setStatus(statusText);
         
         // Reconnect to original network
-        await WifiManager.connectToProtectedSSID('Airtel_vija_6651', 'air00336', true, false);
+        await WifiManagerSafe.connectToProtectedSSID('Airtel_vija_6651', 'air00336', true, false);
       }, 10000);
       
     } catch (error) {

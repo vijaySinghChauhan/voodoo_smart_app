@@ -14,7 +14,9 @@
 // ----------------------------------------------------------
 //  Pin Map
 // ----------------------------------------------------------
-
+// Moisture configuration
+#define MOISTURE_PIN        A0
+#define MOISTURE_THRESHOLD 450
 // Ultrasonic
 const int TRIGGER_PIN      = 12;  // D6
 const int ECHO_PIN         = 14;  // D5
@@ -28,6 +30,7 @@ const int Device2 = 4;    // D2 Door  lock
 const int Device3 = 13;   // D7
 const int Device4 = 16;   // D0
 const int Device5 = 15;   // D8 (active-low relay) AC
+
 
 // WiFi LED
 const int WIFI_LED_PIN = 0;  // D3 (GPIO0)
@@ -64,10 +67,12 @@ String password = "";
 
 // Flow sensor
 volatile unsigned long pulseCount = 0;
-float calibrationFactor = 7.5;
+// float calibrationFactor = 7.5;
+float CALIBRATION_FACTOR = 450.0;  
 float flowRate = 0.0;
 float totalLiters = 0.0;
 unsigned long lastFlowSample = 0;
+unsigned long lastTime = 0;
 
 // Ultrasonic
 float lastDistance = -1;
@@ -114,6 +119,7 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
 
   // Flow sensor
+  lastTime = millis();
   pinMode(FLOW_SENSOR_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
 
@@ -178,25 +184,27 @@ void loop() {
   // setColor(255, 0, 0, 0, 0);   // Red
   server.handleClient();
   ensureWiFiConnected();
+  controlIrrigation();
   // FLOW sensor every 1s
-  if (millis() - lastFlowSample >= 1000) {
-    detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
-    unsigned long pulses = pulseCount;
-    pulseCount = 0;
-    attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
+  // if (millis() - lastFlowSample >= 1000) {
+  //   detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
+  //   unsigned long pulses = pulseCount;
+  //   pulseCount = 0;
+  //   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
 
-    flowRate = (float)pulses / calibrationFactor;
-    totalLiters += flowRate / 60.0;
+  //   flowRate = (float)pulses / CALIBRATION_FACTOR;
+  //   totalLiters += flowRate / 60.0;
 
-    lastFlowSample = millis();
+  //   lastFlowSample = millis();
 
-          Serial.println("Flow Rate :");
-          Serial.println(flowRate);
-           Serial.println("totalLiters :");
-          Serial.println(totalLiters);
-          // Serial.println("lastFlowSample :");
-          // Serial.println(lastFlowSample);
-  }
+  //         Serial.println("Flow Rate :");
+  //         Serial.println(flowRate);
+  //          Serial.println("totalLiters :");
+  //         Serial.println(totalLiters);
+  //         // Serial.println("lastFlowSample :");
+  //         // Serial.println(lastFlowSample);
+  // }
+  flowSensor();
 
   // Ultrasonic measurement
 
@@ -222,6 +230,36 @@ void loop() {
      }
 
   
+}
+
+void flowSensor()
+{
+   if (millis() - lastTime >= 1000) {
+
+    detachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN));
+
+    unsigned long currentTime = millis();
+    float elapsedTime = (currentTime - lastTime) / 1000.0;   // seconds
+
+    float pulses = pulseCount;
+    pulseCount = 0;
+    lastTime = currentTime;
+
+    attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), pulseCounter, FALLING);
+
+    // Calculate flow
+    float newFlowRate = (pulses / CALIBRATION_FACTOR) * (60.0 / elapsedTime);
+    flowRate = flowRate * 0.75 + newFlowRate * 0.25;   // smoothing filter
+
+    float litersThisCycle = (flowRate / 60.0) * elapsedTime;
+    totalLiters += (flowRate / 60.0) * elapsedTime;
+
+    Serial.print("Flow: ");
+    Serial.print(flowRate, 5);
+    Serial.print(" L/min   Total: ");
+    Serial.print(totalLiters, 6);
+    Serial.println(" L");
+  }
 }
 void disconnectWiFi(bool keepAP) {
   Serial.println("Disconnecting WiFi...");
@@ -276,6 +314,28 @@ void handleWiFiScan() {
   String out;
   serializeJson(arr, out);
   server.send(200, "application/json", out);
+}
+int readMoisture()
+{
+    int value = analogRead(MOISTURE_PIN);
+    return value;
+}
+
+void controlIrrigation()
+{
+    int moisture = readMoisture();
+
+    Serial.print("Moisture: ");
+    Serial.println(moisture);
+
+    if (moisture < MOISTURE_THRESHOLD)
+    {
+        digitalWrite(Device3, HIGH);   // Pump ON
+    }
+    else
+    {
+        digitalWrite(Device3, LOW);    // Pump OFF
+    }
 }
 
 // ----------------------------------------------------------
@@ -577,7 +637,7 @@ void sendDataToServer(float brightnessValue) {
   String payload = "{";
   payload += "\"macAddress\":\""+WiFi.macAddress()+"\",";
   payload += "\"ipAddress\":\""+WiFi.localIP().toString()+"\",";
-  payload += "\"ssid\":\""+WiFi.SSID()+"\",";
+  payload += "\"ssid\":\""+"VoodooTech1"+"\",";
   payload += "\"firmwareVersion\":\""+FIRMWARE_VERSION+"\",";
   payload += "\"brightness\":"+String(brightnessValue,2)+",";
   payload += "\"flowRate\":"+String(flowRate,3)+",";
@@ -610,7 +670,15 @@ void sendDataToServer(float brightnessValue) {
           Serial.println(d5);
   //  ACTIVE-LOW RELAY LOGIC FIXED
     digitalWrite(Device1, d1 ? HIGH : LOW);
-    digitalWrite(Device2, d2 ? HIGH : LOW);
+  // digitalWrite(Device2, d2 ? HIGH : LOW);
+    if (d2) {
+          digitalWrite(Device2, HIGH);
+          delay(200);
+           digitalWrite(Device2, LOW);
+           sendDataToServer(lastDistance);
+      } else {
+          digitalWrite(Device2, LOW);
+      }
     digitalWrite(Device3, d3 ? HIGH : LOW);
     digitalWrite(Device4, d4 ? HIGH : LOW);
     digitalWrite(Device5, d5 ? HIGH : LOW);

@@ -1,7 +1,6 @@
 import 'react-native-gesture-handler';
 import React from 'react';
 import { Linking, Modal, View, Text, TouchableOpacity, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
-import InCallManager from 'react-native-incall-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef, getFocusedRouteNameFromRoute } from '@react-navigation/native';
@@ -16,6 +15,24 @@ import userService from './src/services/users/userService';
 import { notificationService } from './src/services/notifications/notificationService';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { COLORS } from './src/theme/theme';
+
+const InCallManagerSafe: any = (() => {
+  try {
+    if (Platform.OS === 'web') return {};
+    const mod = require('react-native-incall-manager');
+    return (mod && (mod.default || mod)) || {};
+  } catch {
+    return {
+      start: () => {},
+      stop: () => {},
+      startRingtone: () => {},
+      stopRingtone: () => {},
+      setForceSpeakerphoneOn: () => {},
+      setMicrophoneMute: () => {},
+      vibrate: () => {},
+    };
+  }
+})();
 
 // Splash Screen
 import SplashScreen from './src/screens/SplashScreen';
@@ -395,8 +412,8 @@ const AppNavigator = () => {
           setIncomingModalVisible(true);
           // Play ringtone and vibrate
           try {
-            InCallManager.startRingtone('_BUNDLE_');
-            InCallManager.vibrate(true);
+            InCallManagerSafe.startRingtone('_BUNDLE_');
+            InCallManagerSafe.vibrate(true);
           } catch (err) { /* ignore */ }
 
           const targetUserName = payload?.name;
@@ -479,8 +496,8 @@ const AppNavigator = () => {
           visible={incomingModalVisible}
           onRequestClose={() => {
             setIncomingModalVisible(false);
-            InCallManager.stopRingtone();
-            InCallManager.vibrate(false);
+            InCallManagerSafe.stopRingtone();
+            InCallManagerSafe.vibrate(false);
           }}
         >
           <View style={styles.modalBackdrop}>
@@ -497,8 +514,8 @@ const AppNavigator = () => {
                 <TouchableOpacity
                   style={[styles.modalButton, styles.acceptButton]}
                   onPress={() => {
-                    InCallManager.stopRingtone();
-                    InCallManager.vibrate(false);
+                    InCallManagerSafe.stopRingtone();
+                    InCallManagerSafe.vibrate(false);
                     const targetUserId = incomingPayload?.from;
                     const targetUserName = incomingDisplayName || incomingPayload?.name;
                     setIncomingModalVisible(false);
@@ -512,8 +529,8 @@ const AppNavigator = () => {
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
                   onPress={() => {
-                    InCallManager.stopRingtone();
-                    InCallManager.vibrate(false);
+                    InCallManagerSafe.stopRingtone();
+                    InCallManagerSafe.vibrate(false);
                     const room = incomingPayload?.room;
                     setIncomingModalVisible(false);
                     setIncomingPayload(null);
@@ -569,8 +586,8 @@ const AppNavigator = () => {
         visible={incomingModalVisible}
         onRequestClose={() => {
           setIncomingModalVisible(false);
-          InCallManager.stopRingtone();
-          InCallManager.vibrate(false);
+          InCallManagerSafe.stopRingtone();
+          InCallManagerSafe.vibrate(false);
         }}
       >
         <View style={styles.modalBackdrop}>
@@ -587,8 +604,8 @@ const AppNavigator = () => {
               <TouchableOpacity
                 style={[styles.modalButton, styles.acceptButton]}
                 onPress={() => {
-                  InCallManager.stopRingtone();
-                  InCallManager.vibrate(false);
+                  InCallManagerSafe.stopRingtone();
+                  InCallManagerSafe.vibrate(false);
                   const targetUserId = incomingPayload?.from;
                   const targetUserName = incomingDisplayName || incomingPayload?.name;
                   setIncomingModalVisible(false);
@@ -611,8 +628,8 @@ const AppNavigator = () => {
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
-                  InCallManager.stopRingtone();
-                  InCallManager.vibrate(false);
+                  InCallManagerSafe.stopRingtone();
+                  InCallManagerSafe.vibrate(false);
                   const room = incomingPayload?.room;
                   setIncomingModalVisible(false);
                   setIncomingPayload(null);

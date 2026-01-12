@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../services/esp8266/esp8266Service';
-import { NetworkInfo } from 'react-native-network-info';
+import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import * as constantsV from '../constants/constatantsV';
 
@@ -25,14 +25,24 @@ const WiFiConfigScreen: React.FC = () => {
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
   const [showProfiles, setShowProfiles] = useState(false);
   const isTester = !!user && ((user as any).tester === 1 || (user as any).tester === '1' || (user as any).tester === true);
-// Get local IP address
-NetworkInfo.getIPV4Address().then(ipAddress => {
+const NetworkInfoSafe: any = (() => {
+  try {
+    if (Platform.OS === 'web') {
+      return { getIPV4Address: async () => '', getSSID: async () => '' };
+    }
+    const mod = require('react-native-network-info');
+    return (mod && (mod.NetworkInfo || mod.default || mod)) || {};
+  } catch {
+    return { getIPV4Address: async () => '', getSSID: async () => '' };
+  }
+})();
+
+NetworkInfoSafe.getIPV4Address().then((ipAddress: string) => {
   console.log('📡 Device IP Address:', ipAddress);
  // setDeviceIP(ipAddress || '');
 });
 
-// Get WiFi SSID
-NetworkInfo.getSSID().then(ssid => {
+NetworkInfoSafe.getSSID().then((ssid: string) => {
   console.log('📶 Connected SSID:', ssid);
 });
 

@@ -33,6 +33,9 @@ jest.mock('react-native-razorpay', () => ({
     open: () => Promise.resolve(),
   },
 }));
+jest.mock('react-native-fs', () => ({
+  stat: () => Promise.resolve({ size: 0 }),
+}));
 
 test('renders correctly', async () => {
   await ReactTestRenderer.act(() => {

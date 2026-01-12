@@ -18,8 +18,19 @@ import { useAuth } from '../../context/AuthContext';
 import logService from '../../services/logging/logService';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import ImageResizer from 'react-native-image-resizer';
-import RNFS from 'react-native-fs';
 import subscriptionService, { Subscription } from '../../services/subscriptions/subscriptionService';
+
+const RNFSSafe: any = (() => {
+  try {
+    if (Platform.OS === 'web') {
+      return { stat: async () => ({ size: 0 }) };
+    }
+    const mod = require('react-native-fs');
+    return (mod && (mod.default || mod)) || {};
+  } catch {
+    return { stat: async () => ({ size: 0 }) };
+  }
+})();
 
 const ProfileScreen: React.FC = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
@@ -57,7 +68,7 @@ const ProfileScreen: React.FC = () => {
 
   const ensureUnder2MB = async (uri: string): Promise<string> => {
     try {
-      const stat = await RNFS.stat(uri.replace('file://', ''));
+      const stat = await RNFSSafe.stat(uri.replace('file://', ''));
       if (Number(stat.size) <= MAX_SIZE_BYTES) return uri;
     } catch {}
     let width = 1200;
@@ -68,7 +79,7 @@ const ProfileScreen: React.FC = () => {
       try {
         const resized = await ImageResizer.createResizedImage(currentUri, width, height, 'JPEG', quality);
         const path = resized.uri || resized.path;
-        const stat2 = await RNFS.stat(path.replace('file://', ''));
+        const stat2 = await RNFSSafe.stat(path.replace('file://', ''));
         if (Number(stat2.size) <= MAX_SIZE_BYTES) {
           return path;
         }
