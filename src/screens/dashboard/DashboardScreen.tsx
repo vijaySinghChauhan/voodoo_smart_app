@@ -592,7 +592,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             ) : null}
             <View style={styles.row}>
               <Text style={styles.metricLabel}>
-                Water %: {typeof waterPercentage === 'number' ? `${waterPercentage}%` : '—'}
+                Water: {typeof waterPercentage === 'number' ? `${waterPercentage}%` : '—'}
               </Text>
               <Text style={styles.metricLabel}>
                 Flow: {typeof waterFlow === 'number' ? `${Number(waterFlow).toFixed(1)} L/min` : '—'}
@@ -1047,13 +1047,23 @@ productPrice: {
   metricRow: {
     marginTop: SIZES.base / 2,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   row: {
     flexDirection: 'row',
+     justifyContent: 'space-between',
+     width: '100%',
+     columnGap: SIZES.base,
   },
   metricLabel: {
     ...FONTS.body2,
-    color: COLORS.textDark,
+    color: "#48A14D",
+    marginBottom: SIZES.base / 2,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'left',
   },
 });
 
