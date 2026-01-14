@@ -40,6 +40,8 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   const [roomName, setRoomName] = useState('');
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [selectedType, setSelectedType] = useState<string>('Living Room');
+  const [imageFailedRooms, setImageFailedRooms] = useState<Record<string, boolean>>({});
+  const [imageFailedTypes, setImageFailedTypes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadRooms();
@@ -115,24 +117,51 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   const getRoomImage = (nameOrRoom: any) => {
     const src = typeof nameOrRoom === 'string' ? nameOrRoom : ((nameOrRoom?.type || nameOrRoom?.roomType || nameOrRoom?.name) || '');
     const n = String(src).toLowerCase();
-    const base = 'https://source.unsplash.com/1200x800/?';
-    if (n.includes('living')) return `${base}living-room,interior`;
-    if (n.includes('kitchen')) return `${base}kitchen,interior`;
-    if (n.includes('bed')) return `${base}bedroom,home`;
-    if (n.includes('bath')) return `${base}bathroom,interior`;
-    if (n.includes('study') || n.includes('office')) return `${base}study,home-office`;
-    if (n.includes('balcony')) return `${base}balcony,terrace`;
-    if (n.includes('store') || n.includes('storage')) return `${base}storage,pantry`;
-    if (n.includes('terrace') || n.includes('roof')) return `${base}terrace,rooftop`;
-    return `${base}home,interior`;
+    if (n.includes('living')) return 'https://images.unsplash.com/photo-1501045661006-fcebe0257c3f?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1556912172-085d6163b5a6?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691723518-36a7f0a2661a?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1617093727347-fd68450f33b3?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1540575467063-178a50b15eef?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1585386959984-a41552231679?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1554991651-4538d9e96be9?auto=format&fit=crop&w=1200&q=60';
+    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?auto=format&fit=crop&w=1200&q=60';
+  };
+
+  const getRoomFallbackImage = (nameOrRoom: any) => {
+    const src = typeof nameOrRoom === 'string' ? nameOrRoom : ((nameOrRoom?.type || nameOrRoom?.roomType || nameOrRoom?.name) || '');
+    const n = String(src).toLowerCase();
+    if (n.includes('living')) return 'https://images.unsplash.com/photo-1493666438817-866a91353ca9?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1588854337112-1c67c1a5b5fe?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1505574969061-11338c88e315?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1508062759719-6ec0f8f018b8?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1560185127-6d4b0dfe0c67?auto=format&fit=crop&w=1200&q=60';
+    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?auto=format&fit=crop&w=1200&q=60';
+  };
+
+  const getRoomEmoji = (name: string) => {
+    const n = String(name || '').toLowerCase();
+    if (n.includes('living')) return '🛋️';
+    if (n.includes('bed')) return '🛏️';
+    if (n.includes('kitchen')) return '🍳';
+    if (n.includes('bath')) return '🛁';
+    if (n.includes('balcony')) return '🌤️';
+    if (n.includes('store') || n.includes('storage')) return '📦';
+    if (n.includes('study') || n.includes('office')) return '📚';
+    if (n.includes('terrace') || n.includes('roof')) return '🏡';
+    return '🏠';
   };
 
   const renderRoomItem = ({ item }: { item: Room }) => (
     <TouchableOpacity style={styles.cardWrap} activeOpacity={0.9} onPress={() => navigation.navigate('RoomDetail', { roomId: item.id })}>
       <ImageBackground
-        source={{ uri: getRoomImage(item.name) }}
+        source={imageFailedRooms[item.id] ? { uri: getRoomFallbackImage(item.name) } : { uri: getRoomImage(item.name) }}
         style={styles.cardImage}
         imageStyle={styles.cardImageInner}
+        onError={() => setImageFailedRooms((prev) => ({ ...prev, [item.id]: true }))}
       >
         <View style={styles.cardFooter}>
           <Text style={styles.cardTitle}>{item.name}</Text>
@@ -230,9 +259,10 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
                     }}
                   >
                     <ImageBackground
-                      source={{ uri: getRoomImage({ name: t }) }}
+                      source={imageFailedTypes[t] ? { uri: getRoomFallbackImage({ name: t }) } : { uri: getRoomImage({ name: t }) }}
                       style={{ flex: 1, justifyContent: 'flex-end' }}
                       imageStyle={{ borderRadius: 8 }}
+                      onError={() => setImageFailedTypes((prev) => ({ ...prev, [t]: true }))}
                     >
                       <View style={{ backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 6, alignItems: 'center' }}>
                         <Text style={{ fontSize: 12, fontWeight: '600', color: '#222' }}>{t}</Text>
@@ -306,6 +336,9 @@ const styles = StyleSheet.create({
   },
   cardImage: { width: '100%', height: 140, justifyContent: 'flex-end' },
   cardImageInner: { borderRadius: 12 },
+  cardImageFallback: { backgroundColor: '#eeeeee', borderRadius: 12 },
+  fallbackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  fallbackEmoji: { fontSize: 24 },
   cardFooter: { backgroundColor: 'rgba(255,255,255,0.95)', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, padding: 10 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#222' },
   cardDevicesBarWrap: { height: 4, backgroundColor: '#e6eaf2', borderRadius: 2, marginTop: 6 },

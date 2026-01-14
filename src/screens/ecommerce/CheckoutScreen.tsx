@@ -132,15 +132,31 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
         keyId = 'rzp_test_q6jv7paIUDvF6t';
       }
 
+      const amountPaise = Math.round(totalAmount * 100);
+      const { orderId } = await paymentService.createRazorpayOrder({
+        amount: amountPaise,
+        currency: 'INR'
+      });
+      if (!orderId) {
+        Toast.show({
+          type: 'error',
+          text1: 'Payment Error',
+          text2: 'Unable to create payment order. Please try again.',
+          position: 'bottom'
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Initialize Razorpay payment
       const options = {
         description: 'VoodooTech Smart Home Products',
         image: 'https://your-app-logo-url.png',
         currency: 'INR',
         key: keyId,
-        amount: totalAmount * 100,
+        amount: amountPaise,
         name: 'VoodooTech Smart',
-        order_id: '',
+        order_id: orderId,
         prefill: {
           email,
           contact: phone,

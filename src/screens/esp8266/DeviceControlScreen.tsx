@@ -2050,7 +2050,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         <View style={styles.controlSection}>
        
              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 8 }}>
-                <Text style={styles.powerLabel}>Auto OFF Delay when flow is low</Text>
+                <Text style={styles.powerLabel}>Auto OFF Delay</Text>
                 {canControl && (
                   <AppSwitch
                     value={noFlowAutoOffEnabled}
@@ -2846,7 +2846,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   deviceName: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.textDark,
     marginBottom: 5,
@@ -2922,7 +2922,7 @@ const styles = StyleSheet.create({
   },
     percentageText: {
     marginTop: 0,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
     color: COLORS.darkGray,
   },

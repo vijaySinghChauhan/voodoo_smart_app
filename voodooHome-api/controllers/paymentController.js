@@ -18,10 +18,10 @@ exports.createRazorpayOrder = async (req, res) => {
     const amount = Number(req.body.amount);
     const currency = String(req.body.currency || 'INR');
     const planId = String(req.body.planId || req.body.subscriptionId || '');
-    if (!planId) {
-      return res.status(400).json({ message: 'planId is required' });
-    }
-    const receipt = `sub_${planId}_${Date.now()}`;
+    const purpose = String(req.body.purpose || '');
+    const receipt = planId
+      ? `sub_${planId}_${Date.now()}`
+      : (purpose ? `ord_${purpose}_${Date.now()}` : `ord_${Date.now()}`);
     const keyId = process.env.RAZORPAY_KEY_ID || '';
     const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
     if (!keyId || !keySecret) {
@@ -32,7 +32,8 @@ exports.createRazorpayOrder = async (req, res) => {
       amount: Math.round(amount),
       currency,
       receipt,
-      notes: { type: 'subscription', planId, userId: String(req.user.id) }
+      payment_capture: 1,
+      notes: { type: planId ? 'subscription' : 'ecommerce', planId, purpose, userId: String((req.user && req.user.id) || '') }
     };
     const rpRes = await axios.post('https://api.razorpay.com/v1/orders', payload, {
       auth: { username: keyId, password: keySecret }
