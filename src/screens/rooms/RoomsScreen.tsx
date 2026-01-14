@@ -39,6 +39,7 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [roomName, setRoomName] = useState('');
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [selectedType, setSelectedType] = useState<string>('Living Room');
 
   useEffect(() => {
     loadRooms();
@@ -111,19 +112,19 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
     }
   };
 
-  const getRoomImage = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes('living'))
-      return 'https://images.unsplash.com/photo-1505691723518-36a5ac3b2b8f?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('kitchen'))
-      return 'https://images.unsplash.com/photo-1496412705862-e0088f16f791?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('bed'))
-      return 'https://images.unsplash.com/photo-1505691723518-41e5e5b2b8f0?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('bath'))
-      return 'https://images.unsplash.com/photo-1617093627127-6c4b7f2a9f50?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('office'))
-      return 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=1200&auto=format&fit=crop';
-    return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop';
+  const getRoomImage = (nameOrRoom: any) => {
+    const src = typeof nameOrRoom === 'string' ? nameOrRoom : ((nameOrRoom?.type || nameOrRoom?.roomType || nameOrRoom?.name) || '');
+    const n = String(src).toLowerCase();
+    const base = 'https://source.unsplash.com/1200x800/?';
+    if (n.includes('living')) return `${base}living-room,interior`;
+    if (n.includes('kitchen')) return `${base}kitchen,interior`;
+    if (n.includes('bed')) return `${base}bedroom,home`;
+    if (n.includes('bath')) return `${base}bathroom,interior`;
+    if (n.includes('study') || n.includes('office')) return `${base}study,home-office`;
+    if (n.includes('balcony')) return `${base}balcony,terrace`;
+    if (n.includes('store') || n.includes('storage')) return `${base}storage,pantry`;
+    if (n.includes('terrace') || n.includes('roof')) return `${base}terrace,rooftop`;
+    return `${base}home,interior`;
   };
 
   const renderRoomItem = ({ item }: { item: Room }) => (
@@ -176,12 +177,7 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
         <Text style={styles.fabPlus}>+</Text>
       </TouchableOpacity>
 
-      <Modal
-        visible={isModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setIsModalVisible(false)}
-      >
+      <Modal visible={isModalVisible} animationType="fade" transparent onRequestClose={() => setIsModalVisible(false)}>
         <View style={styles.modal}>
           <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, width: '85%' }}>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
@@ -200,12 +196,53 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
               >
                 <Text style={styles.actionButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={handleSaveRoom}>
-                <Text style={styles.actionButtonText}>Save</Text>
-              </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={handleSaveRoom}>
+                  <Text style={styles.actionButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ height: 1, marginVertical: 12, backgroundColor: '#eee' }} />
+              <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Select Room Type</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                {[
+                  'Living Room',
+                  'Bed Room',
+                  'Kitchen',
+                  'Bath Room',
+                  'Balcony',
+                  'Store Room',
+                  'Study Room',
+                  'Terrace',
+                ].map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => {
+                      setSelectedType(t);
+                      if (!roomName) setRoomName(t);
+                    }}
+                    style={{
+                      width: '48%',
+                      height: 80,
+                      marginBottom: 10,
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      borderWidth: selectedType === t ? 2 : 1,
+                      borderColor: selectedType === t ? '#3A56D4' : '#ddd',
+                    }}
+                  >
+                    <ImageBackground
+                      source={{ uri: getRoomImage({ name: t }) }}
+                      style={{ flex: 1, justifyContent: 'flex-end' }}
+                      imageStyle={{ borderRadius: 8 }}
+                    >
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 6, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#222' }}>{t}</Text>
+                      </View>
+                    </ImageBackground>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );

@@ -2207,7 +2207,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                )}
                {showOffPercentMenu && (
                 <View style={{ marginTop: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, backgroundColor: COLORS.white, zIndex: 10 }}>
-                  {[70, 80, 90, 100].map((p) => (
+                  {[70, 80,85,88, 90,93, 95, 98, 100, 105,110].map((p) => (
                     <TouchableOpacity
                       key={p}
                       onPress={() => { setOffThreshold(p); setShowOffPercentMenu(false); persistRules(); }}

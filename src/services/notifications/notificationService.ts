@@ -122,6 +122,56 @@ export class NotificationService {
       // library not installed; ignore
     }
   }
+
+  // Schedule repeating local notifications with sound every intervalMs.
+  // On Android, uses repeatType: 'time'. On iOS, attempts the same; falls back to single schedule when unsupported.
+  public async scheduleRepeatingBeep(tag: string, intervalMs: number, offsetMs: number = 0) {
+    if (Platform.OS === 'web') return; // handled by WebAudio in foreground
+    try {
+      const mod = await import('react-native-push-notification');
+      const PushNotification = (mod as any).default || (mod as any);
+      const id = `voodoo-${tag}`;
+      const date = new Date(Date.now() + Math.max(0, offsetMs));
+      try {
+        PushNotification.localNotificationSchedule({
+          id,
+          channelId: 'voodoo-default',
+          // Minimize tray visibility: use minimal content and auto-cancel quickly
+          message: '\u200B',
+          title: '',
+          date,
+          allowWhileIdle: true,
+          playSound: true,
+          soundName: 'default',
+          vibrate: true,
+          vibration: 200,
+          priority: 'max',
+          importance: 'high',
+          visibility: 'secret',
+          onlyAlertOnce: true,
+          autoCancel: true,
+          timeoutAfter: 600,
+          repeatType: 'time',
+          repeatTime: intervalMs,
+        });
+      } catch {}
+    } catch {}
+  }
+
+  public async cancelRepeatingBeep(tag: string) {
+    if (Platform.OS === 'web') return;
+    try {
+      const mod = await import('react-native-push-notification');
+      const PushNotification = (mod as any).default || (mod as any);
+      const id = `voodoo-${tag}`;
+      try {
+        PushNotification.cancelLocalNotifications({ id });
+      } catch {}
+      try {
+        PushNotification.clearLocalNotification(id);
+      } catch {}
+    } catch {}
+  }
 }
 
 // Singleton instance

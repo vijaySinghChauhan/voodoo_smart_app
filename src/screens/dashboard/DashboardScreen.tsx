@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
   Modal,
   Linking,
 } from 'react-native';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
@@ -25,6 +26,28 @@ import logService from '../../services/logging/logService';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { notificationService } from '../../services/notifications/notificationService';
+import WaterTank from '../esp8266/WaterTank';
+
+const normalizeVersion = (v: string) => String(v || '').trim();
+const compareVersions = (a: string, b: string) => {
+  const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10) || 0);
+  const pb = normalizeVersion(b).split('.').map(n => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] || 0; const db = pb[i] || 0;
+    if (da > db) return 1;
+    if (da < db) return -1;
+  }
+  return 0;
+};
+
+const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+};
 
 interface Room {
   id: string;
@@ -50,16 +73,154 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [forceUpdateUrl, setForceUpdateUrl] = useState<string | null>(null);
   const [motorOn, setMotorOn] = useState<boolean>(false);
   const [lockOn, setLockOn] = useState<boolean>(false);
+  const [waterPercentage, setWaterPercentage] = useState<number | null>(null);
+  const [waterFlow, setWaterFlow] = useState<number | null>(null);
+  const [waterDeviceId, setWaterDeviceId] = useState<string | null>(null);
+  const [showWater, setShowWater] = useState<boolean>(false);
   const { user } = useAuth();
   const lockTimeoutRef = useRef<any>(null);
+  const beepTimeoutRef = useRef<any>(null);
+  const beepIntervalRef = useRef<any>(null);
+  const appStateRef = useRef<string>(AppState.currentState as any);
 
-  // Prevent blank screen on slow/blocked network: enforce per-call timeouts
-  const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-    return Promise.race([
-      promise,
-      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-    ]);
-  };
+ 
+  const loadDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const roomsData = await withTimeout(roomService.getRooms(), 6000, []);
+      setRooms(roomsData);
+      const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
+      const normalizedDevices: Device[] = devicesData.map((d: any) => {
+        const statusRaw = typeof d?.isOn !== 'undefined' ? (d.isOn ? 'on' : 'off') : String(d?.status || '').toLowerCase();
+        const status: 'on' | 'off' = statusRaw === 'on' ? 'on' : 'off';
+        return {
+          id: String(d?.id || ''),
+          name: String(d?.name || 'Device'),
+          type: String(d?.type || d?.deviceType || 'Device'),
+          status,
+          roomId: d?.room ? String(d.room) : null,
+        };
+      });
+      setDevices(normalizedDevices);
+      try {
+        const candidate = devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          return t.includes('motor') || n.includes('motor');
+        }) || devicesData[0];
+        if (candidate) {
+          let onGuess = false;
+          if (typeof (candidate as any).device1 !== 'undefined') {
+            const raw = (candidate as any).device1;
+            onGuess = typeof raw === 'number' ? raw === 1
+              : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true')
+              : !!raw;
+          } else if (typeof (candidate as any).isOn !== 'undefined') {
+            onGuess = !!(candidate as any).isOn;
+          } else {
+            onGuess = String((candidate as any).status || '').toLowerCase() === 'on';
+          }
+          setMotorOn(onGuess);
+        } else {
+          setMotorOn(false);
+        }
+      } catch {}
+      try {
+        const lockTarget = devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          const hasDevice2 = typeof (d as any).device2 !== 'undefined';
+          return t.includes('door') || t.includes('lock') || n.includes('door') || n.includes('lock') || hasDevice2;
+        }) || devicesData[0];
+        if (lockTarget && typeof (lockTarget as any).device2 !== 'undefined') {
+          const raw = (lockTarget as any).device2;
+          const on = typeof raw === 'number' ? raw === 1
+            : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true')
+            : !!raw;
+          setLockOn(on);
+        } else {
+          setLockOn(false);
+        }
+      } catch {}
+      const productsData = await withTimeout(productService.getProducts(), 6000, []);
+      setProducts(productsData.slice(0, 5));
+      const active = normalizedDevices.filter(device => device.status === 'on').length;
+      setActiveDevices(active);
+      setTotalDevices(normalizedDevices.length);
+      try {
+        const waterCandidate = devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          return t.includes('water') || t.includes('tank') || t.includes('sensor') || t.includes('flow') || n.includes('water') || n.includes('tank') || n.includes('flow');
+        }) || devicesData.find((d: any) => {
+          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
+          const n = String((d as any)?.name || '').toLowerCase();
+          return t.includes('motor') || n.includes('motor');
+        }) || devicesData[0];
+        const devId = String((waterCandidate as any)?.id || '');
+        if (devId) {
+          setWaterDeviceId(devId);
+          const state = await withTimeout(esp8266Service.getDeviceStateFromServer(devId), 6000, null);
+          if (state) {
+            let frRaw: any = state?.flowRate ?? state?.flow_rate ?? state?.FlowRate;
+            if (frRaw === undefined && state?.data) {
+              frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
+            }
+            const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+            if (typeof fr === 'number' && isFinite(fr)) {
+              setWaterFlow(fr);
+            } else {
+              setWaterFlow(null);
+            }
+            let pctRaw: any = state?.waterPercentage ?? state?.water_percent ?? state?.waterLevelPercent;
+            if (pctRaw === undefined && state?.data) {
+              pctRaw = state.data.waterPercentage ?? state.data.water_percent ?? state.data.waterLevelPercent;
+            }
+            let brRaw: any = state?.brightness ?? state?.value ?? state?.waterLevel;
+            if (brRaw === undefined && state?.data) {
+              brRaw = state.data.brightness ?? state.data.value ?? state.data.waterLevel;
+            }
+            const br = typeof brRaw === 'number' ? brRaw : (typeof brRaw === 'string' ? parseFloat(brRaw) : undefined);
+            let tRaw: any = state?.target ?? state?.targetDistance ?? state?.distanceTarget ?? state?.waterTarget;
+            if (tRaw === undefined && state?.data) {
+              tRaw = state.data.target ?? state.data.targetDistance ?? state.data.distanceTarget ?? state.data.waterTarget;
+            }
+            const t = typeof tRaw === 'number' && isFinite(tRaw) && tRaw > 0 ? tRaw : 100;
+            const brightnessToPercent = (raw: number, target: number) => {
+              const SENSOR_OFFSET = 15;
+              const corrected = Math.max(0, raw - SENSOR_OFFSET);
+              const base = Number.isFinite(target) && target > 0 ? target : 100;
+              const empty = (corrected / base) * 100;
+              const filled = 100 - empty;
+              return Math.max(0, Math.min(100, Math.round(filled)));
+            };
+            if (typeof pctRaw === 'number' && isFinite(pctRaw)) {
+              setWaterPercentage(Math.max(0, Math.min(100, Math.round(pctRaw))));
+            } else if (typeof br === 'number' && isFinite(br)) {
+              setWaterPercentage(brightnessToPercent(br, t));
+            } else {
+              setWaterPercentage(null);
+            }
+          } else {
+            setWaterFlow(null);
+            setWaterPercentage(null);
+          }
+        } else {
+          setWaterFlow(null);
+          setWaterPercentage(null);
+        }
+      } catch {}
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load dashboard data',
+        position: 'bottom'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -69,7 +230,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     }) : null;
 
     return unsubscribe || (() => {});
-  }, [navigation]);
+  }, [navigation, loadDashboardData]);
 
   useEffect(() => {
     const checkAppUpdate = async () => {
@@ -112,100 +273,222 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const v = await AsyncStorage.getItem('dashboard:showWater');
+        setShowWater(v === '1');
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await AsyncStorage.setItem('dashboard:showWater', showWater ? '1' : '0');
+      } catch {}
+    })();
+  }, [showWater]);
+
+  useEffect(() => {
     return () => {
       if (lockTimeoutRef.current) {
         clearTimeout(lockTimeoutRef.current);
         lockTimeoutRef.current = null;
       }
+      if (beepTimeoutRef.current) {
+        clearTimeout(beepTimeoutRef.current);
+        beepTimeoutRef.current = null;
+      }
+      if (beepIntervalRef.current) {
+        clearInterval(beepIntervalRef.current);
+        beepIntervalRef.current = null;
+      }
+      cancelMotorBeepNotifications();
     };
   }, []);
 
-  const normalizeVersion = (v: string) => String(v || '').trim();
-  const compareVersions = (a: string, b: string) => {
-    const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10) || 0);
-    const pb = normalizeVersion(b).split('.').map(n => parseInt(n, 10) || 0);
-    const len = Math.max(pa.length, pb.length);
-    for (let i = 0; i < len; i++) {
-      const da = pa[i] || 0; const db = pb[i] || 0;
-      if (da > db) return 1;
-      if (da < db) return -1;
-    }
-    return 0;
-  };
-
-  const loadDashboardData = async () => {
-    setIsLoading(true);
+  const beepOnce = async () => {
     try {
-      // Load rooms
-      const roomsData = await withTimeout(roomService.getRooms(), 6000, []);
-      setRooms(roomsData);
-
-      // Load devices
-      const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
-      const normalizedDevices: Device[] = devicesData.map((d: any) => {
-        const statusRaw = typeof d?.isOn !== 'undefined' ? (d.isOn ? 'on' : 'off') : String(d?.status || '').toLowerCase();
-        const status: 'on' | 'off' = statusRaw === 'on' ? 'on' : 'off';
-        return {
-          id: String(d?.id || ''),
-          name: String(d?.name || 'Device'),
-          type: String(d?.type || d?.deviceType || 'Device'),
-          status,
-          roomId: d?.room ? String(d.room) : null,
+      if (Platform.OS === 'web') {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const dur = 200;
+        const gap = 300;
+        const pulse = () => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.03);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          setTimeout(() => {
+            try {
+              gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.2);
+              osc.stop();
+            } catch {}
+          }, dur);
         };
-      });
-      setDevices(normalizedDevices);
-      try {
-        const candidate = devicesData.find((d: any) => {
-          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
-          const n = String((d as any)?.name || '').toLowerCase();
-          return t.includes('motor') || n.includes('motor');
-        }) || devicesData[0];
-        if (candidate) {
-          const onGuess = typeof (candidate as any).isOn !== 'undefined'
-            ? !!(candidate as any).isOn
-            : String((candidate as any).status || '').toLowerCase() === 'on';
-          setMotorOn(onGuess);
-        } else {
-          setMotorOn(false);
-        }
-      } catch {}
-      try {
-        const lockTarget = devicesData.find((d: any) => {
-          const t = String((d as any)?.type || (d as any)?.deviceType || '').toLowerCase();
-          const n = String((d as any)?.name || '').toLowerCase();
-          const hasDevice2 = typeof (d as any).device2 !== 'undefined';
-          return t.includes('door') || t.includes('lock') || n.includes('door') || n.includes('lock') || hasDevice2;
-        }) || devicesData[0];
-        if (lockTarget && typeof (lockTarget as any).device2 !== 'undefined') {
-          const raw = (lockTarget as any).device2;
-          const on = typeof raw === 'number' ? raw === 1
-            : typeof raw === 'string' ? (raw.trim().toLowerCase() === '1' || raw.trim().toLowerCase() === 'true')
-            : !!raw;
-          setLockOn(on);
-        } else {
-          setLockOn(false);
-        }
-      } catch {}
-
-      // Load products from API
-      const productsData = await withTimeout(productService.getProducts(), 6000, []);
-      setProducts(productsData.slice(0, 5)); // Show only first 5 products on dashboard
-
-      // Calculate statistics
-      const active = normalizedDevices.filter(device => device.status === 'on').length;
-      setActiveDevices(active);
-      setTotalDevices(normalizedDevices.length);
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to load dashboard data',
-        position: 'bottom'
-      });
-    } finally {
-      setIsLoading(false);
-    }
+        pulse();
+        setTimeout(() => {
+          pulse();
+          setTimeout(() => { try { ctx.close(); } catch {} }, dur + 20);
+        }, dur + gap);
+      } else {
+        const InCallManager = (() => {
+          try {
+            const mod = require('react-native-incall-manager');
+            return (mod && (mod.default || mod)) || {};
+          } catch {
+            return {};
+          }
+        })();
+        try {
+          if (typeof InCallManager.startRingtone === 'function') {
+            const dur = 200;
+            const gap = 300;
+            InCallManager.startRingtone('default');
+            setTimeout(() => {
+              try { InCallManager.stopRingtone && InCallManager.stopRingtone(); } catch {}
+            }, dur);
+            setTimeout(() => {
+              try {
+                InCallManager.startRingtone && InCallManager.startRingtone('default');
+                setTimeout(() => {
+                  try { InCallManager.stopRingtone && InCallManager.stopRingtone(); } catch {}
+                }, dur);
+              } catch {}
+            }, dur + gap);
+          }
+        } catch {}
+      }
+    } catch {}
   };
+
+  useEffect(() => {
+    if (beepTimeoutRef.current) {
+      clearTimeout(beepTimeoutRef.current);
+      beepTimeoutRef.current = null;
+    }
+    if (beepIntervalRef.current) {
+      clearInterval(beepIntervalRef.current);
+      beepIntervalRef.current = null;
+    }
+    if (motorOn) {
+      beepOnce();
+      beepIntervalRef.current = setInterval(() => {
+        beepOnce();
+      }, 180000);
+      if (Platform.OS !== 'web') {
+        if (appStateRef.current !== 'active') {
+          scheduleMotorBeepNotifications();
+        } else {
+          cancelMotorBeepNotifications();
+        }
+      }
+    } else {
+      try {
+        if (Platform.OS !== 'web') {
+          const mod = require('react-native-incall-manager');
+          const InCallManager = (mod && (mod.default || mod)) || {};
+          InCallManager.stopRingtone && InCallManager.stopRingtone();
+        }
+      } catch {}
+      cancelMotorBeepNotifications();
+    }
+  }, [motorOn]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      appStateRef.current = state as any;
+      if (motorOn) {
+        if (state !== 'active') {
+          scheduleMotorBeepNotifications();
+        } else {
+          cancelMotorBeepNotifications();
+        }
+      } else {
+        cancelMotorBeepNotifications();
+      }
+    });
+    return () => {
+      try { sub.remove(); } catch {}
+    };
+  }, [motorOn]);
+
+  const scheduleMotorBeepNotifications = async () => {
+    try {
+      await notificationService.initLocalNotifications();
+      await notificationService.scheduleRepeatingBeep('motor-beep-1', 180000, 0);
+      await notificationService.scheduleRepeatingBeep('motor-beep-2', 180000, 300);
+    } catch {}
+  };
+
+  const cancelMotorBeepNotifications = async () => {
+    try {
+      await notificationService.cancelRepeatingBeep('motor-beep-1');
+      await notificationService.cancelRepeatingBeep('motor-beep-2');
+    } catch {}
+  };
+
+
+  useEffect(() => {
+    let timer: any = null;
+    if (waterDeviceId) {
+      const poll = async () => {
+        try {
+          const state = await withTimeout(esp8266Service.getDeviceStateFromServer(waterDeviceId), 6000, null);
+          if (!state) return;
+          let frRaw: any = state?.flowRate ?? state?.flow_rate ?? state?.FlowRate;
+          if (frRaw === undefined && state?.data) {
+            frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
+          }
+          const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+          if (typeof fr === 'number' && isFinite(fr)) setWaterFlow(fr);
+          let pctRaw: any = state?.waterPercentage ?? state?.water_percent ?? state?.waterLevelPercent;
+          if (pctRaw === undefined && state?.data) {
+            pctRaw = state.data.waterPercentage ?? state.data.water_percent ?? state.data.waterLevelPercent;
+          }
+          let brRaw: any = state?.brightness ?? state?.value ?? state?.waterLevel;
+          if (brRaw === undefined && state?.data) {
+            brRaw = state.data.brightness ?? state.data.value ?? state.data.waterLevel;
+          }
+          const br = typeof brRaw === 'number' ? brRaw : (typeof brRaw === 'string' ? parseFloat(brRaw) : undefined);
+          let tRaw: any = state?.target ?? state?.targetDistance ?? state?.distanceTarget ?? state?.waterTarget;
+          if (tRaw === undefined && state?.data) {
+            tRaw = state.data.target ?? state.data.targetDistance ?? state.data.distanceTarget ?? state.data.waterTarget;
+          }
+          const t = typeof tRaw === 'number' && isFinite(tRaw) && tRaw > 0 ? tRaw : 100;
+          const brightnessToPercent = (raw: number, target: number) => {
+            const SENSOR_OFFSET = 15;
+            const corrected = Math.max(0, raw - SENSOR_OFFSET);
+            const base = Number.isFinite(target) && target > 0 ? target : 100;
+            const empty = (corrected / base) * 100;
+            const filled = 100 - empty;
+            return Math.max(0, Math.min(100, Math.round(filled)));
+          };
+          if (typeof pctRaw === 'number' && isFinite(pctRaw)) {
+            setWaterPercentage(Math.max(0, Math.min(100, Math.round(pctRaw))));
+          } else if (typeof br === 'number' && isFinite(br)) {
+            setWaterPercentage(brightnessToPercent(br, t));
+          }
+        } catch {}
+      };
+      poll();
+      timer = setInterval(poll, 5000);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+  }, [waterDeviceId]);
+
+ 
 
   const navigateToRoom = async (roomId: string) => {
     try { await logService.logButtonClick('Navigate Room Detail', { roomId }); } catch (e) {}
@@ -224,16 +507,17 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   };
 
   const getRoomImage = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes('living'))
-      return 'https://images.unsplash.com/photo-1505691723518-36a5ac3b2b8f?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('kitchen'))
-      return 'https://images.unsplash.com/photo-1496412705862-e0088f16f791?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('bed'))
-      return 'https://images.unsplash.com/photo-1505691723518-41e5e5b2b8f0?q=80&w=1200&auto=format&fit=crop';
-    if (n.includes('bath'))
-      return 'https://images.unsplash.com/photo-1617093627127-6c4b7f2a9f50?q=80&w=1200&auto=format&fit=crop';
-    return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop';
+    const n = String(name || '').toLowerCase();
+    const base = 'https://source.unsplash.com/1200x800/?';
+    if (n.includes('living')) return `${base}living-room,interior`;
+    if (n.includes('kitchen')) return `${base}kitchen,interior`;
+    if (n.includes('bed')) return `${base}bedroom,home`;
+    if (n.includes('bath')) return `${base}bathroom,interior`;
+    if (n.includes('study') || n.includes('office')) return `${base}study,home-office`;
+    if (n.includes('balcony')) return `${base}balcony,terrace`;
+    if (n.includes('store') || n.includes('storage')) return `${base}storage,pantry`;
+    if (n.includes('terrace') || n.includes('roof')) return `${base}terrace,rooftop`;
+    return `${base}home,interior`;
   };
 
   const renderRoomItem = ({ item }: { item: Room }) => (
@@ -251,18 +535,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderDeviceItem = ({ item }: { item: Device }) => (
-    <TouchableOpacity
-      style={[styles.deviceCard, { backgroundColor: item.status === 'on' ? COLORS.primaryLight : COLORS.lightGray }]}
-      onPress={() => navigateToDevice(item.id)}
-    >
-      <View style={styles.deviceInfo}>
-        <Text style={styles.deviceName}>{item.name}</Text>
-        <Text style={styles.deviceType}>{item.type}</Text>
-      </View>
-      <View style={[styles.statusIndicator, { backgroundColor: item.status === 'on' ? COLORS.info : COLORS.gray }]} />
-    </TouchableOpacity>
-  );
+ 
 
   if (isLoading) {
     return (
@@ -305,6 +578,27 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             <Text style={[styles.statValue, styles.statValueActive]}>{activeDevices}</Text>
             <Text style={[styles.statLabel, styles.statLabelActive]}>Active</Text>
           </Card>
+        </View>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Water</Text>
+            <TouchableOpacity onPress={() => setShowWater((v) => !v)}>
+              <Text style={styles.seeAllText}>{showWater ? 'Hide Tank' : 'Show Tank'}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.waterMetrics}>
+            {showWater ? (
+              <WaterTank percentage={typeof waterPercentage === 'number' ? waterPercentage : 0} />
+            ) : null}
+            <View style={styles.row}>
+              <Text style={styles.metricLabel}>
+                Water %: {typeof waterPercentage === 'number' ? `${waterPercentage}%` : '—'}
+              </Text>
+              <Text style={styles.metricLabel}>
+                Flow: {typeof waterFlow === 'number' ? `${Number(waterFlow).toFixed(1)} L/min` : '—'}
+              </Text>
+            </View>
+          </View>
         </View>
    {/* Quick Actions */}
         <View style={styles.section}>
@@ -477,7 +771,6 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   >
                     <View style={styles.deviceInfo}>
                       <Text style={[styles.deviceName, device.status === 'on' ? styles.deviceTextOn : styles.deviceTextOff]}>{device.name}</Text>
-                      <Text style={[styles.deviceType, device.status === 'on' ? styles.deviceSubTextOn : styles.deviceSubTextOff]}>{device.type}</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -675,7 +968,7 @@ devicesList: {
   },
   deviceName: { ...FONTS.body2, marginBottom: SIZES.base / 2 },
   deviceType: { ...FONTS.body3 },
-  deviceTextOn: { color: COLORS.white },
+  deviceTextOn: { color: COLORS.white ,fontSize: 12},
   deviceSubTextOn: { color: '#cfe3ff' },
   deviceTextOff: { color: COLORS.textDark },
   deviceSubTextOff: { color: COLORS.textLight },
@@ -743,6 +1036,24 @@ productPrice: {
   footerText: {
     ...FONTS.body3,
     color: COLORS.textLight,
+  },
+  waterMetrics: {
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    ...SHADOWS.large,
+  },
+  metricRow: {
+    marginTop: SIZES.base / 2,
+    alignItems: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+  },
+  metricLabel: {
+    ...FONTS.body2,
+    color: COLORS.textDark,
   },
 });
 
