@@ -863,11 +863,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
      
       </ScrollView>
-      {Platform.OS === 'web' && (
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>VooDoo Smart Home © 2026</Text>
-        </View>
-      )}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>VooDoo Smart Home © 2026</Text>
+      </View>
     </View>
   );
 };

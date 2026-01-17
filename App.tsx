@@ -353,9 +353,18 @@ const MainTabs = () => {
           },
         })}
       />
-      <Tab.Screen name="Devices" component={ESP8266Stack} />
-      <Tab.Screen name="Subscriptions" component={SubscriptionsStack} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Devices"
+        component={ESP8266Stack}
+      />
+      <Tab.Screen
+        name="Subscriptions"
+        component={SubscriptionsStack}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+      />
     </Tab.Navigator>
   );
 };
@@ -710,6 +719,17 @@ const AppNavigator = () => {
     })();
   }, []);
   
+  React.useEffect(() => {
+    try {
+      if (!navigationRef.isReady()) return;
+      if (!user) {
+        (navigationRef as any).navigate('Auth');
+      } else {
+        (navigationRef as any).reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+      }
+    } catch {}
+  }, [user]);
+  
   if (showSplash) {
     return (
       <>
@@ -779,7 +799,15 @@ const AppNavigator = () => {
   }
   
   if (isLoading) {
-    return null; // Or a loading screen
+    return (
+      <>
+        <NavigationContainer>
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            <RootStack.Screen name="Splash" component={SplashScreen} />
+          </RootStack.Navigator>
+        </NavigationContainer>
+      </>
+    );
   }
   
   return (
