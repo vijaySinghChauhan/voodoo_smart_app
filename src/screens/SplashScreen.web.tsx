@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, StatusBar, Platform, ScrollView } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,7 +36,7 @@ const SplashScreen: React.FC<WebSplashProps> = ({ onDone }) => {
   }, [fadeAnim, scaleAnim, onDone]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <StatusBar backgroundColor="#1a1a2e" barStyle="light-content" />
       <Animated.View
         style={[
@@ -61,7 +61,7 @@ const SplashScreen: React.FC<WebSplashProps> = ({ onDone }) => {
           <View style={[styles.dot, styles.dot3]} />
         </View>
       </Animated.View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -134,4 +134,3 @@ const styles = StyleSheet.create({
 });
 
 export default SplashScreen;
-

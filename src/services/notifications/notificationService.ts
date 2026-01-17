@@ -130,11 +130,16 @@ export class NotificationService {
     try {
       const mod = await import('react-native-push-notification');
       const PushNotification = (mod as any).default || (mod as any);
-      const id = `voodoo-${tag}`;
+      const idNumber = (() => {
+        let h = 0;
+        const s = String(tag || '');
+        for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+        return Math.abs(h % 100000000);
+      })();
       const date = new Date(Date.now() + Math.max(0, offsetMs));
       try {
         PushNotification.localNotificationSchedule({
-          id,
+          id: String(idNumber),
           channelId: 'voodoo-default',
           // Minimize tray visibility: use minimal content and auto-cancel quickly
           message: '\u200B',
@@ -163,12 +168,17 @@ export class NotificationService {
     try {
       const mod = await import('react-native-push-notification');
       const PushNotification = (mod as any).default || (mod as any);
-      const id = `voodoo-${tag}`;
+      const idNumber = (() => {
+        let h = 0;
+        const s = String(tag || '');
+        for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+        return Math.abs(h % 100000000);
+      })();
       try {
-        PushNotification.cancelLocalNotifications({ id });
+        PushNotification.cancelLocalNotification(String(idNumber));
       } catch {}
       try {
-        PushNotification.clearLocalNotification(id);
+        PushNotification.clearLocalNotification('', idNumber);
       } catch {}
     } catch {}
   }

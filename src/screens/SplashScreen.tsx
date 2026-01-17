@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -45,7 +46,7 @@ const SplashScreen: React.FC = () => {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <StatusBar backgroundColor="#1a1a2e" barStyle="light-content" />
       <Animated.View
         style={[
@@ -70,7 +71,7 @@ const SplashScreen: React.FC = () => {
           <View style={[styles.dot, styles.dot3]} />
         </View>
       </Animated.View>
-    </View>
+    </ScrollView>
   );
 };
 

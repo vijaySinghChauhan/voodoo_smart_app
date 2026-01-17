@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Vibration, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration, Platform, PermissionsAndroid, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { io, Socket } from 'socket.io-client';
@@ -578,64 +579,67 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Audio Streaming</Text>
-      <Text style={styles.subtitle}>
-        {callState === 'ringing' && incoming && (partnerName || targetUserName || targetUserId)
-          ? `Incoming call from ${partnerName || targetUserName || targetUserId}`
-          : callState === 'in_call' && (partnerName || targetUserName || targetUserId)
-          ? `In call with ${partnerName || targetUserName || targetUserId} • ${formatDuration(elapsedSec)}`
-          : (partnerName || targetUserName)
-          ? `Calling ${partnerName || targetUserName}`
-          : 'Select a user to start a call'}
-      </Text>
-      <Text style={styles.debug}>ICE: {iceState} • PC: {pcConnState} • Local audio: {localAudioTracks} • Remote audio: {remoteAudioTracks}</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Audio Streaming</Text>
+        <Text style={styles.subtitle}>
+          {callState === 'ringing' && incoming && (partnerName || targetUserName || targetUserId)
+            ? `Incoming call from ${partnerName || targetUserName || targetUserId}`
+            : callState === 'in_call' && (partnerName || targetUserName || targetUserId)
+            ? `In call with ${partnerName || targetUserName || targetUserId} • ${formatDuration(elapsedSec)}`
+            : (partnerName || targetUserName)
+            ? `Calling ${partnerName || targetUserName}`
+            : 'Select a user to start a call'}
+        </Text>
+        <Text style={styles.debug}>ICE: {iceState} • PC: {pcConnState} • Local audio: {localAudioTracks} • Remote audio: {remoteAudioTracks}</Text>
 
-      <View style={styles.controls}>
-        {callState === 'ringing' && (
-          <>
-            <TouchableOpacity style={styles.primaryBtn} onPress={acceptCall}>
-              <Text style={styles.btnText}>Accept</Text>
+        <View style={styles.controls}>
+          {callState === 'ringing' && (
+            <>
+              <TouchableOpacity style={styles.primaryBtn} onPress={acceptCall}>
+                <Text style={styles.btnText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dangerBtn} onPress={declineCall}>
+                <Text style={styles.btnText}>Decline</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {callState === 'idle' && (
+            <TouchableOpacity style={styles.primaryBtn} onPress={startCall}>
+              <Text style={styles.btnText}>Start Call</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dangerBtn} onPress={declineCall}>
-              <Text style={styles.btnText}>Decline</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {callState === 'idle' && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={startCall}>
-            <Text style={styles.btnText}>Start Call</Text>
-          </TouchableOpacity>
-        )}
-        {callState === 'connecting' && (
-          <>
-            <Text style={styles.status}>Connecting…</Text>
-            <TouchableOpacity style={styles.dangerBtn} onPress={cancelCall}>
-              <Text style={styles.btnText}>Cancel</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {callState === 'in_call' && (
-          <>
-            <TouchableOpacity
-              style={speakerOn ? styles.primaryBtn : styles.neutralBtn}
-              onPress={() => toggleSpeaker()}
-            >
-              <Text style={styles.btnText}>{speakerOn ? 'Big Speaker: On' : 'Big Speaker: Off'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dangerBtn} onPress={endCall}>
-              <Text style={styles.btnText}>End Call</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {callState === 'ended' && <Text style={styles.status}>Call Ended</Text>}
-      </View>
-    </View>
+          )}
+          {callState === 'connecting' && (
+            <>
+              <Text style={styles.status}>Connecting…</Text>
+              <TouchableOpacity style={styles.dangerBtn} onPress={cancelCall}>
+                <Text style={styles.btnText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {callState === 'in_call' && (
+            <>
+              <TouchableOpacity
+                style={speakerOn ? styles.primaryBtn : styles.neutralBtn}
+                onPress={() => toggleSpeaker()}
+              >
+                <Text style={styles.btnText}>{speakerOn ? 'Big Speaker: On' : 'Big Speaker: Off'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dangerBtn} onPress={endCall}>
+                <Text style={styles.btnText}>End Call</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {callState === 'ended' && <Text style={styles.status}>Call Ended</Text>}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  scrollContent: { flexGrow: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 22, fontWeight: '600', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#666', marginBottom: 8 },
   debug: { fontSize: 12, color: '#888', marginBottom: 16 },

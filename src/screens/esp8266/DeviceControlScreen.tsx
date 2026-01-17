@@ -178,6 +178,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [rulesLoaded, setRulesLoaded] = useState<boolean>(false);
   const noFlowTimerRef = React.useRef<any>(null);
   const supplyRestartBlockedRef = React.useRef<boolean>(false);
+  const supplyPrevActiveRef = React.useRef<boolean>(false);
   
   const pickerRef = useRef<DateTimePickerManagerRef>(null);
 
@@ -1276,7 +1277,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Supply Water Timer Logic
   useEffect(() => {
     if (!rulesLoaded || !supplyWaterTimerEnabled || !selectedDeviceId) return;
-    if (!canControl) return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1287,6 +1287,10 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       
       const inMorning = morning.active;
       const inEvening = evening.active;
+      const nowActive = inMorning || inEvening;
+      if (nowActive && !supplyPrevActiveRef.current) {
+        supplyRestartBlockedRef.current = false;
+      }
       
       // Debug logging for Supply Water
       if (supplyWaterTimerEnabled) {
@@ -1320,7 +1324,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         // 1. App says it's OFF (!isPowerOn)
         // 2. We haven't forced it recently (e.g. every 30s) to handle stale "ON" state
         const shouldForce = Date.now() - lastForcedOn > 30000; // 30s (was 5 mins)
-        if (!supplyRestartBlockedRef.current) {
+        if (canControl && !supplyRestartBlockedRef.current) {
 
         if (!isPowerOn) {
            // Standard trigger
@@ -1352,7 +1356,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       } else {
         setSupplyWaterTimerStatus('Waiting');
         supplyRestartBlockedRef.current = false;
-        if (isPowerOn) {
+        if (canControl && isPowerOn) {
              if (morningFinished || eveningFinished) {
                  // Device 1 is Main Power
                  // 1. Direct IP Control
@@ -1377,10 +1381,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              }
         }
       }
+      supplyPrevActiveRef.current = nowActive;
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled, lastForcedOn]);
+  }, [rulesLoaded, supplyWaterTimerEnabled, selectedDeviceId, morningStartTime, morningEndTime, eveningStartTime, eveningEndTime, isPowerOn, supplyWaterFrequency, morningScheduleEnabled, eveningScheduleEnabled, lastForcedOn, canControl]);
 
   // Watering Plants Timer Logic
   useEffect(() => {

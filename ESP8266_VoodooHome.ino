@@ -665,8 +665,7 @@ void sendDataToServer(float brightnessValue) {
 
   WiFiClientSecure client;
   client.setInsecure();
-client.setTimeout(12000);
-client.setHandshakeTimeout(12000);
+  client.setTimeout(12000);
   HTTPClient https;
   if (!https.begin(client, API_URL)) return;
 
@@ -675,7 +674,7 @@ client.setHandshakeTimeout(12000);
   String payload = "{";
   payload += "\"macAddress\":\""+WiFi.macAddress()+"\",";
   payload += "\"ipAddress\":\""+WiFi.localIP().toString()+"\",";
-  payload += "\"ssid\":\""+"VoodooTech1"+"\",";
+  payload += "\"ssid\":\"" + WiFi.SSID() + "\",";
   payload += "\"firmwareVersion\":\""+FIRMWARE_VERSION+"\",";
   payload += "\"brightness\":"+String(brightnessValue,2)+",";
   payload += "\"flowRate\":"+String(flowRate,3)+",";

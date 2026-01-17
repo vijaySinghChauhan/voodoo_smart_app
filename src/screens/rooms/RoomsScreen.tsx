@@ -117,29 +117,29 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
   const getRoomImage = (nameOrRoom: any) => {
     const src = typeof nameOrRoom === 'string' ? nameOrRoom : ((nameOrRoom?.type || nameOrRoom?.roomType || nameOrRoom?.name) || '');
     const n = String(src).toLowerCase();
-    if (n.includes('living')) return 'https://images.unsplash.com/photo-1501045661006-fcebe0257c3f?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1556912172-085d6163b5a6?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691723518-36a7f0a2661a?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1617093727347-fd68450f33b3?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1540575467063-178a50b15eef?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1585386959984-a41552231679?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1554991651-4538d9e96be9?auto=format&fit=crop&w=1200&q=60';
-    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('living')) return 'https://images.unsplash.com/photo-1501045661006-fcebe0257c3f?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1556912172-085d6163b5a6?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691723518-36a7f0a2661a?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1617093727347-fd68450f33b3?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1540575467063-178a50b15eef?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1585386959984-a41552231679?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1554991651-4538d9e96be9?fm=jpg&fit=crop&w=1200&q=60';
+    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?fm=jpg&fit=crop&w=1200&q=60';
   };
 
   const getRoomFallbackImage = (nameOrRoom: any) => {
     const src = typeof nameOrRoom === 'string' ? nameOrRoom : ((nameOrRoom?.type || nameOrRoom?.roomType || nameOrRoom?.name) || '');
     const n = String(src).toLowerCase();
-    if (n.includes('living')) return 'https://images.unsplash.com/photo-1493666438817-866a91353ca9?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1588854337112-1c67c1a5b5fe?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1505574969061-11338c88e315?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1508062759719-6ec0f8f018b8?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=60';
-    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1560185127-6d4b0dfe0c67?auto=format&fit=crop&w=1200&q=60';
-    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?auto=format&fit=crop&w=1200&q=60';
+    if (n.includes('living')) return 'https://images.unsplash.com/photo-1493666438817-866a91353ca9?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('kitchen')) return 'https://images.unsplash.com/photo-1588854337112-1c67c1a5b5fe?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('bed')) return 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('bath')) return 'https://images.unsplash.com/photo-1505574969061-11338c88e315?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('study') || n.includes('office')) return 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('balcony')) return 'https://images.unsplash.com/photo-1508062759719-6ec0f8f018b8?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('store') || n.includes('storage')) return 'https://images.unsplash.com/photo-1484154218962-a197022b5858?fm=jpg&fit=crop&w=1200&q=60';
+    if (n.includes('terrace') || n.includes('roof')) return 'https://images.unsplash.com/photo-1560185127-6d4b0dfe0c67?fm=jpg&fit=crop&w=1200&q=60';
+    return 'https://images.unsplash.com/photo-1493809842364-78817add7ff5?fm=jpg&fit=crop&w=1200&q=60';
   };
 
   const getRoomEmoji = (name: string) => {

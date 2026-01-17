@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -177,86 +177,89 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {navigation.canGoBack() ? (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
-            </TouchableOpacity>
-          ) : null}
-          <Text style={styles.title}>Subscription Checkout</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {navigation.canGoBack() ? (
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+                <Icon name="arrow-back" size={24} color={COLORS.textDark} />
+              </TouchableOpacity>
+            ) : null}
+            <Text style={styles.title}>Subscription Checkout</Text>
+          </View>
         </View>
-      </View>
 
-      {!plan ? (
-        <View style={styles.center}><Text style={styles.meta}>No plan selected.</Text></View>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.name}>{plan.name}</Text>
-          <Text style={styles.meta}>{summaryText}</Text>
-          <View style={{ height: 1, backgroundColor: COLORS.border, marginVertical: 12 }} />
-          <Text style={styles.sectionTitle}>Apply Coupon</Text>
-          {coupons.length > 0 ? (
-            <FlatList
-              data={coupons}
-              keyExtractor={(item) => item.code}
-              horizontal
-              contentContainerStyle={{ paddingVertical: 8 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.couponChip, selectedCoupon?.code === item.code ? styles.couponChipActive : undefined]}
-                  onPress={() => applyCoupon(item)}
-                  disabled={isProcessing}
-                >
-                  <Text style={styles.couponText}>{item.code}</Text>
+        {!plan ? (
+          <View style={styles.center}><Text style={styles.meta}>No plan selected.</Text></View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.name}>{plan.name}</Text>
+            <Text style={styles.meta}>{summaryText}</Text>
+            <View style={{ height: 1, backgroundColor: COLORS.border, marginVertical: 12 }} />
+            <Text style={styles.sectionTitle}>Apply Coupon</Text>
+            {coupons.length > 0 ? (
+              <FlatList
+                data={coupons}
+                keyExtractor={(item) => item.code}
+                horizontal
+                contentContainerStyle={{ paddingVertical: 8 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.couponChip, selectedCoupon?.code === item.code ? styles.couponChipActive : undefined]}
+                    onPress={() => applyCoupon(item)}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.couponText}>{item.code}</Text>
+                  </TouchableOpacity>
+                )}
+                showsHorizontalScrollIndicator={false}
+              />
+            ) : (
+              <Text style={styles.meta}>No coupons available</Text>
+            )}
+            {selectedCoupon && (
+              <View style={styles.couponRow}>
+                <Text style={styles.appliedTxt}>Applied: {selectedCoupon.code}</Text>
+                <TouchableOpacity onPress={removeCoupon} disabled={isProcessing}>
+                  <Text style={styles.removeTxt}>Remove</Text>
                 </TouchableOpacity>
-              )}
-              showsHorizontalScrollIndicator={false}
-            />
-          ) : (
-            <Text style={styles.meta}>No coupons available</Text>
-          )}
-          {selectedCoupon && (
-            <View style={styles.couponRow}>
-              <Text style={styles.appliedTxt}>Applied: {selectedCoupon.code}</Text>
-              <TouchableOpacity onPress={removeCoupon} disabled={isProcessing}>
-                <Text style={styles.removeTxt}>Remove</Text>
+              </View>
+            )}
+            <View style={styles.amountRow}>
+              <Text style={styles.sectionTitle}>Payable</Text>
+              <Text style={styles.payableTxt}>
+                {computeAmount(plan.price).toFixed(2)} {plan.currency || 'INR'}
+              </Text>
+            </View>
+            <Text style={styles.sectionTitle}>Terms</Text>
+            <Text style={styles.terms}>
+              - Auto-renew enabled. You can cancel anytime.
+              {'\n'}- Access to premium features for the selected interval.
+              {'\n'}- Refunds are subject to our policy.
+            </Text>
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.button, styles.cancelBtn]} onPress={handleCancel} disabled={isProcessing}>
+                <Text style={styles.cancelTxt}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          )}
-          <View style={styles.amountRow}>
-            <Text style={styles.sectionTitle}>Payable</Text>
-            <Text style={styles.payableTxt}>
-              {computeAmount(plan.price).toFixed(2)} {plan.currency || 'INR'}
-            </Text>
-          </View>
-          <Text style={styles.sectionTitle}>Terms</Text>
-          <Text style={styles.terms}>
-            - Auto-renew enabled. You can cancel anytime.
-            {'\n'}- Access to premium features for the selected interval.
-            {'\n'}- Refunds are subject to our policy.
-          </Text>
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.button, styles.cancelBtn]} onPress={handleCancel} disabled={isProcessing}>
-              <Text style={styles.cancelTxt}>Cancel</Text>
+
+            <TouchableOpacity style={[styles.payBtn]} onPress={handleRazorpaySubscribe} disabled={isProcessing}>
+              {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with Razorpay</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.payBtn, styles.phonepeBtn]} onPress={handlePhonePeSubscribe} disabled={isProcessing}>
+              {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with PhonePe</Text>}
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={[styles.payBtn]} onPress={handleRazorpaySubscribe} disabled={isProcessing}>
-            {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with Razorpay</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.payBtn, styles.phonepeBtn]} onPress={handlePhonePeSubscribe} disabled={isProcessing}>
-            {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with PhonePe</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { paddingBottom: SIZES.padding },
   header: { padding: SIZES.padding },
   title: { ...FONTS.h2, color: COLORS.textDark },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
