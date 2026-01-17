@@ -83,6 +83,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const beepTimeoutRef = useRef<any>(null);
   const beepIntervalRef = useRef<any>(null);
   const appStateRef = useRef<string>(AppState.currentState as any);
+  const MAX_FLOW_RATE = 60;
 
  
   const loadDashboardData = useCallback(async () => {
@@ -169,7 +170,8 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             }
             const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
             if (typeof fr === 'number' && isFinite(fr)) {
-              setWaterFlow(fr);
+              const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
+              setWaterFlow(motorOn ? clamped : 0);
             } else {
               setWaterFlow(null);
             }
@@ -281,6 +283,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       } catch {}
     })();
   }, []);
+  useEffect(() => {
+    if (!motorOn) {
+      setWaterFlow(0);
+    }
+  }, [motorOn]);
 
   useEffect(() => {
     (async () => {
@@ -448,7 +455,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
           }
           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-          if (typeof fr === 'number' && isFinite(fr)) setWaterFlow(fr);
+          if (typeof fr === 'number' && isFinite(fr)) {
+            const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
+            setWaterFlow(motorOn ? clamped : 0);
+          }
           let pctRaw: any = state?.waterPercentage ?? state?.water_percent ?? state?.waterLevelPercent;
           if (pctRaw === undefined && state?.data) {
             pctRaw = state.data.waterPercentage ?? state.data.water_percent ?? state.data.waterLevelPercent;

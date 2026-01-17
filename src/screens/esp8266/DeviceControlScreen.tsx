@@ -381,6 +381,22 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const fallbackPathRetriedRef = React.useRef<boolean>(false);
   const fallbackNoAuthRetriedRef = React.useRef<boolean>(false);
   const fallbackHttpRetriedRef = React.useRef<boolean>(false);
+  const MAX_FLOW_RATE = 60;
+  const applyFlowUpdate = (fr?: number, tl?: number, on?: boolean) => {
+    const powerOn = typeof on === 'boolean' ? on : isPowerOnRef.current;
+    if (typeof fr === 'number' && isFinite(fr)) {
+      const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
+      const value = powerOn ? clamped : 0;
+      setFlowRate(value);
+      setLastFlowRate(value);
+    }
+    if (typeof tl === 'number' && isFinite(tl)) {
+      setTotalLiters(tl);
+      setLastTotalLiters(tl);
+    }
+    setLastFlowAt(Date.now());
+    flowReceivedRef.current = true;
+  };
 
   useEffect(() => {
     // Determine deviceId from route params if available
@@ -420,17 +436,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           }
           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
           const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-
-          if (typeof fr === 'number' && isFinite(fr)) {
-             setFlowRate(fr);
-             setLastFlowRate(fr);
-           }
-          if (typeof tl === 'number' && isFinite(tl)) {
-             setTotalLiters(tl);
-             setLastTotalLiters(tl);
-          }
-          setLastFlowAt(Date.now());
-          flowReceivedRef.current = true;
+          applyFlowUpdate(fr, tl);
         };
 
         const handleBrightnessUpdate = (payload: any) => {
@@ -793,10 +799,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              frRaw = state.data.flowRate ?? state.data.flow_rate;
           }
           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-          if (typeof fr === 'number' && isFinite(fr)) {
-            setFlowRate(fr);
-            setLastFlowRate(fr);
-          }
 
           // 2. Update Total Liters
           let tlRaw = state.totalLiters ?? state.total_liters ?? state.TotalLiters;
@@ -804,12 +806,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
              tlRaw = state.data.totalLiters ?? state.data.total_liters;
           }
           const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-          if (typeof tl === 'number' && isFinite(tl)) {
-            setTotalLiters(tl);
-            setLastTotalLiters(tl);
-          }
-          
-          setLastFlowAt(Date.now());
+          applyFlowUpdate(fr, tl);
 
           // 3. Update Brightness / Water Level if available
           let brRaw = state.brightness ?? state.value ?? state.waterLevel;
@@ -1221,6 +1218,11 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   // Keep refs in sync to avoid stale closures in timers
   useEffect(() => { isPowerOnRef.current = isPowerOn; }, [isPowerOn]);
   useEffect(() => { flowRateRef.current = flowRate; }, [flowRate]);
+  useEffect(() => {
+    if (!isPowerOn) {
+      setFlowRate(0);
+    }
+  }, [isPowerOn]);
 
   // Start/clear delayed no-flow auto OFF timer when power state or rule changes
   useEffect(() => {
@@ -1731,8 +1733,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         const tlRaw = devDetail?.totalLiters ?? serverState.totalLiters ?? serverState.total_liters ?? serverState.TotalLiters;
         const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
         const tl = typeof tlRaw === 'number' ? tlRaw : (typeof tlRaw === 'string' ? parseFloat(tlRaw) : undefined);
-        if (typeof fr === 'number' && isFinite(fr)) setFlowRate(fr);
-        if (typeof tl === 'number' && isFinite(tl)) setTotalLiters(tl);
+        applyFlowUpdate(fr, tl, device1On);
         
         // Initialize target from server state if available (overrides detail)
         const tRawSrv = serverState?.target ?? serverState?.targetDepth ?? serverState?.target_value;
