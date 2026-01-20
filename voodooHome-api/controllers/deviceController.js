@@ -10,11 +10,42 @@ const axios = require('axios');
 exports.getDevices = async (req, res) => {
   try {
     const devices = await Device.findAccessibleByUser(req.user.id);
-    
+    const data = devices.map(d => ({
+      id: d.id,
+      _id: d._id,
+      name: d.name,
+      deviceType: d.deviceType,
+      macAddress: d.macAddress,
+      ipAddress: d.ipAddress,
+      ssid: d.ssid,
+      isConnected: d.isConnected,
+      isOn: d.isOn,
+      brightness: d.brightness,
+      flowRate: d.flowRate,
+      totalLiters: d.totalLiters,
+      target: d.target,
+      device1: d.device1,
+      device2: d.device2,
+      device3: d.device3,
+      device4: d.device4,
+      device5: d.device5,
+      deviceId: d.deviceId,
+      device_id: d.device_id,
+      subdevice1: d.subdevice1,
+      subdevice2: d.subdevice2,
+      subdevice3: d.subdevice3,
+      subdevice4: d.subdevice4,
+      subdevice5: d.subdevice5,
+      firmwareVersion: d.firmwareVersion,
+      lastSeen: d.lastSeen,
+      room: d.room,
+      user: d.user,
+      createdAt: d.createdAt
+    }));
     res.json({
       success: true,
-      count: devices.length,
-      data: devices
+      count: data.length,
+      data
     });
   } catch (error) {
     console.error(error);
@@ -40,7 +71,38 @@ exports.getDevice = async (req, res) => {
 
     res.json({
       success: true,
-      data: device
+      data: {
+        id: device.id,
+        _id: device._id,
+        name: device.name,
+        deviceType: device.deviceType,
+        macAddress: device.macAddress,
+        ipAddress: device.ipAddress,
+        ssid: device.ssid,
+        isConnected: device.isConnected,
+        isOn: device.isOn,
+        brightness: device.brightness,
+        flowRate: device.flowRate,
+        totalLiters: device.totalLiters,
+        target: device.target,
+        device1: device.device1,
+        device2: device.device2,
+        device3: device.device3,
+        device4: device.device4,
+        device5: device.device5,
+        deviceId: device.deviceId,
+        device_id: device.device_id,
+        subdevice1: device.subdevice1,
+        subdevice2: device.subdevice2,
+        subdevice3: device.subdevice3,
+        subdevice4: device.subdevice4,
+        subdevice5: device.subdevice5,
+        firmwareVersion: device.firmwareVersion,
+        lastSeen: device.lastSeen,
+        room: device.room,
+        user: device.user,
+        createdAt: device.createdAt
+      }
     });
   } catch (error) {
     console.error(error);

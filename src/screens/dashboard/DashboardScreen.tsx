@@ -28,6 +28,9 @@ import { useAuth } from '../../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { notificationService } from '../../services/notifications/notificationService';
 import WaterTank from '../esp8266/WaterTank';
+import { io, Socket } from 'socket.io-client';
+import authService from '../../services/auth/authService';
+import * as constantsV from '../../constants/constatantsV';
 
 const normalizeVersion = (v: string) => String(v || '').trim();
 const compareVersions = (a: string, b: string) => {
@@ -84,6 +87,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const beepIntervalRef = useRef<any>(null);
   const appStateRef = useRef<string>(AppState.currentState as any);
   const MAX_FLOW_RATE = 60;
+  const socketRef = useRef<Socket | null>(null);
+  const lastFlowSubRef = useRef<string | null>(null);
+  const motorOnRef = useRef<boolean>(false);
 
  
   const loadDashboardData = useCallback(async () => {
@@ -288,6 +294,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       setWaterFlow(0);
     }
   }, [motorOn]);
+  useEffect(() => {
+    motorOnRef.current = motorOn;
+  }, [motorOn]);
 
   useEffect(() => {
     (async () => {
@@ -442,6 +451,82 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     } catch {}
   };
 
+  const handleFlowUpdate = useCallback((payload: any) => {
+    try {
+      let frRaw: any = payload?.flowRate ?? payload?.flow_rate ?? payload?.FlowRate;
+      if (frRaw === undefined && payload?.data) {
+        frRaw = payload.data.flowRate ?? payload.data.flow_rate ?? payload.data.FlowRate;
+      }
+      const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+      if (typeof fr === 'number' && isFinite(fr)) {
+        const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
+        setWaterFlow(motorOnRef.current ? clamped : 0);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = (await authService.getToken()) || (await AsyncStorage.getItem('auth_token')) || '';
+        if (!token) return;
+        const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : false);
+        const transportList = Platform.OS === 'android' ? ['polling', 'websocket'] : (isDev ? ['polling', 'websocket'] : ['websocket', 'polling']);
+        const socket = io(constantsV.CHAT_BASE_URL, {
+          transports: transportList,
+          path: '/voodoo/socket.io',
+          timeout: 10000,
+          auth: { token },
+          extraHeaders: { Authorization: `Bearer ${token}` },
+        });
+        socketRef.current = socket;
+        socket.on('flow:update', handleFlowUpdate);
+        socket.on('connect', () => {
+          if (waterDeviceId) {
+            socket.emit('flow:subscribe', { deviceId: waterDeviceId });
+            lastFlowSubRef.current = waterDeviceId;
+          }
+        });
+        socket.on('reconnect', () => {
+          if (waterDeviceId) {
+            socket.emit('flow:subscribe', { deviceId: waterDeviceId });
+            lastFlowSubRef.current = waterDeviceId;
+          }
+        });
+      } catch {}
+    })();
+    return () => {
+      try {
+        const s = socketRef.current;
+        if (s) {
+          if (lastFlowSubRef.current) {
+            s.emit('flow:unsubscribe', { deviceId: lastFlowSubRef.current });
+          }
+          s.disconnect();
+          socketRef.current = null;
+        }
+      } catch {}
+    };
+  }, []);
+
+  useEffect(() => {
+    const s = socketRef.current;
+    if (!s) return;
+    if (lastFlowSubRef.current && lastFlowSubRef.current !== waterDeviceId) {
+      s.emit('flow:unsubscribe', { deviceId: lastFlowSubRef.current });
+    }
+    if (waterDeviceId) {
+      s.emit('flow:subscribe', { deviceId: waterDeviceId });
+      lastFlowSubRef.current = waterDeviceId;
+    }
+    return () => {
+      try {
+        if (s && waterDeviceId) {
+          s.emit('flow:unsubscribe', { deviceId: waterDeviceId });
+        }
+      } catch {}
+    };
+  }, [waterDeviceId]);
 
   useEffect(() => {
     let timer: any = null;

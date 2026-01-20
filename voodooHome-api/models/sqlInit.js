@@ -9,7 +9,7 @@ async function initSqlSchema() {
       password VARCHAR(255) NOT NULL,
       avatar VARCHAR(255),
       phone VARCHAR(30),
-      user_id VARCHAR(5),
+      user_id CHAR(36),
       plan_id VARCHAR(5),
       subscription_type VARCHAR(50),
       subscription_id VARCHAR(100),
@@ -25,6 +25,7 @@ async function initSqlSchema() {
       user_id INT NOT NULL,
       name VARCHAR(100) NOT NULL,
       type VARCHAR(50) DEFAULT 'Other',
+      room_id VARCHAR(10) UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`,
@@ -49,6 +50,7 @@ async function initSqlSchema() {
       device4 INT NULL,
       device5 INT NULL,
       deviceId VARCHAR(5) UNIQUE,
+      device_id VARCHAR(10) UNIQUE,
       subdevice1 VARCHAR(5) UNIQUE,
       subdevice2 VARCHAR(5) UNIQUE,
       subdevice3 VARCHAR(5) UNIQUE,
@@ -204,6 +206,25 @@ async function initSqlSchema() {
       quantity INT NOT NULL DEFAULT 1,
       FOREIGN KEY (plan_id) REFERENCES subscription_plans(id),
       UNIQUE KEY uniq_plan_feature (plan_id, feature_key)
+    )`,
+    `CREATE TABLE IF NOT EXISTS app_updates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      platform VARCHAR(10) NOT NULL DEFAULT 'all',
+      title VARCHAR(200) NOT NULL,
+      message TEXT NOT NULL,
+      force_update TINYINT(1) NOT NULL DEFAULT 0,
+      min_version VARCHAR(20) NULL,
+      latest_version VARCHAR(20) NULL,
+      download_url VARCHAR(255) NULL,
+      button_primary_text VARCHAR(50) NOT NULL DEFAULT 'Update',
+      button_secondary_text VARCHAR(50) NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      display_from DATETIME NULL,
+      display_to DATETIME NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_active_platform (is_active, platform),
+      INDEX idx_display (display_from, display_to)
     )`
   ];
 
@@ -234,9 +255,12 @@ async function initSqlSchema() {
     // ignore if exists
   }
   try {
-    await pool.query("ALTER TABLE users ADD COLUMN user_id VARCHAR(5) NULL");
+    await pool.query("ALTER TABLE users ADD COLUMN user_id CHAR(36) NULL");
   } catch (e) {
-    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE users MODIFY COLUMN user_id CHAR(36) NULL");
+  } catch (e) {
   }
   try {
     await pool.query("ALTER TABLE users ADD COLUMN plan_id VARCHAR(5) NULL");
@@ -300,6 +324,7 @@ async function initSqlSchema() {
     'ALTER TABLE devices ADD COLUMN device4 INT NULL',
     'ALTER TABLE devices ADD COLUMN device5 INT NULL',
     'ALTER TABLE devices ADD COLUMN deviceId VARCHAR(5) UNIQUE',
+    'ALTER TABLE devices ADD COLUMN device_id VARCHAR(10) UNIQUE',
     'ALTER TABLE devices ADD COLUMN subdevice1 VARCHAR(5) UNIQUE',
     'ALTER TABLE devices ADD COLUMN subdevice2 VARCHAR(5) UNIQUE',
     'ALTER TABLE devices ADD COLUMN subdevice3 VARCHAR(5) UNIQUE',
@@ -313,6 +338,10 @@ async function initSqlSchema() {
   ];
   for (const stmt of alterStatements) {
     try { await pool.query(stmt); } catch (e) { /* ignore if column exists */ }
+  }
+  try {
+    await pool.query('ALTER TABLE rooms ADD COLUMN room_id VARCHAR(10) UNIQUE');
+  } catch (e) {
   }
   // Ensure subscription_type exists on orders
   try {
@@ -369,6 +398,28 @@ async function initSqlSchema() {
     for (const r of rowsMissingSub5) {
       const code = await genCode('subdevice5');
       await pool.query('UPDATE devices SET subdevice5=? WHERE id=?', [code, r.id]);
+    }
+  } catch (e) {}
+  try {
+    await pool.query("UPDATE users SET user_id=UUID() WHERE user_id IS NULL OR CHAR_LENGTH(user_id)<10");
+  } catch (e) {}
+  try {
+    const gen10 = async (table, col) => {
+      while (true) {
+        const n = String(Math.floor(1000000000 + Math.random() * 9000000000));
+        const [rows] = await pool.query(`SELECT 1 FROM ${table} WHERE ${col}=? LIMIT 1`, [n]);
+        if (!rows.length) return n;
+      }
+    };
+    const [roomsMissing] = await pool.query('SELECT id FROM rooms WHERE room_id IS NULL OR room_id=""');
+    for (const r of roomsMissing) {
+      const code = await gen10('rooms','room_id');
+      await pool.query('UPDATE rooms SET room_id=? WHERE id=?', [code, r.id]);
+    }
+    const [devicesMissing] = await pool.query('SELECT id FROM devices WHERE device_id IS NULL OR device_id=""');
+    for (const r of devicesMissing) {
+      const code = await gen10('devices','device_id');
+      await pool.query('UPDATE devices SET device_id=? WHERE id=?', [code, r.id]);
     }
   } catch (e) {}
   // Backfill room_key from legacy numeric room_id if present

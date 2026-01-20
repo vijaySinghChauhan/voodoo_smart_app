@@ -37,6 +37,8 @@ exports.listUsers = async (req, res) => {
       subscriptionId: u.subscription_id || null,
       planId: u.plan_id || null,
       userCode: u.user_id || null,
+      userId: u.user_id || null,
+      user_id: u.user_id || null,
       roomCount: roomCounts[u.id] || 0,
       deviceCount: deviceCounts[u.id] || 0,
     }));
@@ -51,7 +53,7 @@ exports.listUsers = async (req, res) => {
 exports.getUser = async (req, res) => {
   try {
     const userId = req.params.id;
-    const [rows] = await pool.query('SELECT id, name, email, phone, avatar, role, beta, tester, created_at, last_login, subscription_type, subscription_id, subdevice_ids, shared_access_enabled, plan_id, user_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  const [rows] = await pool.query('SELECT id, name, email, phone, avatar, role, beta, tester, created_at, last_login, subscription_type, subscription_id, subdevice_ids, shared_access_enabled, plan_id, user_id FROM users WHERE id = ? LIMIT 1', [userId]);
     if (!rows || !rows[0]) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -80,6 +82,8 @@ exports.getUser = async (req, res) => {
       sharedAccessEnabled: typeof u.shared_access_enabled === 'number' ? u.shared_access_enabled : (u.shared_access_enabled ? 1 : 0),
       planId: u.plan_id || null,
       userCode: u.user_id || null,
+      userId: u.user_id || null,
+      user_id: u.user_id || null,
     };
     res.json({ success: true, data });
   } catch (err) {
@@ -149,7 +153,7 @@ exports.updateUser = async (req, res) => {
 exports.getUserRooms = async (req, res) => {
   try {
     const userId = req.params.id;
-    const [rows] = await pool.query('SELECT id, name, type, created_at FROM rooms WHERE user_id=? ORDER BY created_at DESC', [userId]);
+  const [rows] = await pool.query('SELECT id, name, type, room_id, created_at FROM rooms WHERE user_id=? ORDER BY created_at DESC', [userId]);
 
     // device counts by room
     const roomIds = rows.map(r => r.id);
@@ -158,7 +162,7 @@ exports.getUserRooms = async (req, res) => {
       const [devRows] = await pool.query(`SELECT room_id, COUNT(*) AS cnt FROM devices WHERE room_id IN (${roomIds.map(()=>'?').join(',')}) GROUP BY room_id`, roomIds);
       for (const r of devRows) counts[r.room_id] = r.cnt;
     }
-    const data = rows.map(r => ({ id: r.id, name: r.name, type: r.type, createdAt: r.created_at, deviceCount: counts[r.id] || 0 }));
+  const data = rows.map(r => ({ id: r.id, name: r.name, type: r.type, roomId: r.room_id || null, room_id: r.room_id || null, createdAt: r.created_at, deviceCount: counts[r.id] || 0 }));
     res.json({ success: true, count: data.length, data });
   } catch (err) {
     console.error('Admin getUserRooms error:', err);
@@ -171,7 +175,7 @@ exports.getUserDevices = async (req, res) => {
   try {
     const userId = req.params.id;
     const roomId = req.query.roomId || null;
-    let sql = `
+  let sql = `
       SELECT 
         d.id,
         d.name,
@@ -190,6 +194,8 @@ exports.getUserDevices = async (req, res) => {
         d.room_id AS roomId,
         r.name AS roomName,
         d.user_id AS userId,
+        d.deviceId AS deviceId5,
+        d.device_id AS device_id,
         d.device1, d.device2, d.device3, d.device4, d.device5,
         COALESCE(MAX(sd.subscription_active), 0) AS subscriptionActive,
         MAX(sd.subscription_end_date) AS subscriptionEndDate,
@@ -204,7 +210,7 @@ exports.getUserDevices = async (req, res) => {
     if (roomId) { sql += ' AND d.room_id = ?'; params.push(roomId); }
     sql += ' GROUP BY d.id ORDER BY d.created_at DESC';
     const [rows] = await pool.query(sql, params);
-    const data = rows.map((d) => ({
+  const data = rows.map((d) => ({
       id: d.id,
       name: d.name,
       deviceType: d.deviceType,
@@ -222,6 +228,8 @@ exports.getUserDevices = async (req, res) => {
       roomId: d.roomId,
       roomName: d.roomName,
       userId: d.userId,
+      deviceId: d.deviceId5,
+      device_id: d.device_id,
       device1: d.device1,
       device2: d.device2,
       device3: d.device3,

@@ -84,14 +84,16 @@ class User {
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(this.password, salt);
       const generatedPlanId = (this.planId && String(this.planId).length === 5) ? String(this.planId) : String(Math.floor(10000 + Math.random() * 90000));
-      let generatedUserId = (this.userIdCode && String(this.userIdCode).length === 5) ? String(this.userIdCode) : null;
+      let generatedUserId = (this.userIdCode && String(this.userIdCode).length >= 30) ? String(this.userIdCode) : null;
       if (!generatedUserId) {
-        for (let i = 0; i < 5; i++) {
-          const candidate = String(Math.floor(10000 + Math.random() * 90000));
+        const crypto = require('crypto');
+        let candidate = crypto.randomUUID();
+        for (let i = 0; i < 3; i++) {
           const [rows] = await pool.query('SELECT id FROM users WHERE user_id = ? LIMIT 1', [candidate]);
           if (!rows || !rows[0]) { generatedUserId = candidate; break; }
+          candidate = crypto.randomUUID();
         }
-        if (!generatedUserId) generatedUserId = String(Math.floor(10000 + Math.random() * 90000));
+        if (!generatedUserId) generatedUserId = crypto.randomUUID();
       }
       const [res] = await pool.query(
         'INSERT INTO users (name,email,password,avatar,role,phone,user_id,plan_id,subdevice_ids,subscription_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)',
@@ -103,7 +105,7 @@ class User {
       this.userIdCode = generatedUserId;
       return this;
     } else {
-      const [res] = await pool.query(
+      await pool.query(
         'UPDATE users SET name=?, email=?, avatar=?, role=?, phone=?, user_id=?, plan_id=?, subdevice_ids=?, subscription_id=?, last_login=? WHERE id=?',
         [this.name, this.email, this.avatar || null, this.role || 'user', this.phone || null, this.userIdCode || null, this.planId || null, JSON.stringify(this.subdeviceIds || []), this.subscriptionId || null, this.lastLogin || null, this._id]
       );

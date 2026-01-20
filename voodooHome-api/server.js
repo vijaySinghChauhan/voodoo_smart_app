@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
+const path = require('path');
 const { initSqlSchema } = require('./models/sqlInit');
 const errorHandler = require('./middleware/errorHandler');
 const socketio = require('socket.io');
@@ -43,6 +44,9 @@ app.use(express.json());
 
 // Enable CORS
 app.use(cors());
+
+// Static uploads
+app.use('/voodoo/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Define routes
 app.use('/voodoo/api/auth', require('./routes/auth'));

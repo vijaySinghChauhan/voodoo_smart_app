@@ -5,6 +5,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  avatar?: string;
   profilePicture?: string;
   role?: 'user' | 'admin';
   phone?: string;
@@ -22,6 +23,7 @@ interface AuthContextType {
   signup: (name: string, email: string, password: string, phone?: string, role?: 'user' | 'admin') => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
+  uploadAvatar: (uri: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,8 +102,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
   
+  const uploadAvatar = async (uri: string) => {
+    setIsLoading(true);
+    try {
+      const updatedUser = await authService.uploadAvatar(uri);
+      setUser(updatedUser);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, updateProfile, uploadAvatar }}>
       {children}
     </AuthContext.Provider>
   );

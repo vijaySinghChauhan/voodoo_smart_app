@@ -7,6 +7,7 @@ class Room {
     this.name = row.name;
     this.type = row.type;
     this.user = row.user_id;
+    this.roomId = row.room_id;
     this.createdAt = row.created_at;
   }
 
@@ -35,12 +36,20 @@ class Room {
 
   static async create(data) {
     try {
-      const [res] = await pool.query('INSERT INTO rooms (user_id,name,type) VALUES (?,?,?)', [data.user, data.name, data.type || 'Other']);
+      const gen10 = async () => {
+        while (true) {
+          const n = String(Math.floor(1000000000 + Math.random() * 9000000000));
+          const [rows] = await pool.query('SELECT 1 FROM rooms WHERE room_id=? LIMIT 1', [n]);
+          if (!rows.length) return n;
+        }
+      };
+      const code = await gen10();
+      const [res] = await pool.query('INSERT INTO rooms (user_id,name,type,room_id) VALUES (?,?,?,?)', [data.user, data.name, data.type || 'Other', code]);
       return await Room.findById(res.insertId);
     } catch (err) {
       console.error('Room.create failed:', err.message);
       // Return a mock object when creation fails due to DB issues
-      return { id: 'temp', _id: 'temp', name: data.name, type: data.type || 'Other', user: data.user, createdAt: new Date() };
+      return { id: 'temp', _id: 'temp', name: data.name, type: data.type || 'Other', user: data.user, roomId: null, createdAt: new Date() };
     }
   }
 

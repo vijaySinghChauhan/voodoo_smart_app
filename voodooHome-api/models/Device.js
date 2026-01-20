@@ -20,6 +20,7 @@ class Device {
     this.device4 = row.device4;
     this.device5 = row.device5;
     this.deviceId = row.deviceId;
+    this.device_id = row.device_id;
     this.subdevice1 = row.subdevice1;
     this.subdevice2 = row.subdevice2;
     this.subdevice3 = row.subdevice3;
@@ -71,14 +72,22 @@ class Device {
         if (!rows.length) return n;
       }
     };
+    const gen10 = async (col) => {
+      while (true) {
+        const n = String(Math.floor(1000000000 + Math.random() * 9000000000));
+        const [rows] = await pool.query(`SELECT 1 FROM devices WHERE ${col}=? LIMIT 1`, [n]);
+        if (!rows.length) return n;
+      }
+    };
     const deviceCode = await gen('deviceId');
     const sub1Code = await gen('subdevice1');
     const sub2Code = await gen('subdevice2');
     const sub3Code = await gen('subdevice3');
     const sub4Code = await gen('subdevice4');
     const sub5Code = await gen('subdevice5');
+    const deviceId10 = await gen10('device_id');
     const [res] = await pool.query(
-      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,flow_rate,total_liters,target,device1,device2,device3,device4,device5,deviceId,subdevice1,subdevice2,subdevice3,subdevice4,subdevice5,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      'INSERT INTO devices (user_id,room_id,name,device_type,mac_address,ip_address,ssid,is_connected,is_on,brightness,flow_rate,total_liters,target,device1,device2,device3,device4,device5,deviceId,device_id,subdevice1,subdevice2,subdevice3,subdevice4,subdevice5,firmware_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [
         data.user,
         data.room || null,
@@ -99,6 +108,7 @@ class Device {
         data.device4 ?? null,
         data.device5 ?? null,
         deviceCode,
+        deviceId10,
         sub1Code,
         sub2Code,
         sub3Code,

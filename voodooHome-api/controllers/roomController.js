@@ -22,7 +22,7 @@ exports.getRooms = async (req, res) => {
         console.warn('Room deviceCount query failed:', err.message);
       }
     }
-    const payload = rooms.map(r => ({ id: r.id, _id: r._id, name: r.name, type: r.type, user: r.user, createdAt: r.createdAt, deviceCount: counts[r.id] || 0 }));
+    const payload = rooms.map(r => ({ id: r.id, _id: r._id, name: r.name, type: r.type, user: r.user, roomId: r.roomId, room_id: r.roomId, createdAt: r.createdAt, deviceCount: counts[r.id] || 0 }));
     res.json(payload);
   } catch (error) {
     console.error(error);
@@ -55,7 +55,7 @@ exports.getRoom = async (req, res) => {
     } catch (err) {
       console.warn('Room deviceCount query failed:', err.message);
     }
-    res.json({ id: room.id, _id: room._id, name: room.name, type: room.type, user: room.user, createdAt: room.createdAt, deviceCount });
+    res.json({ id: room.id, _id: room._id, name: room.name, type: room.type, user: room.user, roomId: room.roomId, room_id: room.roomId, createdAt: room.createdAt, deviceCount });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

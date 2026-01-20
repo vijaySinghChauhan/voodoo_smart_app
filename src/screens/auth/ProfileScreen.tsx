@@ -33,7 +33,7 @@ const RNFSSafe: any = (() => {
 })();
 
 const ProfileScreen: React.FC = () => {
-  const { user, updateProfile, logout, isLoading } = useAuth();
+  const { user, updateProfile, uploadAvatar, logout, isLoading } = useAuth();
   const navigation = useNavigation();
   const [name, setName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -96,8 +96,13 @@ const ProfileScreen: React.FC = () => {
 
   const handlePickImage = async (source: 'camera' | 'gallery') => {
     try {
-      const options: any = { mediaType: 'photo', includeBase64: false, quality: 1 };
+      const options: any = { mediaType: 'photo', includeBase64: false, quality: 1, selectionLimit: 1, presentationStyle: 'fullScreen', saveToPhotos: false };
       const result = source === 'camera' ? await launchCamera(options) : await launchImageLibrary(options);
+      if ((result as any)?.errorCode) {
+        const msg = (result as any)?.errorMessage || (result as any)?.errorCode || 'Unknown error';
+        Toast.show({ type: 'error', text1: 'Picker Error', text2: String(msg), position: 'bottom' });
+        return;
+      }
       if (result.didCancel) return;
       const asset = result.assets && result.assets[0];
       if (!asset?.uri) {
@@ -105,8 +110,8 @@ const ProfileScreen: React.FC = () => {
         return;
       }
       const compressedUri = await ensureUnder2MB(asset.uri);
-      await updateProfile({ profilePicture: compressedUri });
-      Toast.show({ type: 'success', text1: 'Updated', text2: 'Profile picture updated', position: 'bottom' });
+      await uploadAvatar(compressedUri);
+      Toast.show({ type: 'success', text1: 'Updated', text2: 'Profile photo updated', position: 'bottom' });
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Upload Failed', text2: e?.message || 'Could not update picture', position: 'bottom' });
     }
@@ -191,8 +196,8 @@ const ProfileScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.profileContainer}>
           <View style={styles.avatarContainer}>
-            {user.profilePicture ? (
-              <Image source={{ uri: user.profilePicture }} style={styles.avatar} />
+            {user.avatar ? (
+              <Image source={{ uri: String(user.avatar) }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarFallbackText}>👤</Text>

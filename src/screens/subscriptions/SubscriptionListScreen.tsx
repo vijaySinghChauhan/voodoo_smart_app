@@ -56,8 +56,7 @@ const SubscriptionListScreen: React.FC<{ navigation: any }> = ({ navigation }) =
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}><Text style={styles.title}>Subscriptions</Text></View>
-      <View style={styles.section}><Text style={styles.sectionTitle}>Available Plans</Text>
+      <View style={styles.section}>
         {plans.length ? (
           <FlatList data={plans} keyExtractor={(p)=>String(p.id)} renderItem={renderPlan} />
         ) : (

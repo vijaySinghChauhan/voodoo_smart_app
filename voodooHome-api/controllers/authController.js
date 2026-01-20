@@ -39,7 +39,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       success: true,
       token,
-      user: { id: createdUser.id, name: createdUser.name, email: createdUser.email, role: createdUser.role, phone: createdUser.phone || null, beta: createdUser.beta, tester: createdUser.tester, subdeviceIds: createdUser.subdeviceIds || [], subscriptionId: createdUser.subscriptionId || null }
+      user: { id: createdUser.id, name: createdUser.name, email: createdUser.email, role: createdUser.role, phone: createdUser.phone || null, beta: createdUser.beta, tester: createdUser.tester, subdeviceIds: createdUser.subdeviceIds || [], subscriptionId: createdUser.subscriptionId || null, userId: createdUser.userIdCode || null, user_id: createdUser.userIdCode || null, planId: createdUser.planId || null }
     });
   } catch (error) {
     console.error(error);
@@ -80,7 +80,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null, beta: user.beta, tester: user.tester, subdeviceIds: user.subdeviceIds || [], subscriptionId: user.subscriptionId || null }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone || null, beta: user.beta, tester: user.tester, subdeviceIds: user.subdeviceIds || [], subscriptionId: user.subscriptionId || null, userId: user.userIdCode || null, user_id: user.userIdCode || null, planId: user.planId || null }
     });
   } catch (error) {
     console.error(error);
@@ -96,7 +96,7 @@ exports.getMe = async (req, res) => {
     const user = await User.findById(req.user.id);
     res.json({
       success: true,
-      user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || null, role: user.role, phone: user.phone || null, beta: user.beta, tester: user.tester, subdeviceIds: user.subdeviceIds || [], subscriptionId: user.subscriptionId || null }
+      user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || null, role: user.role, phone: user.phone || null, beta: user.beta, tester: user.tester, subdeviceIds: user.subdeviceIds || [], subscriptionId: user.subscriptionId || null, userId: user.userIdCode || null, user_id: user.userIdCode || null, planId: user.planId || null }
     });
   } catch (error) {
     console.error(error);
@@ -112,11 +112,39 @@ exports.updateDetails = async (req, res) => {
     const fieldsToUpdate = {
       name: req.body.name,
       email: req.body.email,
-      phone: req.body.phone
+      phone: req.body.phone,
+      avatar: req.body.avatar
     };
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate);
 
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update user avatar (file upload)
+// @route   PUT /voodoo/api/auth/updateavatar
+// @access  Private
+exports.updateAvatar = async (req, res) => {
+  try {
+    let avatarUrl = null;
+    if (req.file && req.file.filename) {
+      const proto = (req.headers['x-forwarded-proto'] && String(req.headers['x-forwarded-proto']).split(',')[0]) || req.protocol || 'http';
+      const host = req.get('host');
+      avatarUrl = `${proto}://${host}/voodoo/uploads/avatars/${req.file.filename}`;
+    } else if (req.body && req.body.avatar && typeof req.body.avatar === 'string') {
+      avatarUrl = req.body.avatar;
+    }
+    if (!avatarUrl) {
+      return res.status(400).json({ message: 'No avatar provided' });
+    }
+    const user = await User.findByIdAndUpdate(req.user.id, { avatar: avatarUrl });
     res.json({
       success: true,
       user

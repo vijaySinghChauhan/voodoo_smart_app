@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { pool } = require('../config/db');
 
 const normalizeVersion = (v) => String(v || '').trim();
 const cmp = (a, b) => {
@@ -74,3 +75,40 @@ exports.checkVersion = async (req, res) => {
   }
 };
 
+exports.getUpdateDialog = async (req, res) => {
+  try {
+    const platform = String(req.query.platform || 'all').toLowerCase();
+    const currentVersion = normalizeVersion(req.query.currentVersion || '');
+    const [rows] = await pool.query(
+      `SELECT * FROM app_updates
+       WHERE is_active=1 AND (platform=? OR platform='all')
+       AND (display_from IS NULL OR display_from <= NOW())
+       AND (display_to IS NULL OR display_to >= NOW())
+       ORDER BY id DESC LIMIT 1`,
+      [platform]
+    );
+    if (!rows || !rows[0]) {
+      return res.json({ success: true, prompt: false, data: null });
+    }
+    const r = rows[0];
+    const latestVersion = normalizeVersion(r.latest_version || '');
+    const minVersion = normalizeVersion(r.min_version || '');
+    const hasUpdate = latestVersion && currentVersion ? cmp(latestVersion, currentVersion) > 0 : Boolean(latestVersion);
+    const needsForce = Number(r.force_update) === 1 && minVersion && currentVersion ? cmp(minVersion, currentVersion) > 0 : false;
+    const prompt = hasUpdate || needsForce;
+    const data = {
+      title: r.title,
+      message: r.message,
+      forceUpdate: Number(r.force_update) === 1,
+      latestVersion,
+      minVersion,
+      downloadUrl: r.download_url || null,
+      buttonPrimaryText: r.button_primary_text || 'Update',
+      buttonSecondaryText: r.button_secondary_text || null,
+      platform: r.platform || 'all'
+    };
+    res.json({ success: true, prompt, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'server_error' });
+  }
+};

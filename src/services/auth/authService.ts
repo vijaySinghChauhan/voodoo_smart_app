@@ -24,6 +24,11 @@ interface AuthResponse {
   token: string;
 }
 
+interface UpdateUserResponse {
+  success: boolean;
+  user: User;
+}
+
 class AuthService {
   // Base URL is resolved dynamically via configService
 
@@ -153,19 +158,52 @@ class AuthService {
       }
       
       const baseUrl = await configService.getBaseUrl();
-      const response = await axios.put<User>(`${baseUrl}/auth/updatedetails`, userData, {
+      const response = await axios.put<UpdateUserResponse>(`${baseUrl}/auth/updatedetails`, userData, {
         headers: {
           Authorization: `Bearer ${this.token}`
         }
       });
       
       const currentUser = await this.getCurrentUser();
-      const updatedUser = { ...currentUser, ...response.data };
+      const updatedUser = { ...(currentUser || {}), ...(response.data?.user || {}) } as User;
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       
       return updatedUser;
     } catch (error) {
       console.error('Profile update failed:', error);
+      throw error;
+    }
+  }
+  
+  async uploadAvatar(uri: string): Promise<User> {
+    try {
+      if ((constantsV as any).OFFLINE_MODE) {
+        const currentUser = await this.getCurrentUser();
+        const updatedUser = { ...(currentUser || mockUser), avatar: uri, profilePicture: uri } as User;
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+      const token = await this.getToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      const baseUrl = await configService.getBaseUrl();
+      const form: any = new FormData();
+      const name = 'avatar.jpg';
+      form.append('avatar', { uri, name, type: 'image/jpeg' } as any);
+      const response = await axios.put<UpdateUserResponse>(`${baseUrl}/auth/updateavatar`, form, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const updatedUser = response.data?.user as User;
+      if (updatedUser) {
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+      return updatedUser;
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
       throw error;
     }
   }
