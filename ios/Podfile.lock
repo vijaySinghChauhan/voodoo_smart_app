@@ -9,6 +9,7 @@ PODS:
     - hermes-engine/Pre-built (= 0.80.0)
   - hermes-engine/Pre-built (0.80.0)
   - JitsiWebRTC (124.0.2)
+  - PhonePePayment (4.0.0)
   - razorpay-core-pod (1.0.4)
   - razorpay-pod (1.5.0):
     - razorpay-core-pod
@@ -1652,8 +1653,71 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
+  - react-native-background-timer (2.4.1):
+    - React-Core
+  - react-native-image-picker (8.2.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - react-native-image-resizer (1.4.5):
+    - React-Core
   - react-native-network-info (5.2.2):
     - React
+  - react-native-phonepe-pg (3.1.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - PhonePePayment (= 4.0.0)
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-razorpay (2.3.1):
     - razorpay-pod (= 1.5.0)
     - React
@@ -2226,6 +2290,9 @@ PODS:
     - SocketRocket
   - ReactNativeIncallManager (4.2.1):
     - React-Core
+  - RNBackgroundFetch (4.3.0):
+    - React-Core
+    - TSBackgroundFetch (~> 4.0.0)
   - RNCAsyncStorage (2.2.0):
     - boost
     - DoubleConversion
@@ -2286,6 +2353,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNFS (2.20.0):
+    - React-Core
   - RNGestureHandler (2.29.1):
     - boost
     - DoubleConversion
@@ -2616,6 +2685,7 @@ PODS:
   - RNWifi (4.13.6):
     - React-Core
   - SocketRocket (0.7.1)
+  - TSBackgroundFetch (4.0.6)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2660,7 +2730,11 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-background-timer (from `../node_modules/react-native-background-timer`)
+  - react-native-image-picker (from `../node_modules/react-native-image-picker`)
+  - react-native-image-resizer (from `../node_modules/react-native-image-resizer`)
   - react-native-network-info (from `../node_modules/react-native-network-info`)
+  - react-native-phonepe-pg (from `../node_modules/react-native-phonepe-pg`)
   - react-native-razorpay (from `../node_modules/react-native-razorpay`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-webrtc (from `../node_modules/react-native-webrtc`)
@@ -2696,9 +2770,11 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeIncallManager (from `../node_modules/react-native-incall-manager`)
+  - RNBackgroundFetch (from `../node_modules/react-native-background-fetch`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCPushNotificationIOS (from `../node_modules/@react-native-community/push-notification-ios`)"
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
+  - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -2711,9 +2787,11 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - JitsiWebRTC
+    - PhonePePayment
     - razorpay-core-pod
     - razorpay-pod
     - SocketRocket
+    - TSBackgroundFetch
 
 EXTERNAL SOURCES:
   boost:
@@ -2797,8 +2875,16 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-background-timer:
+    :path: "../node_modules/react-native-background-timer"
+  react-native-image-picker:
+    :path: "../node_modules/react-native-image-picker"
+  react-native-image-resizer:
+    :path: "../node_modules/react-native-image-resizer"
   react-native-network-info:
     :path: "../node_modules/react-native-network-info"
+  react-native-phonepe-pg:
+    :path: "../node_modules/react-native-phonepe-pg"
   react-native-razorpay:
     :path: "../node_modules/react-native-razorpay"
   react-native-safe-area-context:
@@ -2869,12 +2955,16 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeIncallManager:
     :path: "../node_modules/react-native-incall-manager"
+  RNBackgroundFetch:
+    :path: "../node_modules/react-native-background-fetch"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNCPushNotificationIOS:
     :path: "../node_modules/@react-native-community/push-notification-ios"
   RNDateTimePicker:
     :path: "../node_modules/@react-native-community/datetimepicker"
+  RNFS:
+    :path: "../node_modules/react-native-fs"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNReanimated:
@@ -2899,6 +2989,7 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 7068e976238b29e97b3bafd09a994542af7d5c0b
   JitsiWebRTC: b47805ab5668be38e7ee60e2258f49badfe8e1d0
+  PhonePePayment: c720ada91c0976d6888a44571ced348ed8cd7d83
   razorpay-core-pod: a5ee92704a114e9468436dcba9d9b6222f6d9899
   razorpay-pod: f634f1b8397eb54d547f25d35291f679545ddf17
   RCT-Folly: 59ec0ac1f2f39672a0c6e6cecdd39383b764646f
@@ -2934,7 +3025,11 @@ SPEC CHECKSUMS:
   React-logger: b69e65dc60f768e5509ac0cc27a360124bf70478
   React-Mapbuffer: b48f9f3311fd0ec0f7a5dc39d707eff521fb5f38
   React-microtasksnativemodule: d8568d0485a350c720c061ae835e09fc88c28715
+  react-native-background-timer: 17ea5e06803401a379ebf1f20505b793ac44d0fe
+  react-native-image-picker: df98fd6bf821b49ae97a383fd4adb1430f659a67
+  react-native-image-resizer: d9fb629a867335bdc13230ac2a58702bb8c8828f
   react-native-network-info: 253a54a48dc8f9ef5abb7a8effdfdef8abd7d875
+  react-native-phonepe-pg: 99d82d78fb9f0a3b537ba044e2c753aadbd16e4a
   react-native-razorpay: 41a407f4367b5b0e1bba89a77f9cab1918860844
   react-native-safe-area-context: d446989793f96dc2f44c33c42dbfb316d983f24e
   react-native-webrtc: b5062b745a26c99835efdf0d6c027c9b2ee7ddbc
@@ -2970,9 +3065,11 @@ SPEC CHECKSUMS:
   ReactCodegen: 304f881dea867b659e4ba479608ec06f8117e0c5
   ReactCommon: 658874decaf8c4fd76cfa3a878b94a869db85b1c
   ReactNativeIncallManager: 65a85aed033c1d9ec66f98a943cca51c61a210e9
+  RNBackgroundFetch: 73318e61a4062a9eb27397045b591e6698c929c5
   RNCAsyncStorage: 767abb068db6ad28b5f59a129fbc9fab18b377e2
   RNCPushNotificationIOS: b9dcb4f28c85f77483c3f86d2fcb1e0f0ab396fa
   RNDateTimePicker: 514b39e441bc4c996a6c4257757f943e05bb8527
+  RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 1c60725c80312e92379d003bcfedc2b7ec71720c
   RNReanimated: 75c68d454a05e4aa3d95ea2ad1d45114047f34f1
   RNScreens: 846d53087db560ed5fbc34feb0643adb5f9602c5
@@ -2980,6 +3077,7 @@ SPEC CHECKSUMS:
   RNVectorIcons: 54df27a2e90ddeb674c7237d76060ec9762d0bc5
   RNWifi: dfa2db4c4e46496f53016fb8be32b5a51f13aee4
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
+  TSBackgroundFetch: 0afbeaae4e1132866e1d4b6e55265af26b5958ae
   Yoga: 395b5d614cd7cbbfd76b05d01bd67230a6ad004e
 
 PODFILE CHECKSUM: 509b94d868367f4020891e4f9147928d52ccaf7a

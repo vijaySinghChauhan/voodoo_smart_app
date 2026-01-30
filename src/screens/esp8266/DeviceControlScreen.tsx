@@ -32,6 +32,9 @@ import { DateTimePickerManager, DateTimePickerManagerRef } from '../../component
 import { COLORS, SHADOWS } from '../../theme/theme';
 import Svg, { Path } from 'react-native-svg';
 
+import BackgroundTimer from 'react-native-background-timer';
+import { scheduleLockAutoOff } from '../../services/background/backgroundService';
+
 
 interface DeviceStatus {
   connected: boolean;
@@ -179,6 +182,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const noFlowTimerRef = React.useRef<any>(null);
   const supplyRestartBlockedRef = React.useRef<boolean>(false);
   const supplyPrevActiveRef = React.useRef<boolean>(false);
+  const device2TimerRef = React.useRef<any>(null);
   
   const pickerRef = useRef<DateTimePickerManagerRef>(null);
 
@@ -848,12 +852,29 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   }, [route?.params?.deviceId]);
 
-  useEffect(() =>{
-    if(device2On)
-      setTimeout(() => {
-        setDevice2On(false);
-      }, 3000);
-  })
+  useEffect(() => {
+    try {
+      if (device2TimerRef.current) {
+        BackgroundTimer.clearTimeout(device2TimerRef.current);
+        device2TimerRef.current = null;
+      }
+      if (device2On) {
+        if (selectedDeviceId) {
+          scheduleLockAutoOff(String(selectedDeviceId), 3000).catch(() => {});
+        }
+        device2TimerRef.current = BackgroundTimer.setTimeout(() => {
+          setDevice2On(false);
+          toggleDeviceField('device2', false);
+        }, 3000);
+      }
+    } catch {}
+    return () => {
+      if (device2TimerRef.current) {
+        BackgroundTimer.clearTimeout(device2TimerRef.current);
+        device2TimerRef.current = null;
+      }
+    };
+  }, [device2On, selectedDeviceId]);
 
   // Re-subscribe brightness updates when IP becomes available or changes
   useEffect(() => {
@@ -2352,12 +2373,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                       onValueChange={(val) => {
                         setDevice2On(val);
                         toggleDeviceField('device2', val);
-                        if (val) {
-                          setTimeout(() => {
-                            setDevice2On(false);
-                            toggleDeviceField('device2', false);
-                          }, 3000);
-                        }
                       }}
                       
                       

@@ -10,6 +10,9 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+         maven { 
+         url "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android" 
+      } 
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
@@ -19,3 +22,12 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android" }
+        maven { url "https://www.jitpack.io" }
+    }
+}

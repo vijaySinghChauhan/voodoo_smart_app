@@ -15,6 +15,7 @@ import userService from './src/services/users/userService';
 import { notificationService } from './src/services/notifications/notificationService';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { COLORS } from './src/theme/theme';
+import BackgroundTimer from 'react-native-background-timer';
 
 const InCallManagerSafe: any = (() => {
   try {
@@ -89,6 +90,7 @@ import cartService from './src/services/ecommerce/cartService';
 import DeviceAccessScreen from './src/screens/esp8266/DeviceAccessScreen';
 import { PaperProvider } from 'react-native-paper';
 import esp8266Service from './src/services/esp8266/esp8266Service';
+import LostFoundScreen from './src/screens/misc/LostFoundScreen';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -310,6 +312,7 @@ const AppDrawer = () => {
         return { headerShown: routeName === 'UserAudioList', title: 'Audio Calls' };
       }} />
       <Drawer.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Order History' }} />
+      <Drawer.Screen name="LostFound" component={LostFoundScreen} options={{ title: 'Lost & Found' }} />
       <Drawer.Screen name="AddRoom" component={AddEditRoomScreen} options={{ title: 'Add Room' }} />
       <Drawer.Screen name="AddDeviceToRoom" component={AddDeviceToRoomScreen} options={{ title: 'Add Device' }} />
       
@@ -396,6 +399,18 @@ const AppNavigator = () => {
       notificationService.initLocalNotifications();
       if (Platform.OS === 'android' && Platform.Version >= 33) {
         PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      if (Platform.OS !== 'web') {
+        const mod = require('./src/services/background/backgroundService');
+        const init = mod?.initBackgroundDevicePolling;
+        const start = mod?.startAutomationMonitorForeground;
+        if (typeof init === 'function') init();
+        if (typeof start === 'function') start();
       }
     } catch {}
   }, []);
@@ -558,7 +573,7 @@ const AppNavigator = () => {
               shortcutLockTimeoutRef.current = null;
             }
             if (nextVal === 1) {
-              shortcutLockTimeoutRef.current = setTimeout(async () => {
+              shortcutLockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
                 try {
                   const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
                   if (ok2) {
@@ -699,7 +714,7 @@ const AppNavigator = () => {
                     shortcutLockTimeoutRef.current = null;
                   }
                   if (nextVal === 1) {
-                    shortcutLockTimeoutRef.current = setTimeout(async () => {
+                    shortcutLockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
                       try {
                         const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
                         if (ok2) {

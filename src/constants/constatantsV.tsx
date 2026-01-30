@@ -8,6 +8,8 @@ export const CHAT_BASE_URL = 'https://voodootechsystems.in';
 export const CHAT_FALLBACK_URL = 'https://voodootechsystems.in';
 // Control whether the app should attempt fallback Socket.IO host
 export const DISABLE_FALLBACK_SOCKET = false;
+export const PHONEPE_ENV = 'PRODUCTION';
+export const PHONEPE_MERCHANT_ID = '';
 
 // Default ICE servers; add TURN here for reliable media across carriers/NATs
 export const ICE_SERVERS = [

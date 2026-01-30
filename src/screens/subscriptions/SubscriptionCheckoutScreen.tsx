@@ -7,6 +7,7 @@ import paymentService, { Coupon } from '../../services/ecommerce/paymentService'
 import Toast from 'react-native-toast-message';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import * as constantsV from '../../constants/constatantsV';
 
 interface SubscriptionCheckoutProps {
   navigation: any;
@@ -131,41 +132,81 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
     setIsProcessing(true);
     try {
       const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
+      const env = (constantsV as any).PHONEPE_ENV === 'SANDBOX' ? 'SANDBOX' : 'PRODUCTION';
+      const flowId = 'flow_' + Date.now();
+      const merchantIdConst = String((constantsV as any).PHONEPE_MERCHANT_ID || '').trim();
+      await paymentService.initPhonePeSDK({ environment: env as any, merchantId: merchantIdConst || 'merchant', flowId, enableLogging: env !== 'PRODUCTION' });
       const finalAmount = computeAmount(plan.price);
-      const { redirectUrl } = await paymentService.initiatePhonePePayment({
-        amount: finalAmount,
-        currency: plan.currency || 'INR',
-        customerName: undefined,
-        customerPhone: undefined,
-        customerEmail: undefined,
-        orderId: undefined,
-        callbackUrl,
-      });
-
-      if (!redirectUrl) throw new Error('PhonePe redirect URL not available');
-      await Linking.openURL(redirectUrl);
-
-      Alert.alert(
-        'Complete Payment',
-        'After completing PhonePe payment, tap Confirm to activate your subscription.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Confirm',
-            onPress: async () => {
-              try {
-                await subscriptionService.purchase(plan.id);
-                Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
-                navigation.navigate('SubscriptionList');
-              } catch (e) {
-                Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to activate subscription', position: 'bottom' });
-              }
-            },
-          },
-        ]
-      );
+      const order = await paymentService.createPhonePeOrder({ amount: finalAmount, currency: plan.currency || 'INR', callbackUrl });
+      const mId = String(order?.merchantId || merchantIdConst || '').trim();
+      const oId = order?.orderId;
+      const token = order?.token;
+      if (!oId || !token || !mId) throw new Error('Create Order failed');
+      const request = JSON.stringify({ orderId: oId, merchantId: mId, token, paymentMode: { type: 'PAY_PAGE' } });
+      const resp = await paymentService.startPhonePeTransaction(request, 'voodoohomeS2');
+      let status = resp?.status;
+      if (!status || status === 'PENDING' || status === 'INTERRUPTED') {
+        let finalStatus: string | undefined = undefined;
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 15000));
+          const s = await paymentService.checkPhonePeOrderStatus(oId);
+          if (s === 'COMPLETED' || s === 'FAILED') {
+            finalStatus = s;
+            break;
+          }
+        }
+        status = finalStatus || status;
+      }
+      if (status === 'SUCCESS' || status === 'COMPLETED') {
+        try {
+          await subscriptionService.purchase(plan.id);
+          Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
+          navigation.navigate('SubscriptionList');
+        } catch (e) {
+          Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to activate subscription', position: 'bottom' });
+        }
+      } else if (status === 'FAILED') {
+        Toast.show({ type: 'error', text1: 'Payment Failed', position: 'bottom' });
+      } else {
+        Alert.alert('Pending', 'Payment is pending. Please check later.');
+      }
     } catch (error: any) {
-      Toast.show({ type: 'error', text1: 'PhonePe Error', text2: error?.message || 'Unable to start PhonePe payment', position: 'bottom' });
+      try {
+        const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
+        const finalAmount = computeAmount(plan.price);
+        const { redirectUrl } = await paymentService.initiatePhonePePayment({
+          amount: finalAmount,
+          currency: plan.currency || 'INR',
+          customerName: undefined,
+          customerPhone: undefined,
+          customerEmail: undefined,
+          orderId: undefined,
+          callbackUrl,
+        });
+        if (!redirectUrl) throw new Error('PhonePe redirect URL not available');
+        await Linking.openURL(redirectUrl);
+        Alert.alert(
+          'Complete Payment',
+          'After completing PhonePe payment, tap Confirm to activate your subscription.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Confirm',
+              onPress: async () => {
+                try {
+                  await subscriptionService.purchase(plan.id);
+                  Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
+                  navigation.navigate('SubscriptionList');
+                } catch (e) {
+                  Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to activate subscription', position: 'bottom' });
+                }
+              },
+            },
+          ]
+        );
+      } catch (err2: any) {
+        Toast.show({ type: 'error', text1: 'PhonePe Error', text2: err2?.message || 'Unable to start PhonePe payment', position: 'bottom' });
+      }
     } finally {
       setIsProcessing(false);
     }

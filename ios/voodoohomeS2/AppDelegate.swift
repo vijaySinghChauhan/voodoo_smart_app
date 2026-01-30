@@ -51,7 +51,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   }
   
   func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-    return RCTLinkingManager.application(app, open: url, options: options)
+    let result = RCTLinkingManager.application(app, open: url, options: options)
+    let userInfo: [String: Any] = [
+      "options": options,
+      "openUrl": url
+    ]
+    NotificationCenter.default.post(
+      name: Notification.Name("ApplicationOpenURLNotification"),
+      object: nil,
+      userInfo: userInfo
+    )
+    return result
   }
   
   func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {

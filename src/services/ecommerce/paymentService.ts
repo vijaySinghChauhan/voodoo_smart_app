@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as constantsV from '../../constants/constatantsV';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PhonePePaymentSDK from 'react-native-phonepe-pg';
 
 export interface Coupon {
   code: string;
@@ -14,6 +15,7 @@ export interface Coupon {
 class PaymentService {
   [x: string]: any;
   private baseUrl: string = constantsV.BASE_URL + '/payments';
+  private phonePeInitialized: boolean = false;
 
   async getRazorpayKey(): Promise<string> {
     const res = await axios.get(`${this.baseUrl}/key`);
@@ -38,6 +40,69 @@ class PaymentService {
     } catch (err) {
       console.error('Create Razorpay order error:', err);
       return { orderId: undefined };
+    }
+  }
+
+  async initPhonePeSDK(params: {
+    environment: 'SANDBOX' | 'PRODUCTION';
+    merchantId: string;
+    flowId: string;
+    enableLogging?: boolean;
+  }): Promise<boolean> {
+    try {
+      const { environment, merchantId, flowId, enableLogging } = params;
+      const ok = await PhonePePaymentSDK.init(environment, merchantId, flowId, !!enableLogging);
+      this.phonePeInitialized = !!ok;
+      return !!ok;
+    } catch (error: any) {
+      console.error('PhonePe SDK init failed:', error?.message || String(error));
+      this.phonePeInitialized = false;
+      return false;
+    }
+  }
+
+  async startPhonePeTransaction(request: string, appSchema?: string | null): Promise<{ status?: string; error?: string }> {
+    try {
+      if (!this.phonePeInitialized) {
+        console.warn('PhonePe SDK not initialized; call initPhonePeSDK first');
+      }
+      const resp = await PhonePePaymentSDK.startTransaction(request, appSchema || null);
+      return { status: resp?.status, error: resp?.error };
+    } catch (error: any) {
+      console.error('PhonePe startTransaction error:', error?.message || String(error));
+      return { status: 'FAILURE', error: error?.message || 'Unknown error' };
+    }
+  }
+
+  async createPhonePeOrder(payload: {
+    amount: number;
+    currency?: string;
+    callbackUrl?: string;
+  }): Promise<{ orderId?: string; token?: string; merchantId?: string }> {
+    try {
+      const headers = await this.getAuthHeader();
+      const res = await axios.post(`${this.baseUrl}/phonepe/order`, {
+        amount: payload.amount,
+        currency: payload.currency || 'INR',
+        callbackUrl: payload.callbackUrl,
+      }, { headers });
+      return {
+        orderId: res.data?.orderId,
+        token: res.data?.token,
+        merchantId: res.data?.merchantId,
+      };
+    } catch (error) {
+      return { orderId: undefined, token: undefined, merchantId: undefined };
+    }
+  }
+
+  async checkPhonePeOrderStatus(orderId: string): Promise<string | undefined> {
+    try {
+      const headers = await this.getAuthHeader();
+      const res = await axios.get(`${this.baseUrl}/phonepe/order/${orderId}/status`, { headers });
+      return res.data?.status || res.data?.orderStatus;
+    } catch {
+      return undefined;
     }
   }
 

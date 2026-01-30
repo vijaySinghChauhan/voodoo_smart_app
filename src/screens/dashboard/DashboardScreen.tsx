@@ -31,6 +31,8 @@ import WaterTank from '../esp8266/WaterTank';
 import { io, Socket } from 'socket.io-client';
 import authService from '../../services/auth/authService';
 import * as constantsV from '../../constants/constatantsV';
+import BackgroundTimer from 'react-native-background-timer';
+import { scheduleLockAutoOff } from '../../services/background/backgroundService';
 
 const normalizeVersion = (v: string) => String(v || '').trim();
 const compareVersions = (a: string, b: string) => {
@@ -309,7 +311,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   useEffect(() => {
     return () => {
       if (lockTimeoutRef.current) {
-        clearTimeout(lockTimeoutRef.current);
+        BackgroundTimer.clearTimeout(lockTimeoutRef.current);
         lockTimeoutRef.current = null;
       }
       if (beepTimeoutRef.current) {
@@ -804,11 +806,14 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
                       setLockOn(nextVal === 1);
                       if (lockTimeoutRef.current) {
-                        clearTimeout(lockTimeoutRef.current);
+                        BackgroundTimer.clearTimeout(lockTimeoutRef.current);
                         lockTimeoutRef.current = null;
                       }
                       if (nextVal === 1) {
-                        lockTimeoutRef.current = setTimeout(async () => {
+                        try {
+                          scheduleLockAutoOff(String(devId), 3000).catch(() => {});
+                        } catch {}
+                        lockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
                           try {
                             const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
                             if (ok2) {
