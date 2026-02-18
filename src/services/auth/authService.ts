@@ -8,11 +8,14 @@ interface User {
   id: string;
   name: string;
   email: string;
+  avatar?: string;
   profilePicture?: string;
   role?: 'user' | 'admin';
   phone?: string;
   beta?: number | string | boolean;
   tester?: number | string | boolean;
+  token?: string;
+  subdeviceIds?: string[];
   subscriptionType?: string;
   subscriptionStartDate?: string;
   subscriptionExpiryDate?: string;

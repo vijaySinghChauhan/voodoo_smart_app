@@ -29,7 +29,8 @@ class LogService {
       await axios.post(`${baseUrl}/logs`, payload, { headers, timeout: 10000 });
     } catch (err) {
       // Fail silently to avoid impacting UX
-      console.log('logService: failed to log event', err?.message || String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log('logService: failed to log event', msg);
     }
   }
 

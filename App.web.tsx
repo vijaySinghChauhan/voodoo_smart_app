@@ -44,7 +44,7 @@ import WifiConnection from './src/services/esp8266/wifiConnection';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
-const navigationRef = createNavigationContainerRef();
+const navigationRef = createNavigationContainerRef<any>();
 
 
 
@@ -115,7 +115,7 @@ const ESP8266Stack = () => (
 const SubscriptionsStack = () => (
   <Stack.Navigator initialRouteName="SubscriptionList">
     <Stack.Screen name="SubscriptionList" component={SubscriptionListScreen} options={{ title: 'Subscriptions' }} />
-    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen} options={{ title: 'Checkout' }} />
+    <Stack.Screen name="SubscriptionCheckout" component={SubscriptionCheckoutScreen as React.ComponentType<any>} options={{ title: 'Checkout' }} />
   </Stack.Navigator>
 );
 

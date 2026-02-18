@@ -12,7 +12,7 @@ import Toast from 'react-native-toast-message';
 import orderService, { Order } from '../../services/ecommerce/orderService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-const OrderHistoryScreen = ({ navigation }) => {
+const OrderHistoryScreen = ({ navigation }: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

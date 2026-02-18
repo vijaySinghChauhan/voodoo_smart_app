@@ -87,8 +87,8 @@ android {
         applicationId "com.voodoohomes2"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 23
-        versionName "1.2.3"
+        versionCode 25
+        versionName "1.2.5"
     }
     signingConfigs {
         release {

@@ -92,6 +92,15 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const socketRef = useRef<Socket | null>(null);
   const lastFlowSubRef = useRef<string | null>(null);
   const motorOnRef = useRef<boolean>(false);
+  const flowBufferRef = useRef<number[]>([]);
+  const SMOOTH_WINDOW = 5;
+  const smoothFlow = (newVal: number) => {
+    const buf = flowBufferRef.current;
+    buf.push(newVal);
+    if (buf.length > SMOOTH_WINDOW) buf.shift();
+    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+    return avg;
+  };
 
  
   const loadDashboardData = useCallback(async () => {
@@ -178,7 +187,8 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             }
             const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
             if (typeof fr === 'number' && isFinite(fr)) {
-              const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
+              const smoothed = smoothFlow(fr);
+              const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, smoothed));
               setWaterFlow(motorOn ? clamped : 0);
             } else {
               setWaterFlow(null);
@@ -461,8 +471,8 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       }
       const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
       if (typeof fr === 'number' && isFinite(fr)) {
-        const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
-        setWaterFlow(motorOnRef.current ? clamped : 0);
+        const value = Math.max(0, fr);
+        setWaterFlow(motorOnRef.current ? value : 0);
       }
     } catch {}
   }, []);
@@ -543,8 +553,9 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           }
           const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
           if (typeof fr === 'number' && isFinite(fr)) {
-            const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
-            setWaterFlow(motorOn ? clamped : 0);
+            const smoothed = smoothFlow(fr);
+            const value = Math.max(0, smoothed);
+            setWaterFlow(motorOn ? value : 0);
           }
           let pctRaw: any = state?.waterPercentage ?? state?.water_percent ?? state?.waterLevelPercent;
           if (pctRaw === undefined && state?.data) {

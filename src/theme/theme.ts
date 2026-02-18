@@ -23,6 +23,7 @@ export const COLORS = {
   black: '#263238',       // Blue Grey 900
   gray: '#78909C',        // Blue Grey 400
   lightGray: '#ECEFF1',   // Blue Grey 50
+  border: '#E0E0E0',
   darkGray: '#455A64',    // Blue Grey 700
 
   // Functional colors
@@ -75,6 +76,7 @@ export const FONTS = {
     body1: { fontFamily: 'Poppins-Regular', fontSize: SIZES.body1 },
     body2: { fontFamily: 'Poppins-Regular', fontSize: SIZES.body2 },
     body3: { fontFamily: 'Poppins-Regular', fontSize: SIZES.body3 },
+    caption: { fontFamily: 'Poppins-Regular', fontSize: SIZES.body3 },
     small: { fontFamily: 'Poppins-Regular', fontSize: SIZES.small },
 };
 

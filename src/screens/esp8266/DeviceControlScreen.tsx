@@ -95,6 +95,7 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [subscriptionActive, setSubscriptionActive] = useState<0 | 1>(1);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
   const brightnessBufferRef = React.useRef<number[]>([]);
+  const flowBufferRef = React.useRef<number[]>([]);
   const SMOOTH_WINDOW = 5;
   const { user } = useAuth();
   const subdeviceIds = React.useMemo<string[]>(
@@ -110,6 +111,12 @@ const DeviceControlScreen: React.FC<{ navigation: any, route?: { params?: { devi
   const [lastFlowRate, setLastFlowRate] = useState<number | null>(null);
   const [lastTotalLiters, setLastTotalLiters] = useState<number | null>(null);
   const [lastFlowAt, setLastFlowAt] = useState<number | null>(null);
+  const [debugLastHeadlessEval, setDebugLastHeadlessEval] = useState<number | null>(null);
+  const [debugBgDeviceCount, setDebugBgDeviceCount] = useState<number | null>(null);
+  const [debugBgUnassignedCount, setDebugBgUnassignedCount] = useState<number | null>(null);
+  const [debugNoFlowCount, setDebugNoFlowCount] = useState<number>(0);
+  const [debugNoFlowNextDue, setDebugNoFlowNextDue] = useState<number | null>(null);
+  const [debugBgSocketLast, setDebugBgSocketLast] = useState<number | null>(null);
   // Automation: dual rules (Turn ON / Turn OFF) based on tank level
   const [onEnabled, setOnEnabled] = useState<boolean>(false);
   const [onOperator, setOnOperator] = useState<'lt' | 'ge'>('lt');
@@ -348,6 +355,14 @@ const smoothValue = (newVal: number) => {
   return avg;
 };
 
+const smoothFlow = (newVal: number) => {
+  const buf = flowBufferRef.current;
+  buf.push(newVal);
+  if (buf.length > SMOOTH_WINDOW) buf.shift();
+  const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+  return avg;
+};
+
 // Helper: map brightness to percentage of target (filled)
 // filled = clamp((brightness/target) * 100, 0, 100)
 
@@ -389,8 +404,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const applyFlowUpdate = (fr?: number, tl?: number, on?: boolean) => {
     const powerOn = typeof on === 'boolean' ? on : isPowerOnRef.current;
     if (typeof fr === 'number' && isFinite(fr)) {
-      const clamped = Math.max(0, Math.min(MAX_FLOW_RATE, fr));
-      const value = powerOn ? clamped : 0;
+      const smoothed = smoothFlow(fr);
+      const value = powerOn ? Math.max(0, smoothed) : 0;
       setFlowRate(value);
       setLastFlowRate(value);
     }
@@ -1250,12 +1265,12 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     try {
       // Clear any existing timer
       if (noFlowTimerRef.current) {
-        clearTimeout(noFlowTimerRef.current);
+        BackgroundTimer.clearTimeout(noFlowTimerRef.current);
         noFlowTimerRef.current = null;
       }
       // Arm new timer only if rule enabled and power currently ON
       if (noFlowAutoOffEnabled && isPowerOn) {
-        noFlowTimerRef.current = setTimeout(() => {
+        noFlowTimerRef.current = BackgroundTimer.setTimeout(() => {
           try {
             const fr = flowRateRef.current;
             const stillOn = isPowerOnRef.current;
@@ -1291,11 +1306,49 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     } catch {}
     return () => {
       if (noFlowTimerRef.current) {
-        clearTimeout(noFlowTimerRef.current);
+        BackgroundTimer.clearTimeout(noFlowTimerRef.current);
         noFlowTimerRef.current = null;
       }
     };
   }, [isPowerOn, noFlowAutoOffEnabled, noFlowDelaySec, selectedDeviceId, selectedDeviceIp]);
+
+  const loadBackgroundDebug = async () => {
+    try {
+      const [bg, un, le, pendingRaw, sLast] = await Promise.all([
+        AsyncStorage.getItem('last_background_device_count'),
+        AsyncStorage.getItem('last_background_unassigned_count'),
+        AsyncStorage.getItem('last_headless_eval'),
+        AsyncStorage.getItem('pending_no_flow_auto_off'),
+        AsyncStorage.getItem('bg_socket_last'),
+      ]);
+      setDebugBgDeviceCount(bg ? parseInt(bg, 10) : null);
+      setDebugBgUnassignedCount(un ? parseInt(un, 10) : null);
+      setDebugLastHeadlessEval(le ? parseInt(le, 10) : null);
+      setDebugBgSocketLast(sLast ? parseInt(sLast, 10) : null);
+      let count = 0;
+      let nextDue: number | null = null;
+      try {
+        const arr = pendingRaw ? JSON.parse(pendingRaw) : [];
+        if (Array.isArray(arr)) {
+          const filtered = arr.filter((x: any) => !selectedDeviceId || String(x.deviceId) === String(selectedDeviceId));
+          count = filtered.length;
+          for (const it of filtered) {
+            if (typeof it?.dueAt === 'number' && isFinite(it.dueAt)) {
+              if (nextDue === null || it.dueAt < nextDue) nextDue = it.dueAt;
+            }
+          }
+        }
+      } catch {}
+      setDebugNoFlowCount(count);
+      setDebugNoFlowNextDue(nextDue);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (showDebugPanel) {
+      loadBackgroundDebug();
+    }
+  }, [showDebugPanel, selectedDeviceId]);
 
   // Supply Water Timer Logic
   useEffect(() => {
@@ -2060,6 +2113,20 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Received At: {lastBrightnessAt ? new Date(lastBrightnessAt).toLocaleTimeString() : 'Never'}</Text>
             <Text style={{ fontSize: 12, marginTop: 5, color: COLORS.lightGray }}>Last Flow: {lastFlowRate ?? 'None'}</Text>
             <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Received At: {lastFlowAt ? new Date(lastFlowAt).toLocaleTimeString() : 'Never'}</Text>
+            <View style={{ height: 1, backgroundColor: COLORS.lightGray, marginVertical: 8 }} />
+            <Text style={{ fontWeight: 'bold', marginBottom: 5, color: COLORS.white }}>Background Automation</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Last Headless Eval: {debugLastHeadlessEval ? new Date(debugLastHeadlessEval).toLocaleTimeString() : 'Never'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>BG Devices: {debugBgDeviceCount ?? '—'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Unassigned: {debugBgUnassignedCount ?? '—'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>Socket Burst: {debugBgSocketLast ? new Date(debugBgSocketLast).toLocaleTimeString() : 'Never'}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray }}>No-Flow Pending: {debugNoFlowCount}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.lightGray, marginBottom: 6 }}>Next Due: {debugNoFlowNextDue ? new Date(debugNoFlowNextDue).toLocaleTimeString() : '—'}</Text>
+            <TouchableOpacity
+              onPress={loadBackgroundDebug}
+              style={{ padding: 8, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 6, alignSelf: 'flex-start' }}
+            >
+              <Text style={{ color: COLORS.accent }}>Refresh</Text>
+            </TouchableOpacity>
           </View>
         )}
      

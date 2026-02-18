@@ -57,16 +57,6 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
   const [isLoading, setIsLoading] = useState(true);
   const [roomDevices, setRoomDevices] = useState<Device[]>([]);
 
-  useEffect(() => {
-    loadRoomDetails();
-    loadRoomDevices();
-    const unsubscribe = navigation.addListener('focus', () => {
-      // Refresh when coming back from add device screen
-      loadRoomDevices();
-    });
-    return unsubscribe;
-  }, [navigation, loadRoomDetails, loadRoomDevices]);
-
   const loadRoomDetails = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -105,6 +95,15 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
       setRoomDevices([]);
     }
   }, [roomId]);
+
+  useEffect(() => {
+    loadRoomDetails();
+    loadRoomDevices();
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadRoomDevices();
+    });
+    return unsubscribe;
+  }, [navigation, loadRoomDetails, loadRoomDevices]);
 
   const handleAddDevice = async () => {
     try { await logService.logButtonClick('Add Device To Room', { roomId }); } catch (e) {}

@@ -26,7 +26,7 @@ interface Product {
   specifications?: { [key: string]: string };
 }
 
-const ProductDetailScreen = ({ route, navigation }) => {
+const ProductDetailScreen = ({ route, navigation }: any) => {
   const { productId } = route.params;
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);

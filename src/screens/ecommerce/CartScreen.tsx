@@ -26,7 +26,7 @@ interface CartItem {
   };
 }
 
-const CartScreen = ({ navigation }) => {
+const CartScreen = ({ navigation }: any) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -44,7 +44,7 @@ const CartScreen = ({ navigation }) => {
       const itemsWithProducts = await Promise.all(
         items.map(async (item) => {
           const product = await productService.getProductById(item.productId);
-          return { ...item, product };
+          return { ...item, product: product || undefined };
         })
       );
       
@@ -52,7 +52,7 @@ const CartScreen = ({ navigation }) => {
       
       // Calculate total amount
       const total = itemsWithProducts.reduce(
-        (sum, item) => sum + (item.price || 0) * item.quantity,
+        (sum, item) => sum + (item.product?.price || 0) * item.quantity,
         0
       );
       setTotalAmount(total);
@@ -151,13 +151,13 @@ const CartScreen = ({ navigation }) => {
   const renderCartItem = ({ item }: { item: CartItem }) => (
     <View style={styles.cartItem}>
       <Image
-        source={{ uri: item.imageUrl }}
+        source={{ uri: item.product?.imageUrl || '' }}
         style={styles.productImage}
       />
       <View style={styles.itemDetails}>
-        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productName}>{item.product?.name || 'Product'}</Text>
         <Text style={styles.productPrice}>
-        ₹{item.price.toFixed(2)}
+        ₹{(item.product?.price || 0).toFixed(2)}
         </Text>
         <View style={styles.quantityContainer}>
           <TouchableOpacity

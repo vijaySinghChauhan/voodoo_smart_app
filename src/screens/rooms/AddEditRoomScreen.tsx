@@ -52,7 +52,7 @@ const getRoomEmoji = (name: string) => {
   return '🏠';
 };
 
-const AddEditRoomScreen = ({ route, navigation }) => {
+const AddEditRoomScreen = ({ route, navigation }: any) => {
   const { room } = route.params || {};
   const [roomName, setRoomName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -80,7 +80,7 @@ const AddEditRoomScreen = ({ route, navigation }) => {
     try {
       if (room) {
         // Update existing room
-        await roomService.updateRoom(room.id, { name: roomName });
+        await roomService.updateRoom({ id: room.id, name: roomName, deviceCount: room.deviceCount || 0 } as any);
         Toast.show({
           type: 'success',
           text1: 'Success',
@@ -89,7 +89,7 @@ const AddEditRoomScreen = ({ route, navigation }) => {
         });
       } else {
         // Create new room
-        await roomService.addRoom({ name: roomName });
+        await roomService.addRoom({ id: '', name: roomName, deviceCount: 0 } as any);
         Toast.show({
           type: 'success',
           text1: 'Success',

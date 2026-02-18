@@ -431,8 +431,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           tracks.forEach((t: any) => (t.enabled = true));
           setRemoteAudioTracks(tracks?.length || 0);
           try {
-            InCallManager.setForceSpeakerphoneOn(true);
-            InCallManager.setSpeakerphoneOn(true);
+            InCallManagerSafe.setForceSpeakerphoneOn(true);
+            InCallManagerSafe.setSpeakerphoneOn(true);
           } catch (_) {}
           if (callStateRef.current !== 'in_call') {
             setCallState('in_call');
@@ -449,8 +449,8 @@ const AudioCallScreen: React.FC<{ route: AudioCallRouteProp }> = ({ route }) => 
           tracks.forEach((t: any) => (t.enabled = true));
           setRemoteAudioTracks(tracks?.length || 0);
           try {
-            InCallManager.setForceSpeakerphoneOn(true);
-            InCallManager.setSpeakerphoneOn(true);
+            InCallManagerSafe.setForceSpeakerphoneOn(true);
+            InCallManagerSafe.setSpeakerphoneOn(true);
           } catch (_) {}
           if (callStateRef.current !== 'in_call') {
             setCallState('in_call');

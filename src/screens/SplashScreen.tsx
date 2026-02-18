@@ -66,9 +66,9 @@ const SplashScreen: React.FC = () => {
       
       <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
         <View style={styles.loadingDots}>
-          <View style={[styles.dot, styles.dot1]} />
-          <View style={[styles.dot, styles.dot2]} />
-          <View style={[styles.dot, styles.dot3]} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
         </View>
       </Animated.View>
     </ScrollView>
@@ -134,15 +134,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#e94560',
     marginHorizontal: 5,
-  },
-  dot1: {
-    animationDelay: '0s',
-  },
-  dot2: {
-    animationDelay: '0.2s',
-  },
-  dot3: {
-    animationDelay: '0.4s',
   },
 });
 

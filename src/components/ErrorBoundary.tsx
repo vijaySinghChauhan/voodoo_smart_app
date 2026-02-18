@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log for diagnostics; on web this shows in DevTools console
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
-    this.setState({ details: errorInfo?.componentStack });
+    this.setState({ details: errorInfo?.componentStack || undefined });
   }
 
   handleReload = () => {
@@ -129,4 +129,3 @@ const styles = StyleSheet.create({
 });
 
 export default ErrorBoundary;
-

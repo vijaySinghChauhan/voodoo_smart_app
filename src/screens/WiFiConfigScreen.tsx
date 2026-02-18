@@ -14,11 +14,13 @@ import esp8266Service from '../services/esp8266/esp8266Service';
 import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import * as constantsV from '../constants/constatantsV';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const WiFiConfigScreen: React.FC = () => {
   const { user } = useAuth();
   const [ssid, setSSID] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [deviceIP, setDeviceIP] = useState('192.168.4.1');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -335,13 +337,29 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
                 value={ssid}
                 onChangeText={setSSID}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="WiFi Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="WiFi Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((v) => !v)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={[styles.button, isConnecting && styles.disabledButton]}
                 onPress={handleConfigureWiFi}
@@ -437,6 +455,23 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 15,
     backgroundColor: '#f9f9f9',
+  },
+  passwordRow: {
+    position: 'relative',
+    marginBottom: 15,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 46,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    height: 50,
+    width: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     backgroundColor: '#4a90e2',
