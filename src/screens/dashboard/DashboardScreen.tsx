@@ -32,7 +32,7 @@ import { io, Socket } from 'socket.io-client';
 import authService from '../../services/auth/authService';
 import * as constantsV from '../../constants/constatantsV';
 import BackgroundTimer from 'react-native-background-timer';
-import { scheduleLockAutoOff } from '../../services/background/backgroundService';
+import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
 
 const normalizeVersion = (v: string) => String(v || '').trim();
 const compareVersions = (a: string, b: string) => {
@@ -100,6 +100,14 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     if (buf.length > SMOOTH_WINDOW) buf.shift();
     const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
     return avg;
+  };
+  const normalizeFlowRate = (raw: number): number | undefined => {
+    if (typeof raw !== 'number' || !isFinite(raw)) return undefined;
+    let v = raw;
+    if (v < 0) v = 0;
+    if (v > MAX_FLOW_RATE * 5) v = v / 1000;
+    if (!isFinite(v)) return undefined;
+    return Math.max(0, Math.min(MAX_FLOW_RATE, v));
   };
 
  
@@ -471,8 +479,12 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       }
       const fr = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
       if (typeof fr === 'number' && isFinite(fr)) {
-        const value = Math.max(0, fr);
-        setWaterFlow(motorOnRef.current ? value : 0);
+        const normalized = normalizeFlowRate(fr);
+        if (typeof normalized === 'number' && isFinite(normalized)) {
+          const smoothed = smoothFlow(normalized);
+          const value = Math.max(0, Math.min(MAX_FLOW_RATE, smoothed));
+          setWaterFlow(motorOnRef.current ? value : 0);
+        }
       }
     } catch {}
   }, []);
@@ -764,8 +776,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
                         : !!currentRaw;
                       const nextVal = current ? 0 : 1;
+                      const pendingKey = await enqueueDeviceServerUpdate(devId, { device1: nextVal });
                       const ok = await esp8266Service.updateDeviceOnServer(devId, { device1: nextVal });
                       if (ok) {
+                        await resolvePendingDeviceCommand(pendingKey);
                         Toast.show({ type: 'success', text1: 'Motor', text2: nextVal === 1 ? 'ON' : 'OFF', position: 'bottom' });
                         setMotorOn(nextVal === 1);
                       } else {
@@ -776,8 +790,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         ? !!(target as any).isOn
                         : String((target as any).status || '').toLowerCase() === 'on';
                       const nextAction: 'on' | 'off' = isOn ? 'off' : 'on';
+                      const pendingKey = await enqueueDeviceServerControl(devId, nextAction);
                       const ok = await esp8266Service.controlDeviceOnServer(devId, nextAction);
                       if (ok) {
+                        await resolvePendingDeviceCommand(pendingKey);
                         Toast.show({ type: 'success', text1: 'Motor', text2: nextAction.toUpperCase(), position: 'bottom' });
                         setMotorOn(nextAction === 'on');
                       } else {
@@ -812,8 +828,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
                       : !!currentRaw;
                     const nextVal = current ? 0 : 1;
+                    const pendingKey = await enqueueDeviceServerUpdate(devId, { device2: nextVal });
                     const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
                     if (ok) {
+                      await resolvePendingDeviceCommand(pendingKey);
                       Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
                       setLockOn(nextVal === 1);
                       if (lockTimeoutRef.current) {
@@ -826,8 +844,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         } catch {}
                         lockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
                           try {
+                            const pendingKey2 = await enqueueDeviceServerUpdate(devId, { device2: 0 });
                             const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
                             if (ok2) {
+                              await resolvePendingDeviceCommand(pendingKey2);
                               Toast.show({ type: 'success', text1: 'Door', text2: 'Auto-off', position: 'bottom' });
                               setLockOn(false);
                             }
@@ -912,8 +932,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   <TouchableOpacity
                     onPress={async () => {
                       const next = device.status === 'on' ? 'off' : 'on';
+                      const pendingKey = await enqueueDeviceServerControl(device.id, next as any);
                       const ok = await esp8266Service.controlDeviceOnServer(device.id, next as any);
                       if (ok) {
+                        await resolvePendingDeviceCommand(pendingKey);
                         setDevices(prev => prev.map(d => d.id === device.id ? { ...d, status: next as any } : d));
                       } else {
                         Toast.show({ type: 'error', text1: 'Action failed', text2: 'Could not toggle device', position: 'bottom' });

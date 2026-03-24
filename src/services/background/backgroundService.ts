@@ -18,6 +18,9 @@ export async function initBackgroundDevicePolling() {
       },
       async (taskId: string) => {
         try {
+          try {
+            await processPendingDeviceCommands();
+          } catch {}
           const list = await esp8266Service.getDevicesFromServer();
           await AsyncStorage.setItem('last_background_device_count', String(Array.isArray(list) ? list.length : 0));
           try {
@@ -49,6 +52,9 @@ export async function initBackgroundDevicePolling() {
 
 export const BackgroundDeviceHeadless = async (event: any) => {
   try {
+    try {
+      await processPendingDeviceCommands();
+    } catch {}
     const list = await esp8266Service.getDevicesFromServer();
     await AsyncStorage.setItem('last_background_device_count', String(Array.isArray(list) ? list.length : 0));
     try {
@@ -75,10 +81,217 @@ BackgroundFetch.registerHeadlessTask(BackgroundDeviceHeadless);
 
 const PENDING_LOCK_KEY = 'pending_lock_auto_off';
 const PENDING_NO_FLOW_KEY = 'pending_no_flow_auto_off';
+const PENDING_DEVICE_COMMANDS_KEY = 'pending_device_commands_v1';
+const DEVICE_COMMAND_TASK_ID = 'pending_device_commands_due_v1';
+const DEVICE_COMMAND_SCHEDULE_AT_KEY = 'pending_device_commands_due_at_v1';
 const NO_FLOW_THRESHOLD = 6.5;
 const BG_SOCKET_LAST_KEY = 'bg_socket_last';
 const BG_SOCKET_SESSION_MS = 15000;
 const BG_SOCKET_PATH = '/voodoo/socket.io';
+const MAX_FLOW_RATE = 60;
+
+function normalizeFlowRate(raw: number): number | undefined {
+  if (typeof raw !== 'number' || !isFinite(raw)) return undefined;
+  let v = raw;
+  if (v < 0) v = 0;
+  if (v > MAX_FLOW_RATE * 5) v = v / 1000;
+  if (!isFinite(v)) return undefined;
+  return Math.max(0, Math.min(MAX_FLOW_RATE, v));
+}
+
+type PendingDeviceCommand = {
+  key: string;
+  kind: 'control' | 'update';
+  deviceId: string;
+  action?: 'on' | 'off' | 'toggle';
+  brightness?: number;
+  payload?: Record<string, any>;
+  dueAt: number;
+  attempts: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+function buildControlKey(deviceId: string, action: 'on' | 'off' | 'toggle', brightness?: number): string {
+  const b = typeof brightness === 'number' && isFinite(brightness) ? String(brightness) : '';
+  return `control:${String(deviceId)}:${String(action)}:${b}`;
+}
+
+function buildUpdateKey(deviceId: string, payload: Record<string, any>): string {
+  let raw = '';
+  try {
+    raw = JSON.stringify(payload || {});
+  } catch {
+    raw = String(payload);
+  }
+  return `update:${String(deviceId)}:${raw}`;
+}
+
+async function upsertPendingCommand(next: PendingDeviceCommand): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
+    const list: PendingDeviceCommand[] = raw ? JSON.parse(raw) : [];
+    const now = Date.now();
+    const arr: PendingDeviceCommand[] = Array.isArray(list) ? list : [];
+    const idx = arr.findIndex((x) => String(x?.key) === String(next.key));
+    if (idx >= 0) {
+      const prev = arr[idx];
+      arr[idx] = {
+        ...prev,
+        ...next,
+        attempts: typeof prev?.attempts === 'number' ? prev.attempts : 0,
+        createdAt: typeof prev?.createdAt === 'number' ? prev.createdAt : now,
+        updatedAt: now,
+      };
+    } else {
+      arr.push({ ...next, attempts: 0, createdAt: now, updatedAt: now });
+    }
+    await AsyncStorage.setItem(PENDING_DEVICE_COMMANDS_KEY, JSON.stringify(arr));
+  } catch {}
+}
+
+export async function enqueueDeviceServerControl(
+  deviceId: string,
+  action: 'on' | 'off' | 'toggle',
+  brightness?: number
+): Promise<string> {
+  const key = buildControlKey(deviceId, action, brightness);
+  await upsertPendingCommand({
+    key,
+    kind: 'control',
+    deviceId: String(deviceId),
+    action,
+    brightness: typeof brightness === 'number' && isFinite(brightness) ? brightness : undefined,
+    dueAt: Date.now(),
+    attempts: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  });
+  try {
+    await schedulePendingDeviceCommands(1000);
+  } catch {}
+  return key;
+}
+
+export async function enqueueDeviceServerUpdate(deviceId: string, payload: Record<string, any>): Promise<string> {
+  const key = buildUpdateKey(deviceId, payload);
+  await upsertPendingCommand({
+    key,
+    kind: 'update',
+    deviceId: String(deviceId),
+    payload,
+    dueAt: Date.now(),
+    attempts: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  });
+  try {
+    await schedulePendingDeviceCommands(1000);
+  } catch {}
+  return key;
+}
+
+export async function resolvePendingDeviceCommand(key: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
+    const list: PendingDeviceCommand[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list) || list.length === 0) return;
+    const filtered = list.filter((x) => String(x?.key) !== String(key));
+    await AsyncStorage.setItem(PENDING_DEVICE_COMMANDS_KEY, JSON.stringify(filtered));
+  } catch {}
+}
+
+async function schedulePendingDeviceCommands(delayMs: number): Promise<void> {
+  try {
+    const now = Date.now();
+    const dueAt = now + Math.max(0, delayMs);
+    const existing = await AsyncStorage.getItem(DEVICE_COMMAND_SCHEDULE_AT_KEY);
+    const existingAt = existing ? parseInt(existing, 10) : NaN;
+    if (typeof existingAt === 'number' && isFinite(existingAt) && existingAt <= dueAt + 2000) return;
+    await AsyncStorage.setItem(DEVICE_COMMAND_SCHEDULE_AT_KEY, String(dueAt));
+    await BackgroundFetch.scheduleTask({
+      taskId: DEVICE_COMMAND_TASK_ID,
+      delay: Math.max(0, delayMs),
+      periodic: false,
+      stopOnTerminate: false,
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+      enableHeadless: true,
+    } as any);
+  } catch {}
+}
+
+async function processPendingDeviceCommands(): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
+    const list: PendingDeviceCommand[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list) || list.length === 0) return;
+
+    const now = Date.now();
+    const due = list.filter((x) => typeof x?.dueAt === 'number' && isFinite(x.dueAt) && x.dueAt <= now);
+    if (due.length === 0) {
+      const nextDue = list.reduce((acc: number | null, curr) => {
+        const d = curr?.dueAt;
+        if (typeof d !== 'number' || !isFinite(d)) return acc;
+        return acc === null || d < acc ? d : acc;
+      }, null);
+      if (typeof nextDue === 'number' && isFinite(nextDue)) {
+        await schedulePendingDeviceCommands(Math.max(0, nextDue - now));
+      }
+      return;
+    }
+
+    const MAX_PER_RUN = 8;
+    const sorted = due.sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0)).slice(0, MAX_PER_RUN);
+    const pendingKeys = new Set(sorted.map((x) => String(x.key)));
+    const keep: PendingDeviceCommand[] = list.filter((x) => !pendingKeys.has(String(x?.key)));
+    const updated: PendingDeviceCommand[] = [];
+
+    for (const cmd of sorted) {
+      const attempts = typeof cmd?.attempts === 'number' ? cmd.attempts : 0;
+      let ok = false;
+      try {
+        if (cmd.kind === 'control') {
+          const action = cmd.action || 'toggle';
+          ok = await esp8266Service.controlDeviceOnServer(String(cmd.deviceId), action as any, cmd.brightness);
+        } else if (cmd.kind === 'update') {
+          ok = await esp8266Service.updateDeviceOnServer(String(cmd.deviceId), cmd.payload || {});
+        }
+      } catch {
+        ok = false;
+      }
+      if (!ok) {
+        const nextAttempts = attempts + 1;
+        const backoff = Math.min(10 * 60 * 1000, Math.max(10 * 1000, 10 * 1000 * Math.pow(2, Math.min(10, nextAttempts - 1))));
+        if (nextAttempts <= 20) {
+          updated.push({
+            ...cmd,
+            attempts: nextAttempts,
+            dueAt: now + backoff,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+
+    const merged = [...keep, ...updated];
+    await AsyncStorage.setItem(PENDING_DEVICE_COMMANDS_KEY, JSON.stringify(merged));
+    try {
+      await AsyncStorage.setItem('last_pending_device_commands_run', String(Date.now()));
+      await AsyncStorage.setItem('pending_device_commands_count', String(merged.length));
+    } catch {}
+
+    if (merged.length > 0) {
+      const nextDue = merged.reduce((acc: number | null, curr) => {
+        const d = curr?.dueAt;
+        if (typeof d !== 'number' || !isFinite(d)) return acc;
+        return acc === null || d < acc ? d : acc;
+      }, null);
+      if (typeof nextDue === 'number' && isFinite(nextDue)) {
+        await schedulePendingDeviceCommands(Math.max(0, nextDue - now));
+      }
+    }
+  } catch {}
+}
 
 export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 3000): Promise<void> {
   try {
@@ -101,7 +314,11 @@ async function processPendingLockAutoOff(): Promise<void> {
       if (now >= item.dueAt) {
         try {
           if (item.deviceId) {
-            await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device2: 0 });
+            const key = await enqueueDeviceServerUpdate(String(item.deviceId), { device2: 0 });
+            const ok = await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device2: 0 });
+            if (ok) {
+              await resolvePendingDeviceCommand(key);
+            }
           }
         } catch {}
       } else {
@@ -183,10 +400,22 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
             frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
           }
           const flow = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
-          const flowOk = typeof flow === 'number' && isFinite(flow) ? flow : undefined;
+          const flowOk = typeof flow === 'number' && isFinite(flow) ? normalizeFlowRate(flow) : undefined;
           if (isOn && typeof flowOk === 'number' && isFinite(flowOk) && flowOk < NO_FLOW_THRESHOLD) {
-            try { await esp8266Service.controlDeviceOnServer(String(item.deviceId), 'off' as any); } catch {}
-            try { await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device1: 0 }); } catch {}
+            try {
+              const k1 = await enqueueDeviceServerControl(String(item.deviceId), 'off');
+              const ok1 = await esp8266Service.controlDeviceOnServer(String(item.deviceId), 'off' as any);
+              if (ok1) {
+                await resolvePendingDeviceCommand(k1);
+              }
+            } catch {}
+            try {
+              const k2 = await enqueueDeviceServerUpdate(String(item.deviceId), { device1: 0 });
+              const ok2 = await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device1: 0 });
+              if (ok2) {
+                await resolvePendingDeviceCommand(k2);
+              }
+            } catch {}
           }
         } catch {}
       } else {
@@ -254,7 +483,8 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
       if (frRaw === undefined && state?.data) {
         frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
       }
-      const flow = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+      const flowRaw = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
+      const flow = typeof flowRaw === 'number' && isFinite(flowRaw) ? normalizeFlowRate(flowRaw) : undefined;
       let tRaw: any = state?.target ?? state?.targetDistance ?? state?.distanceTarget ?? state?.waterTarget;
       if (tRaw === undefined && state?.data) {
         tRaw = state.data.target ?? state.data.targetDistance ?? state.data.distanceTarget ?? state.data.waterTarget;
@@ -270,15 +500,39 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
       if (onEnabled) {
         const onMet = onOperator === 'lt' ? level < onThreshold : level >= onThreshold;
         if (onMet) {
-          try { await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any); } catch {}
-          try { await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 }); } catch {}
+          try {
+            const k1 = await enqueueDeviceServerControl(deviceId, 'on');
+            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any);
+            if (ok1) {
+              await resolvePendingDeviceCommand(k1);
+            }
+          } catch {}
+          try {
+            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 1 });
+            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 });
+            if (ok2) {
+              await resolvePendingDeviceCommand(k2);
+            }
+          } catch {}
         }
       }
       if (offEnabled) {
         const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
         if (offMet) {
-          try { await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any); } catch {}
-          try { await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 }); } catch {}
+          try {
+            const k1 = await enqueueDeviceServerControl(deviceId, 'off');
+            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any);
+            if (ok1) {
+              await resolvePendingDeviceCommand(k1);
+            }
+          } catch {}
+          try {
+            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 0 });
+            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 });
+            if (ok2) {
+              await resolvePendingDeviceCommand(k2);
+            }
+          } catch {}
         }
       }
 
@@ -288,14 +542,38 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
         const inEvening = isInWindow(now, eveningEnabled, freq, eveningStart, eveningEnd);
         const active = inMorning || inEvening;
         if (active) {
-          try { await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any); } catch {}
-          try { await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 }); } catch {}
+          try {
+            const k1 = await enqueueDeviceServerControl(deviceId, 'on');
+            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any);
+            if (ok1) {
+              await resolvePendingDeviceCommand(k1);
+            }
+          } catch {}
+          try {
+            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 1 });
+            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 });
+            if (ok2) {
+              await resolvePendingDeviceCommand(k2);
+            }
+          } catch {}
         } else {
           const finishedMorning = isFinishedWindow(now, freq, morningStart, morningEnd);
           const finishedEvening = isFinishedWindow(now, freq, eveningStart, eveningEnd);
           if (finishedMorning || finishedEvening) {
-            try { await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any); } catch {}
-            try { await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 }); } catch {}
+            try {
+              const k1 = await enqueueDeviceServerControl(deviceId, 'off');
+              const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any);
+              if (ok1) {
+                await resolvePendingDeviceCommand(k1);
+              }
+            } catch {}
+            try {
+              const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 0 });
+              const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 });
+              if (ok2) {
+                await resolvePendingDeviceCommand(k2);
+              }
+            } catch {}
           }
         }
       }
@@ -345,6 +623,7 @@ export function startAutomationMonitorForeground(): void {
       automationIntervalRef = null;
     }
     automationIntervalRef = BackgroundTimer.setInterval(async () => {
+      try { await processPendingDeviceCommands(); } catch {}
       try { await evaluateAutomationRulesHeadless(); } catch {}
       try { await processPendingLockAutoOff(); } catch {}
       try { await processPendingNoFlowAutoOff(); } catch {}

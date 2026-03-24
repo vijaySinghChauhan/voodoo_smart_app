@@ -13,6 +13,7 @@ import { RouteProp } from '@react-navigation/native';
 import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
+import { enqueueDeviceServerControl, resolvePendingDeviceCommand } from '../../services/background/backgroundService';
 import { AppSwitch } from '../../components/AppSwitch';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
@@ -136,8 +137,10 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     try {
       const newStatus: 'on' | 'off' = device.isOn ? 'off' : 'on';
       try { await logService.logButtonClick('Toggle Device Status', { deviceId: device.id, to: newStatus }); } catch (e) {}
+      const pendingKey = await enqueueDeviceServerControl(device.id, newStatus);
       const ok = await esp8266Service.controlDeviceOnServer(device.id, newStatus);
       if (!ok) throw new Error('Control failed');
+      await resolvePendingDeviceCommand(pendingKey);
       
       // Update local state
       const updatedDevices = roomDevices.map(d => 

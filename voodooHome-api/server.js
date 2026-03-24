@@ -326,8 +326,10 @@ io.on('connection', (socket) => {
       try {
         const dev = await Device.findById(deviceId);
         if (dev) {
-          const flowRate = typeof dev.flowRate === 'number' ? dev.flowRate : 0;
-          const totalLiters = typeof dev.totalLiters === 'number' ? dev.totalLiters : 0;
+          const flowRateRaw = typeof dev.flowRate === 'number' ? dev.flowRate : Number(dev.flowRate);
+          const totalLitersRaw = typeof dev.totalLiters === 'number' ? dev.totalLiters : Number(dev.totalLiters);
+          const flowRate = !isNaN(flowRateRaw) && isFinite(flowRateRaw) ? flowRateRaw : 0;
+          const totalLiters = !isNaN(totalLitersRaw) && isFinite(totalLitersRaw) ? totalLitersRaw : 0;
           const payload = `${flowRate}:${totalLiters}`;
           const last = lastValues.get(key);
           if (last !== payload) {

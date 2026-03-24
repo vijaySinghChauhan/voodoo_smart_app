@@ -33,7 +33,7 @@ import { COLORS, SHADOWS } from '../../theme/theme';
 import Svg, { Path } from 'react-native-svg';
 
 import BackgroundTimer from 'react-native-background-timer';
-import { scheduleLockAutoOff } from '../../services/background/backgroundService';
+import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
 
 
 interface DeviceStatus {
@@ -401,17 +401,43 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   const fallbackNoAuthRetriedRef = React.useRef<boolean>(false);
   const fallbackHttpRetriedRef = React.useRef<boolean>(false);
   const MAX_FLOW_RATE = 60;
+  const normalizeFlowRate = (raw: number): number | undefined => {
+    if (typeof raw !== 'number' || !isFinite(raw)) return undefined;
+    let v = raw;
+    if (v < 0) v = 0;
+    if (v > MAX_FLOW_RATE * 5) v = v / 1000;
+    if (!isFinite(v)) return undefined;
+    return Math.max(0, Math.min(MAX_FLOW_RATE, v));
+  };
+  const normalizeTotalLiters = (raw: number): number | undefined => {
+    if (typeof raw !== 'number' || !isFinite(raw)) return undefined;
+    let v = raw;
+    if (v < 0) v = 0;
+    if (v > 100000) v = v / 1000;
+    if (!isFinite(v)) return undefined;
+    return v;
+  };
   const applyFlowUpdate = (fr?: number, tl?: number, on?: boolean) => {
     const powerOn = typeof on === 'boolean' ? on : isPowerOnRef.current;
-    if (typeof fr === 'number' && isFinite(fr)) {
-      const smoothed = smoothFlow(fr);
-      const value = powerOn ? Math.max(0, smoothed) : 0;
-      setFlowRate(value);
-      setLastFlowRate(value);
+    if (!powerOn) {
+      flowBufferRef.current = [];
+      setFlowRate(0);
+      setLastFlowRate(0);
+    } else if (typeof fr === 'number' && isFinite(fr)) {
+      const normalized = normalizeFlowRate(fr);
+      if (typeof normalized === 'number' && isFinite(normalized)) {
+        const smoothed = smoothFlow(normalized);
+        const value = Math.max(0, Math.min(MAX_FLOW_RATE, smoothed));
+        setFlowRate(value);
+        setLastFlowRate(value);
+      }
     }
     if (typeof tl === 'number' && isFinite(tl)) {
-      setTotalLiters(tl);
-      setLastTotalLiters(tl);
+      const normalizedTl = normalizeTotalLiters(tl);
+      if (typeof normalizedTl === 'number' && isFinite(normalizedTl)) {
+        setTotalLiters(normalizedTl);
+        setLastTotalLiters(normalizedTl);
+      }
     }
     setLastFlowAt(Date.now());
     flowReceivedRef.current = true;
@@ -1137,7 +1163,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
       // Sync rules to server
+      const pendingKey = await enqueueDeviceServerUpdate(selectedDeviceId, { automationRules: payload });
       await esp8266Service.updateDeviceOnServer(selectedDeviceId, { automationRules: payload });
+      await resolvePendingDeviceCommand(pendingKey);
       
       if (showFeedback) {
         Toast.show({
@@ -1186,6 +1214,36 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   }, [brightness, targetInput, showRemaining]);
 
+  const sendServerControl = async (
+    deviceId: string,
+    action: 'on' | 'off' | 'toggle',
+    brightness?: number
+  ): Promise<boolean> => {
+    try {
+      const key = await enqueueDeviceServerControl(deviceId, action, brightness);
+      const ok = await esp8266Service.controlDeviceOnServer(deviceId, action, brightness);
+      if (ok) {
+        await resolvePendingDeviceCommand(key);
+      }
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const sendServerUpdate = async (deviceId: string, payload: Record<string, any>): Promise<boolean> => {
+    try {
+      const key = await enqueueDeviceServerUpdate(deviceId, payload);
+      const ok = await esp8266Service.updateDeviceOnServer(deviceId, payload);
+      if (ok) {
+        await resolvePendingDeviceCommand(key);
+      }
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   // Automation: evaluate ON/OFF rules with a small cooldown to avoid rapid toggles
   useEffect(() => {
     // Do not run automation until rules are loaded
@@ -1207,7 +1265,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                }).catch(console.warn);
           }
           // 2. Server Control Endpoint
-          esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+          void sendServerControl(selectedDeviceId, 'on');
           // 3. State Update (triggers DB/Socket)
           toggleDeviceField('device1', true);
 
@@ -1236,7 +1294,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                }).catch(console.warn);
           }
           // 2. Server Control Endpoint
-          esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+          void sendServerControl(selectedDeviceId, 'off');
           // 3. State Update
           toggleDeviceField('device1', false);
 
@@ -1256,7 +1314,9 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   useEffect(() => { flowRateRef.current = flowRate; }, [flowRate]);
   useEffect(() => {
     if (!isPowerOn) {
+      flowBufferRef.current = [];
       setFlowRate(0);
+      setLastFlowRate(0);
     }
   }, [isPowerOn]);
 
@@ -1290,7 +1350,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    }).catch(console.warn);
               }
               // 2. Server Control Endpoint
-              if (selectedDeviceId) esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+              if (selectedDeviceId) void sendServerControl(selectedDeviceId, 'off');
               // 3. State Update
               toggleDeviceField('device1', false);
 
@@ -1411,7 +1471,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                }).catch(console.warn);
            }
            // 2. Server Control Endpoint
-           esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+           void sendServerControl(selectedDeviceId, 'on');
            // 3. State Update (triggers DB/Socket)
            toggleDeviceField('device1', true);
            
@@ -1425,7 +1485,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                    esp8266Service.turnOn().catch(console.warn);
                }).catch(console.warn);
            }
-           esp8266Service.controlDeviceOnServer(selectedDeviceId, 'on').catch(console.warn);
+           void sendServerControl(selectedDeviceId, 'on');
            setLastForcedOn(Date.now());
         }
         }
@@ -1442,7 +1502,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                      }).catch(console.warn);
                  }
                  // 2. Server Control Endpoint
-                 esp8266Service.controlDeviceOnServer(selectedDeviceId, 'off').catch(console.warn);
+                 void sendServerControl(selectedDeviceId, 'off');
                  // 3. State Update
                  toggleDeviceField('device1', false);
                  
@@ -1850,7 +1910,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       // Log toggle intent
       await logService.logButtonClick(`Toggle ${field}`, { value });
       if (!selectedDeviceId) throw new Error('No device selected');
-      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { [field]: value ? 1 : 0 });
+      const ok = await sendServerUpdate(selectedDeviceId, { [field]: value ? 1 : 0 });
       if (!ok) throw new Error('Update failed');
       Toast.show({ type: 'success', text1: 'Updated', text2: `${field} ${value ? 'ON' : 'OFF'}`, position: 'bottom' });
     } catch (e) {
@@ -1875,7 +1935,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         );
         return;
       }
-      const ok = await esp8266Service.updateDeviceOnServer(selectedDeviceId, { target: parsed });
+      const ok = await sendServerUpdate(selectedDeviceId, { target: parsed });
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
         // Update local target and recalc using current brightness
@@ -1904,7 +1964,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       if (!selectedDeviceId) {
         throw new Error('No device selected');
       }
-      const ok = await esp8266Service.controlDeviceOnServer(selectedDeviceId, value ? 'on' : 'off');
+      const ok = await sendServerControl(selectedDeviceId, value ? 'on' : 'off');
       if (ok) {
         Toast.show({
           type: 'success',
