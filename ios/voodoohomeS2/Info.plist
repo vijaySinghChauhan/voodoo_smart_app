@@ -60,6 +60,14 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.transistorsoft.fetch</string>
+		<string>com.voodoosmart.pending_device_commands_due_v1</string>
+		<string>com.voodoosmart.automation_due_v1</string>
+		<string>com.voodoosmart.no_flow_due_v1</string>
+		<string>com.voodoosmart.lock_auto_off_due_v1</string>
+	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>CFBundleURLTypes</key>

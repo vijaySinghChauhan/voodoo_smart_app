@@ -33,7 +33,7 @@ import { COLORS, SHADOWS } from '../../theme/theme';
 import Svg, { Path } from 'react-native-svg';
 
 import BackgroundTimer from 'react-native-background-timer';
-import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
+import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, refreshAutomationSchedule, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
 
 
 interface DeviceStatus {
@@ -1162,6 +1162,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         },
       };
       await AsyncStorage.setItem(`auto_rules_${selectedDeviceId}`, JSON.stringify(payload));
+      try { await refreshAutomationSchedule(); } catch {}
       // Sync rules to server
       const pendingKey = await enqueueDeviceServerUpdate(selectedDeviceId, { automationRules: payload });
       await esp8266Service.updateDeviceOnServer(selectedDeviceId, { automationRules: payload });

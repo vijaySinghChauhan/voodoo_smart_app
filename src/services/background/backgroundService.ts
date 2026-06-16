@@ -1,4 +1,5 @@
 import BackgroundFetch from 'react-native-background-fetch';
+import { Platform } from 'react-native';
 import esp8266Service from '../esp8266/esp8266Service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackgroundTimer from 'react-native-background-timer';
@@ -6,11 +7,14 @@ import { io, Socket } from 'socket.io-client';
 import * as appConstants from '../../constants/constatantsV';
 import authService from '../auth/authService';
 
+let backgroundFetchConfigured = false;
+
 export async function initBackgroundDevicePolling() {
   try {
+    if (backgroundFetchConfigured) return;
     await BackgroundFetch.configure(
       {
-        minimumFetchInterval: 1,
+        minimumFetchInterval: Platform.OS === 'ios' ? 15 : 1,
         stopOnTerminate: false,
         startOnBoot: true,
         requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
@@ -47,6 +51,7 @@ export async function initBackgroundDevicePolling() {
       }
     );
     await BackgroundFetch.start();
+    backgroundFetchConfigured = true;
   } catch {}
 }
 
@@ -82,8 +87,12 @@ BackgroundFetch.registerHeadlessTask(BackgroundDeviceHeadless);
 const PENDING_LOCK_KEY = 'pending_lock_auto_off';
 const PENDING_NO_FLOW_KEY = 'pending_no_flow_auto_off';
 const PENDING_DEVICE_COMMANDS_KEY = 'pending_device_commands_v1';
-const DEVICE_COMMAND_TASK_ID = 'pending_device_commands_due_v1';
+const DEVICE_COMMAND_TASK_ID = 'com.voodoosmart.pending_device_commands_due_v1';
 const DEVICE_COMMAND_SCHEDULE_AT_KEY = 'pending_device_commands_due_at_v1';
+const AUTOMATION_TASK_ID = 'com.voodoosmart.automation_due_v1';
+const AUTOMATION_SCHEDULE_AT_KEY = 'automation_due_at_v1';
+const NO_FLOW_TASK_ID = 'com.voodoosmart.no_flow_due_v1';
+const LOCK_AUTO_OFF_TASK_ID = 'com.voodoosmart.lock_auto_off_due_v1';
 const NO_FLOW_THRESHOLD = 6.5;
 const BG_SOCKET_LAST_KEY = 'bg_socket_last';
 const BG_SOCKET_SESSION_MS = 15000;
@@ -224,7 +233,7 @@ async function processPendingDeviceCommands(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
     const list: PendingDeviceCommand[] = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list) || list.length === 0) return;
+    if (!Array.isArray(list) || list.length ==0) return;
 
     const now = Date.now();
     const due = list.filter((x) => typeof x?.dueAt === 'number' && isFinite(x.dueAt) && x.dueAt <= now);
@@ -298,8 +307,23 @@ export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 30
     const raw = await AsyncStorage.getItem(PENDING_LOCK_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
     const dueAt = Date.now() + Math.max(1, delayMs);
-    list.push({ deviceId, dueAt });
-    await AsyncStorage.setItem(PENDING_LOCK_KEY, JSON.stringify(list));
+    const filtered = list.filter((i) => String(i.deviceId) !== String(deviceId));
+    filtered.push({ deviceId, dueAt });
+    await AsyncStorage.setItem(PENDING_LOCK_KEY, JSON.stringify(filtered));
+    try {
+      const earliest = filtered.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
+      if (earliest) {
+        const delay = Math.max(0, earliest - Date.now());
+        await BackgroundFetch.scheduleTask({
+          taskId: LOCK_AUTO_OFF_TASK_ID,
+          delay,
+          periodic: false,
+          stopOnTerminate: false,
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+          enableHeadless: true,
+        } as any);
+      }
+    } catch {}
   } catch {}
 }
 
@@ -326,6 +350,20 @@ async function processPendingLockAutoOff(): Promise<void> {
       }
     }
     await AsyncStorage.setItem(PENDING_LOCK_KEY, JSON.stringify(keep));
+    try {
+      const earliest = keep.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
+      if (earliest) {
+        const delay = Math.max(0, earliest - Date.now());
+        await BackgroundFetch.scheduleTask({
+          taskId: LOCK_AUTO_OFF_TASK_ID,
+          delay,
+          periodic: false,
+          stopOnTerminate: false,
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+          enableHeadless: true,
+        } as any);
+      }
+    } catch {}
   } catch {}
 }
 
@@ -351,7 +389,7 @@ async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise
       if (earliest) {
         const delay = Math.max(0, earliest - Date.now());
         await BackgroundFetch.scheduleTask({
-          taskId: 'no_flow_due',
+          taskId: NO_FLOW_TASK_ID,
           delay,
           periodic: false,
           stopOnTerminate: false,
@@ -591,6 +629,7 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
       }
     }
     try { await AsyncStorage.setItem('last_headless_eval', String(Date.now())); } catch {}
+    try { await scheduleNextAutomationTick(); } catch {}
   } catch {}
 }
 
@@ -622,13 +661,145 @@ export function startAutomationMonitorForeground(): void {
       BackgroundTimer.clearInterval(automationIntervalRef);
       automationIntervalRef = null;
     }
-    automationIntervalRef = BackgroundTimer.setInterval(async () => {
-      try { await processPendingDeviceCommands(); } catch {}
-      try { await evaluateAutomationRulesHeadless(); } catch {}
-      try { await processPendingLockAutoOff(); } catch {}
-      try { await processPendingNoFlowAutoOff(); } catch {}
-      try { await runHeadlessSocketSession(); } catch {}
-    }, 10000);
+    try {
+      const bt: any = BackgroundTimer as any;
+      if (typeof bt?.stopBackgroundTimer === 'function') bt.stopBackgroundTimer();
+    } catch {}
+    const bt: any = BackgroundTimer as any;
+    if (typeof bt?.runBackgroundTimer === 'function') {
+      bt.runBackgroundTimer(async () => {
+        try { await processPendingDeviceCommands(); } catch {}
+        try { await evaluateAutomationRulesHeadless(); } catch {}
+        try { await processPendingLockAutoOff(); } catch {}
+        try { await processPendingNoFlowAutoOff(); } catch {}
+        try { await runHeadlessSocketSession(); } catch {}
+      }, 10000);
+    } else {
+      automationIntervalRef = BackgroundTimer.setInterval(async () => {
+        try { await processPendingDeviceCommands(); } catch {}
+        try { await evaluateAutomationRulesHeadless(); } catch {}
+        try { await processPendingLockAutoOff(); } catch {}
+        try { await processPendingNoFlowAutoOff(); } catch {}
+        try { await runHeadlessSocketSession(); } catch {}
+      }, 10000);
+    }
+  } catch {}
+}
+
+export function stopAutomationMonitorForeground(): void {
+  try {
+    if (automationIntervalRef) {
+      BackgroundTimer.clearInterval(automationIntervalRef);
+      automationIntervalRef = null;
+    }
+    const bt: any = BackgroundTimer as any;
+    if (typeof bt?.stopBackgroundTimer === 'function') bt.stopBackgroundTimer();
+  } catch {}
+}
+
+export async function refreshAutomationSchedule(): Promise<void> {
+  try {
+    await scheduleNextAutomationTick();
+  } catch {}
+}
+
+function timeOnDate(base: Date, time: Date): Date {
+  const d = new Date(base);
+  d.setHours(time.getHours(), time.getMinutes(), 0, 0);
+  return d;
+}
+
+function nextBoundaryForWindow(now: Date, enabled: boolean, frequency: string, start: Date | null, end: Date | null): number | null {
+  if (!enabled || !start || !end) return null;
+  const nowMs = now.getTime();
+  if (frequency === 'once') {
+    const s = start.getTime();
+    const e = end.getTime();
+    if (!isFinite(s) || !isFinite(e)) return null;
+    if (nowMs < s) return s;
+    if (nowMs <= e) return e;
+    return null;
+  }
+
+  const startToday = timeOnDate(now, start).getTime();
+  const endToday = timeOnDate(now, end).getTime();
+  if (!isFinite(startToday) || !isFinite(endToday)) return null;
+
+  if (endToday >= startToday) {
+    if (nowMs < startToday) return startToday;
+    if (nowMs <= endToday) return endToday;
+    return startToday + 24 * 60 * 60 * 1000;
+  }
+
+  if (nowMs <= endToday) return endToday;
+  if (nowMs < startToday) return startToday;
+  return endToday + 24 * 60 * 60 * 1000;
+}
+
+async function scheduleNextAutomationTick(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
+    if (ruleKeys.length === 0) {
+      try { await AsyncStorage.removeItem(AUTOMATION_SCHEDULE_AT_KEY); } catch {}
+      return;
+    }
+
+    const entries = await AsyncStorage.multiGet(ruleKeys);
+    const now = new Date();
+    let nextAt: number | null = null;
+
+    for (const [, value] of entries) {
+      if (!value) continue;
+      let rules: any = null;
+      try { rules = JSON.parse(value); } catch {}
+      if (!rules) continue;
+
+      const supply = rules?.supplyWater || {};
+      const enabled = !!supply?.enabled;
+      const freq = String(supply?.frequency || 'everyday');
+
+      const morningAt = nextBoundaryForWindow(
+        now,
+        !!supply?.morningEnabled && enabled,
+        freq,
+        supply?.morningStart ? new Date(supply.morningStart) : null,
+        supply?.morningEnd ? new Date(supply.morningEnd) : null
+      );
+      const eveningAt = nextBoundaryForWindow(
+        now,
+        !!supply?.eveningEnabled && enabled,
+        freq,
+        supply?.eveningStart ? new Date(supply.eveningStart) : null,
+        supply?.eveningEnd ? new Date(supply.eveningEnd) : null
+      );
+
+      const candidates = [morningAt, eveningAt].filter((x): x is number => typeof x === 'number' && isFinite(x));
+      for (const c of candidates) {
+        if (c <= now.getTime()) continue;
+        if (nextAt === null || c < nextAt) nextAt = c;
+      }
+    }
+
+    if (nextAt === null) {
+      try { await AsyncStorage.removeItem(AUTOMATION_SCHEDULE_AT_KEY); } catch {}
+      return;
+    }
+
+    const existing = await AsyncStorage.getItem(AUTOMATION_SCHEDULE_AT_KEY);
+    const existingAt = existing ? parseInt(existing, 10) : NaN;
+    if (typeof existingAt === 'number' && isFinite(existingAt) && existingAt <= nextAt + 2000) return;
+
+    await AsyncStorage.setItem(AUTOMATION_SCHEDULE_AT_KEY, String(nextAt));
+    const delay = Math.max(0, nextAt - Date.now());
+    await BackgroundFetch.scheduleTask({
+      taskId: AUTOMATION_TASK_ID,
+      delay,
+      periodic: false,
+      stopOnTerminate: false,
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+      enableHeadless: true,
+    } as any);
   } catch {}
 }
 
