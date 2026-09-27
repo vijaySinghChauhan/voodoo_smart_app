@@ -4,7 +4,7 @@ import { Linking, Modal, View, Text, TouchableOpacity, StyleSheet, PermissionsAn
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef, getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Toast from 'react-native-toast-message';
@@ -229,10 +229,32 @@ const AdminStack = () => (
   </Stack.Navigator>
 );
 
+const APP_VERSION = (() => {
+  try {
+    const v = require('./package.json')?.version;
+    return typeof v === 'string' ? v : '';
+  } catch {
+    return '';
+  }
+})();
+
+const CustomDrawerContent = (props: any) => {
+  return (
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContent}>
+      <DrawerItemList {...props} />
+      {APP_VERSION ? (
+        <View style={styles.drawerFooter}>
+          <Text style={styles.drawerVersionText}>{`Version ${APP_VERSION}`}</Text>
+        </View>
+      ) : null}
+    </DrawerContentScrollView>
+  );
+};
+
 const AppDrawer = () => {
   const { user } = useAuth();
   return (
-    <Drawer.Navigator initialRouteName="Dashboard">
+    <Drawer.Navigator initialRouteName="Dashboard" drawerContent={(props) => <CustomDrawerContent {...props} />}>
       <Drawer.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -331,8 +353,16 @@ const MainTabs = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: COLORS.primaryDark,
         tabBarInactiveTintColor: COLORS.textLight,
+        tabBarStyle: {
+          backgroundColor: COLORS.white,
+          borderTopColor: COLORS.border,
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontWeight: '600',
+        },
         tabBarIcon: ({ color, size }) => {
           const name =
             route.name === 'Home'
@@ -938,35 +968,52 @@ function App(): React.JSX.Element {
 export default App;
 
 const styles = StyleSheet.create({
+  drawerContent: {
+    flexGrow: 1,
+  },
+  drawerFooter: {
+    marginTop: 'auto',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+  },
+  drawerVersionText: {
+    color: COLORS.textLight,
+    fontSize: 12,
+    fontWeight: '500',
+  },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(11,30,43,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCard: {
     width: '85%',
     maxWidth: 400,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 8,
-    color: '#111',
+    color: COLORS.textDark,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#444',
-    marginBottom: 16,
+    color: COLORS.textMedium,
+    marginBottom: 20,
     textAlign: 'center',
+    lineHeight: 20,
   },
   modalActions: {
     flexDirection: 'row',
@@ -974,20 +1021,21 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
     marginHorizontal: 6,
     alignItems: 'center',
   },
   acceptButton: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: COLORS.success,
   },
   cancelButton: {
-    backgroundColor: '#c62828',
+    backgroundColor: COLORS.error,
   },
   modalButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

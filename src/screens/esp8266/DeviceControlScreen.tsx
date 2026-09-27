@@ -899,15 +899,6 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         BackgroundTimer.clearTimeout(device2TimerRef.current);
         device2TimerRef.current = null;
       }
-      if (device2On) {
-        if (selectedDeviceId) {
-          scheduleLockAutoOff(String(selectedDeviceId), 3000).catch(() => {});
-        }
-        device2TimerRef.current = BackgroundTimer.setTimeout(() => {
-          setDevice2On(false);
-          toggleDeviceField('device2', false);
-        }, 3000);
-      }
     } catch {}
     return () => {
       if (device2TimerRef.current) {
@@ -1750,6 +1741,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                 setTargetValue(tNum);
                 setTargetInput(String(tNum));
                 effectiveTarget = tNum;
+                try { await AsyncStorage.setItem(`target_${useDeviceId}`, String(tNum)); } catch {}
               }
             }
             // Parse sub-device subscriptions
@@ -1877,6 +1869,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
           setTargetValue(tNumSrv);
           setTargetInput(String(tNumSrv));
           effectiveTarget = tNumSrv;
+          try { await AsyncStorage.setItem(`target_${useDeviceId}`, String(tNumSrv)); } catch {}
         }
 
         // Initialize brightness from server state if present (fallback until socket updates arrive)
@@ -1939,6 +1932,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
       const ok = await sendServerUpdate(selectedDeviceId, { target: parsed });
       if (ok) {
         Toast.show({ type: 'success', text1: 'Saved', text2: 'Target updated on server', position: 'bottom' });
+        try { await AsyncStorage.setItem(`target_${selectedDeviceId}`, String(parsed)); } catch {}
         // Update local target and recalc using current brightness
         setTargetValue(parsed);
         setTargetInput(String(parsed));

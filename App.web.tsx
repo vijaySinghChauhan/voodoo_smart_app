@@ -1,8 +1,8 @@
 import 'react-native-gesture-handler';
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NavigationContainer, getFocusedRouteNameFromRoute, createNavigationContainerRef } from '@react-navigation/native';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -45,6 +45,28 @@ import WifiConnection from './src/services/esp8266/wifiConnection';
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 const navigationRef = createNavigationContainerRef<any>();
+
+const APP_VERSION = (() => {
+  try {
+    const v = require('./package.json')?.version;
+    return typeof v === 'string' ? v : '';
+  } catch {
+    return '';
+  }
+})();
+
+const CustomDrawerContent = (props: any) => {
+  return (
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContent}>
+      <DrawerItemList {...props} />
+      {APP_VERSION ? (
+        <View style={styles.drawerFooter}>
+          <Text style={styles.drawerVersionText}>{`Version ${APP_VERSION}`}</Text>
+        </View>
+      ) : null}
+    </DrawerContentScrollView>
+  );
+};
 
 
 
@@ -130,7 +152,7 @@ const AdminStack = () => (
 function AppDrawer() {
   const { user } = useAuth();
   return (
-    <Drawer.Navigator initialRouteName="Dashboard">
+    <Drawer.Navigator initialRouteName="Dashboard" drawerContent={(props) => <CustomDrawerContent {...props} />}>
       <Drawer.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -207,6 +229,23 @@ function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  drawerContent: {
+    flexGrow: 1,
+  },
+  drawerFooter: {
+    marginTop: 'auto',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e5e5e5',
+  },
+  drawerVersionText: {
+    color: '#666',
+    fontSize: 12,
+  },
+});
 
 function WebFooterTabs() {
   const { user } = useAuth();

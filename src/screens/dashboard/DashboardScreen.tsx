@@ -838,22 +838,6 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         BackgroundTimer.clearTimeout(lockTimeoutRef.current);
                         lockTimeoutRef.current = null;
                       }
-                      if (nextVal === 1) {
-                        try {
-                          scheduleLockAutoOff(String(devId), 3000).catch(() => {});
-                        } catch {}
-                        lockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
-                          try {
-                            const pendingKey2 = await enqueueDeviceServerUpdate(devId, { device2: 0 });
-                            const ok2 = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
-                            if (ok2) {
-                              await resolvePendingDeviceCommand(pendingKey2);
-                              Toast.show({ type: 'success', text1: 'Door', text2: 'Auto-off', position: 'bottom' });
-                              setLockOn(false);
-                            }
-                          } catch {}
-                        }, 3000);
-                      }
                     } else {
                       Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });
                     }

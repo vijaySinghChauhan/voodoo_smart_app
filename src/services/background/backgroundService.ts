@@ -9,6 +9,32 @@ import authService from '../auth/authService';
 
 let backgroundFetchConfigured = false;
 
+// #region debug-point A:reporter
+const DEBUG_SESSION_ID = 'water-schedule-no-off';
+const DEBUG_SERVER_URL = 'http://127.0.0.1:7777/event';
+const DEBUG_RUN_ID = 'pre-fix';
+function dbg(hypothesisId: string, location: string, msg: string, data?: Record<string, any>): void {
+  try {
+    try {
+      if (typeof __DEV__ !== 'undefined' && !__DEV__) return;
+    } catch {}
+    fetch(DEBUG_SERVER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: DEBUG_SESSION_ID,
+        runId: DEBUG_RUN_ID,
+        hypothesisId,
+        location,
+        msg: `[DEBUG] ${msg}`,
+        data: data || {},
+        ts: Date.now(),
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+// #endregion
+
 export async function initBackgroundDevicePolling() {
   try {
     if (backgroundFetchConfigured) return;
@@ -21,6 +47,12 @@ export async function initBackgroundDevicePolling() {
         enableHeadless: true,
       },
       async (taskId: string) => {
+        // #region debug-point A:fetch-callback
+        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch callback', {
+          taskId,
+          os: Platform.OS,
+        });
+        // #endregion
         try {
           try {
             await processPendingDeviceCommands();
@@ -47,6 +79,12 @@ export async function initBackgroundDevicePolling() {
         BackgroundFetch.finish(taskId);
       },
       async (taskId: string) => {
+        // #region debug-point A:fetch-timeout
+        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch timeout', {
+          taskId,
+          os: Platform.OS,
+        });
+        // #endregion
         BackgroundFetch.finish(taskId);
       }
     );
@@ -56,6 +94,13 @@ export async function initBackgroundDevicePolling() {
 }
 
 export const BackgroundDeviceHeadless = async (event: any) => {
+  // #region debug-point A:headless-entry
+  dbg('A', 'backgroundService.ts:BackgroundDeviceHeadless', 'Headless task entry', {
+    taskId: event?.taskId,
+    timeout: event?.timeout,
+    os: Platform.OS,
+  });
+  // #endregion
   try {
     try {
       await processPendingDeviceCommands();
@@ -106,6 +151,33 @@ function normalizeFlowRate(raw: number): number | undefined {
   if (v > MAX_FLOW_RATE * 5) v = v / 1000;
   if (!isFinite(v)) return undefined;
   return Math.max(0, Math.min(MAX_FLOW_RATE, v));
+}
+
+function getStateField(state: any, field: string): any {
+  try {
+    if (!state || typeof state !== 'object') return undefined;
+    const direct = (state as any)[field];
+    if (typeof direct !== 'undefined') return direct;
+    const data = (state as any).data;
+    if (data && typeof data === 'object') {
+      const v = (data as any)[field];
+      if (typeof v !== 'undefined') return v;
+    }
+    const inner = (state as any).state;
+    if (inner && typeof inner === 'object') {
+      const v = (inner as any)[field];
+      if (typeof v !== 'undefined') return v;
+    }
+  } catch {}
+  return undefined;
+}
+
+function getFirstStateField(state: any, ...fields: string[]): any {
+  for (const f of fields) {
+    const v = getStateField(state, f);
+    if (typeof v !== 'undefined') return v;
+  }
+  return undefined;
 }
 
 type PendingDeviceCommand = {
@@ -302,8 +374,10 @@ async function processPendingDeviceCommands(): Promise<void> {
   } catch {}
 }
 
-export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 3000): Promise<void> {
+export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 0): Promise<void> {
   try {
+    if (!deviceId) return;
+    if (typeof delayMs !== 'number' || !isFinite(delayMs) || delayMs <= 0) return;
     const raw = await AsyncStorage.getItem(PENDING_LOCK_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
     const dueAt = Date.now() + Math.max(1, delayMs);
@@ -380,10 +454,24 @@ async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise
   try {
     const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
-    const dueAt = Date.now() + Math.max(1, delayMs);
-    const filtered = list.filter((i) => String(i.deviceId) !== String(deviceId));
+    const now = Date.now();
+    const wantedDueAt = now + Math.max(1, delayMs);
+    const existing = Array.isArray(list) ? list.find((i) => String(i?.deviceId) === String(deviceId)) : undefined;
+    const dueAt =
+      existing && typeof existing?.dueAt === 'number' && isFinite(existing.dueAt) && existing.dueAt > now
+        ? existing.dueAt
+        : wantedDueAt;
+    const filtered = (Array.isArray(list) ? list : []).filter((i) => String(i?.deviceId) !== String(deviceId));
     filtered.push({ deviceId, dueAt });
     await AsyncStorage.setItem(PENDING_NO_FLOW_KEY, JSON.stringify(filtered));
+    // #region debug-point D:no-flow-scheduled
+    dbg('D', 'backgroundService.ts:scheduleNoFlowPending', 'No-flow scheduled', {
+      deviceId: String(deviceId),
+      delayMs,
+      dueAt,
+      count: filtered.length,
+    });
+    // #endregion
     try {
       const earliest = filtered.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
       if (earliest) {
@@ -407,6 +495,12 @@ async function clearNoFlowPending(deviceId: string): Promise<void> {
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
     const filtered = list.filter((i) => String(i.deviceId) !== String(deviceId));
     await AsyncStorage.setItem(PENDING_NO_FLOW_KEY, JSON.stringify(filtered));
+    // #region debug-point D:no-flow-cleared
+    dbg('D', 'backgroundService.ts:clearNoFlowPending', 'No-flow cleared', {
+      deviceId: String(deviceId),
+      count: filtered.length,
+    });
+    // #endregion
   } catch {}
 }
 
@@ -419,11 +513,18 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
     const keep: Array<{ deviceId: string; dueAt: number }> = [];
     for (const item of list) {
       if (now >= item.dueAt) {
+        // #region debug-point D:no-flow-due
+        dbg('D', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow due check', {
+          deviceId: String(item.deviceId),
+          dueAt: item.dueAt,
+          now,
+        });
+        // #endregion
         try {
           const state = await esp8266Service.getDeviceStateFromServer(String(item.deviceId));
           let isOn = false;
           try {
-            const rawOn = state?.isOn ?? state?.device1;
+            const rawOn = getFirstStateField(state, 'isOn', 'device1', 'relay1', 'switch1');
             if (typeof rawOn === 'number') {
               isOn = rawOn === 1;
             } else if (typeof rawOn === 'boolean') {
@@ -437,12 +538,45 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
           if (frRaw === undefined && state?.data) {
             frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
           }
+          if (frRaw === undefined) {
+            try {
+              const cached = await AsyncStorage.getItem(`bg_flow_${String(item.deviceId)}`);
+              const parsed = cached ? JSON.parse(cached) : null;
+              const v = parsed?.flow;
+              frRaw = typeof v === 'number' ? v : (typeof v === 'string' ? parseFloat(v) : undefined);
+            } catch {}
+          }
           const flow = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
           const flowOk = typeof flow === 'number' && isFinite(flow) ? normalizeFlowRate(flow) : undefined;
-          if (isOn && typeof flowOk === 'number' && isFinite(flowOk) && flowOk < NO_FLOW_THRESHOLD) {
+          // #region debug-point D:no-flow-state
+          dbg('D', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow state', {
+            deviceId: String(item.deviceId),
+            isOn,
+            flowRaw: flow,
+            flowOk,
+            threshold: NO_FLOW_THRESHOLD,
+          });
+          // #endregion
+          if (!isOn) {
+          } else if (typeof flowOk === 'number' && isFinite(flowOk) && flowOk >= NO_FLOW_THRESHOLD) {
+          } else if (!(typeof flowOk === 'number' && isFinite(flowOk))) {
+            keep.push({ deviceId: String(item.deviceId), dueAt: now + 10000 });
+          } else if (flowOk < NO_FLOW_THRESHOLD) {
+            // #region debug-point C:no-flow-off-attempt
+            dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow OFF attempt', {
+              deviceId: String(item.deviceId),
+              flowOk,
+            });
+            // #endregion
             try {
               const k1 = await enqueueDeviceServerControl(String(item.deviceId), 'off');
               const ok1 = await esp8266Service.controlDeviceOnServer(String(item.deviceId), 'off' as any);
+              // #region debug-point C:no-flow-control-result
+              dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow control result', {
+                deviceId: String(item.deviceId),
+                ok: !!ok1,
+              });
+              // #endregion
               if (ok1) {
                 await resolvePendingDeviceCommand(k1);
               }
@@ -450,10 +584,17 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
             try {
               const k2 = await enqueueDeviceServerUpdate(String(item.deviceId), { device1: 0 });
               const ok2 = await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device1: 0 });
+              // #region debug-point C:no-flow-update-result
+              dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow update result', {
+                deviceId: String(item.deviceId),
+                ok: !!ok2,
+              });
+              // #endregion
               if (ok2) {
                 await resolvePendingDeviceCommand(k2);
               }
             } catch {}
+            keep.push({ deviceId: String(item.deviceId), dueAt: now + 15000 });
           }
         } catch {}
       } else {
@@ -461,6 +602,20 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
       }
     }
     await AsyncStorage.setItem(PENDING_NO_FLOW_KEY, JSON.stringify(keep));
+    try {
+      const earliest = keep.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
+      if (earliest) {
+        const delay = Math.max(0, earliest - Date.now());
+        await BackgroundFetch.scheduleTask({
+          taskId: NO_FLOW_TASK_ID,
+          delay,
+          periodic: false,
+          stopOnTerminate: false,
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+          enableHeadless: true,
+        } as any);
+      }
+    } catch {}
   } catch {}
 }
 
@@ -497,18 +652,54 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
         state = await esp8266Service.getDeviceStateFromServer(deviceId);
       } catch {}
       if (!state) continue;
-      let isOn = false;
-      try {
-        const rawOn = state?.isOn ?? state?.device1;
-        if (typeof rawOn === 'number') {
-          isOn = rawOn === 1;
-        } else if (typeof rawOn === 'boolean') {
-          isOn = rawOn;
-        } else if (typeof rawOn === 'string') {
-          const s = rawOn.trim().toLowerCase();
-          isOn = s === '1' || s === 'true' || s === 'on';
+      const parseOnOff = (raw: any): boolean => {
+        if (typeof raw === 'number') return raw === 1;
+        if (typeof raw === 'boolean') return raw;
+        if (typeof raw === 'string') {
+          const s = raw.trim().toLowerCase();
+          return s === '1' || s === 'true' || s === 'on';
         }
-      } catch {}
+        return false;
+      };
+      const applyUpdate = async (payload: Record<string, any>): Promise<void> => {
+        try {
+          const k = await enqueueDeviceServerUpdate(deviceId, payload);
+          const ok = await esp8266Service.updateDeviceOnServer(deviceId, payload);
+          // #region debug-point C:update-result
+          dbg('C', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Update result', {
+            deviceId,
+            payload,
+            ok: !!ok,
+          });
+          // #endregion
+          if (ok) {
+            await resolvePendingDeviceCommand(k);
+          }
+        } catch {}
+      };
+      const applyControl = async (action: 'on' | 'off'): Promise<void> => {
+        try {
+          const k = await enqueueDeviceServerControl(deviceId, action);
+          const ok = await esp8266Service.controlDeviceOnServer(deviceId, action as any);
+          // #region debug-point C:control-result
+          dbg('C', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Control result', {
+            deviceId,
+            action,
+            ok: !!ok,
+          });
+          // #endregion
+          if (ok) {
+            await resolvePendingDeviceCommand(k);
+          }
+        } catch {}
+      };
+
+      const now = new Date();
+      const isOn = parseOnOff(getFirstStateField(state, 'isOn', 'device1', 'relay1', 'switch1'));
+      const device2On = parseOnOff(getFirstStateField(state, 'device2', 'relay2', 'switch2'));
+      const device3On = parseOnOff(getFirstStateField(state, 'device3', 'relay3', 'switch3'));
+      const device4On = parseOnOff(getFirstStateField(state, 'device4', 'relay4', 'switch4'));
+      const device5On = parseOnOff(getFirstStateField(state, 'device5', 'relay5', 'switch5'));
       let pctRaw: any = state?.waterPercentage ?? state?.water_percent ?? state?.waterLevelPercent;
       if (pctRaw === undefined && state?.data) {
         pctRaw = state.data.waterPercentage ?? state.data.water_percent ?? state.data.waterLevelPercent;
@@ -517,9 +708,25 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
       if (brRaw === undefined && state?.data) {
         brRaw = state.data.brightness ?? state.data.value ?? state.data.waterLevel;
       }
+      if (pctRaw === undefined && brRaw === undefined) {
+        try {
+          const cached = await AsyncStorage.getItem(`bg_brightness_${deviceId}`);
+          const parsed = cached ? JSON.parse(cached) : null;
+          const v = parsed?.brightness;
+          brRaw = typeof v === 'number' ? v : (typeof v === 'string' ? parseFloat(v) : undefined);
+        } catch {}
+      }
       let frRaw: any = state?.flowRate ?? state?.flow_rate ?? state?.FlowRate;
       if (frRaw === undefined && state?.data) {
         frRaw = state.data.flowRate ?? state.data.flow_rate ?? state.data.FlowRate;
+      }
+      if (frRaw === undefined) {
+        try {
+          const cached = await AsyncStorage.getItem(`bg_flow_${deviceId}`);
+          const parsed = cached ? JSON.parse(cached) : null;
+          const v = parsed?.flow;
+          frRaw = typeof v === 'number' ? v : (typeof v === 'string' ? parseFloat(v) : undefined);
+        } catch {}
       }
       const flowRaw = typeof frRaw === 'number' ? frRaw : (typeof frRaw === 'string' ? parseFloat(frRaw) : undefined);
       const flow = typeof flowRaw === 'number' && isFinite(flowRaw) ? normalizeFlowRate(flowRaw) : undefined;
@@ -527,7 +734,15 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
       if (tRaw === undefined && state?.data) {
         tRaw = state.data.target ?? state.data.targetDistance ?? state.data.distanceTarget ?? state.data.waterTarget;
       }
-      const t = typeof tRaw === 'number' && isFinite(tRaw) && tRaw > 0 ? tRaw : 100;
+      let t = typeof tRaw === 'number' && isFinite(tRaw) && tRaw > 0 ? tRaw : NaN;
+      if (!(typeof t === 'number' && isFinite(t) && t > 0)) {
+        try {
+          const local = await AsyncStorage.getItem(`target_${deviceId}`);
+          const n = local ? parseFloat(local) : NaN;
+          if (typeof n === 'number' && isFinite(n) && n > 0) t = n;
+        } catch {}
+      }
+      if (!(typeof t === 'number' && isFinite(t) && t > 0)) t = 100;
       let level = 0;
       if (typeof pctRaw === 'number' && isFinite(pctRaw)) {
         level = Math.max(0, Math.min(100, Math.round(pctRaw)));
@@ -535,90 +750,192 @@ async function evaluateAutomationRulesHeadless(): Promise<void> {
         level = brightnessToPercent(brRaw, t);
       }
 
+      // #region debug-point B:eval-state
+      dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Eval state', {
+        deviceId,
+        now: now.toISOString(),
+        isOn,
+        level,
+        target: t,
+        pctRaw,
+        brRaw,
+        flow,
+        onEnabled,
+        onOperator,
+        onThreshold,
+        offEnabled,
+        offOperator,
+        offThreshold,
+        supplyEnabled,
+        freq,
+        morningEnabled,
+        eveningEnabled,
+        morningStart: morningStart ? morningStart.toISOString() : null,
+        morningEnd: morningEnd ? morningEnd.toISOString() : null,
+        eveningStart: eveningStart ? eveningStart.toISOString() : null,
+        eveningEnd: eveningEnd ? eveningEnd.toISOString() : null,
+      });
+      // #endregion
+
       if (onEnabled) {
         const onMet = onOperator === 'lt' ? level < onThreshold : level >= onThreshold;
-        if (onMet) {
-          try {
-            const k1 = await enqueueDeviceServerControl(deviceId, 'on');
-            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any);
-            if (ok1) {
-              await resolvePendingDeviceCommand(k1);
-            }
-          } catch {}
-          try {
-            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 1 });
-            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 });
-            if (ok2) {
-              await resolvePendingDeviceCommand(k2);
-            }
-          } catch {}
+        if (onMet && !isOn) {
+          // #region debug-point E:on-by-level
+          dbg('E', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'ON by level', {
+            deviceId,
+            level,
+            operator: onOperator,
+            threshold: onThreshold,
+          });
+          // #endregion
+          try { await applyControl('on'); } catch {}
+          try { await applyUpdate({ device1: 1 }); } catch {}
         }
       }
       if (offEnabled) {
         const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
-        if (offMet) {
-          try {
-            const k1 = await enqueueDeviceServerControl(deviceId, 'off');
-            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any);
-            if (ok1) {
-              await resolvePendingDeviceCommand(k1);
-            }
-          } catch {}
-          try {
-            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 0 });
-            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 });
-            if (ok2) {
-              await resolvePendingDeviceCommand(k2);
-            }
-          } catch {}
+        if (offMet && isOn) {
+          // #region debug-point E:off-by-level
+          dbg('E', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'OFF by level', {
+            deviceId,
+            level,
+            operator: offOperator,
+            threshold: offThreshold,
+          });
+          // #endregion
+          try { await applyControl('off'); } catch {}
+          try { await applyUpdate({ device1: 0 }); } catch {}
         }
       }
 
       if (supplyEnabled) {
-        const now = new Date();
         const inMorning = isInWindow(now, morningEnabled, freq, morningStart, morningEnd);
         const inEvening = isInWindow(now, eveningEnabled, freq, eveningStart, eveningEnd);
         const active = inMorning || inEvening;
-        if (active) {
-          try {
-            const k1 = await enqueueDeviceServerControl(deviceId, 'on');
-            const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'on' as any);
-            if (ok1) {
-              await resolvePendingDeviceCommand(k1);
-            }
-          } catch {}
-          try {
-            const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 1 });
-            const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 1 });
-            if (ok2) {
-              await resolvePendingDeviceCommand(k2);
-            }
-          } catch {}
+        // #region debug-point B:supply-window
+        dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Supply window', {
+          deviceId,
+          inMorning,
+          inEvening,
+          active,
+        });
+        // #endregion
+        if (active && !isOn) {
+          try { await applyControl('on'); } catch {}
+          try { await applyUpdate({ device1: 1 }); } catch {}
         } else {
           const finishedMorning = isFinishedWindow(now, freq, morningStart, morningEnd);
           const finishedEvening = isFinishedWindow(now, freq, eveningStart, eveningEnd);
-          if (finishedMorning || finishedEvening) {
-            try {
-              const k1 = await enqueueDeviceServerControl(deviceId, 'off');
-              const ok1 = await esp8266Service.controlDeviceOnServer(deviceId, 'off' as any);
-              if (ok1) {
-                await resolvePendingDeviceCommand(k1);
-              }
-            } catch {}
-            try {
-              const k2 = await enqueueDeviceServerUpdate(deviceId, { device1: 0 });
-              const ok2 = await esp8266Service.updateDeviceOnServer(deviceId, { device1: 0 });
-              if (ok2) {
-                await resolvePendingDeviceCommand(k2);
-              }
-            } catch {}
+          // #region debug-point B:supply-finished
+          dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Supply finished check', {
+            deviceId,
+            finishedMorning,
+            finishedEvening,
+            isOn,
+          });
+          // #endregion
+          if ((finishedMorning || finishedEvening) && isOn) {
+            try { await applyControl('off'); } catch {}
+            try { await applyUpdate({ device1: 0 }); } catch {}
           }
         }
+      }
+
+      const wp = rules?.wateringPlants || {};
+      const wpEnabled = !!wp?.enabled;
+      const wpFreq = String(wp?.frequency || 'everyday');
+      const wpMorningEnabled = !!wp?.morningEnabled;
+      const wpEveningEnabled = !!wp?.eveningEnabled;
+      const wpMorningStart = wp?.morningStart ? new Date(wp.morningStart) : null;
+      const wpMorningEnd = wp?.morningEnd ? new Date(wp.morningEnd) : null;
+      const wpEveningStart = wp?.eveningStart ? new Date(wp.eveningStart) : null;
+      const wpEveningEnd = wp?.eveningEnd ? new Date(wp.eveningEnd) : null;
+      const wpActive = wpEnabled && (
+        isInWindow(now, wpMorningEnabled, wpFreq, wpMorningStart, wpMorningEnd) ||
+        isInWindow(now, wpEveningEnabled, wpFreq, wpEveningStart, wpEveningEnd)
+      );
+      const wpFinished = wpEnabled && (
+        isFinishedWindow(now, wpFreq, wpMorningStart, wpMorningEnd) ||
+        isFinishedWindow(now, wpFreq, wpEveningStart, wpEveningEnd)
+      );
+
+      const dog = rules?.dogFeed || {};
+      const dogEnabled = !!dog?.enabled;
+      const dogFreq = String(dog?.frequency || 'everyday');
+      const dogMorningEnabled = !!dog?.morningEnabled;
+      const dogEveningEnabled = !!dog?.eveningEnabled;
+      const dogMorningStart = dog?.morningStart ? new Date(dog.morningStart) : null;
+      const dogMorningEnd = dog?.morningEnd ? new Date(dog.morningEnd) : null;
+      const dogEveningStart = dog?.eveningStart ? new Date(dog.eveningStart) : null;
+      const dogEveningEnd = dog?.eveningEnd ? new Date(dog.eveningEnd) : null;
+      const dogActive = dogEnabled && (
+        isInWindow(now, dogMorningEnabled, dogFreq, dogMorningStart, dogMorningEnd) ||
+        isInWindow(now, dogEveningEnabled, dogFreq, dogEveningStart, dogEveningEnd)
+      );
+      const dogFinished = dogEnabled && (
+        isFinishedWindow(now, dogFreq, dogMorningStart, dogMorningEnd) ||
+        isFinishedWindow(now, dogFreq, dogEveningStart, dogEveningEnd)
+      );
+      const dogField: 'device4' | 'device3' = typeof getStateField(state, 'device4') !== 'undefined' ? 'device4' : 'device3';
+      const dogIsOn = dogField === 'device4' ? device4On : device3On;
+
+      const ac = rules?.acControl || {};
+      const acEnabled = !!ac?.enabled;
+      const acFreq = String(ac?.frequency || 'everyday');
+      const acMorningEnabled = !!ac?.morningEnabled;
+      const acEveningEnabled = !!ac?.eveningEnabled;
+      const acMorningStart = ac?.morningStart ? new Date(ac.morningStart) : null;
+      const acMorningEnd = ac?.morningEnd ? new Date(ac.morningEnd) : null;
+      const acEveningStart = ac?.eveningStart ? new Date(ac.eveningStart) : null;
+      const acEveningEnd = ac?.eveningEnd ? new Date(ac.eveningEnd) : null;
+      const acActive = acEnabled && (
+        isInWindow(now, acMorningEnabled, acFreq, acMorningStart, acMorningEnd) ||
+        isInWindow(now, acEveningEnabled, acFreq, acEveningStart, acEveningEnd)
+      );
+      const acFinished = acEnabled && (
+        isFinishedWindow(now, acFreq, acMorningStart, acMorningEnd) ||
+        isFinishedWindow(now, acFreq, acEveningStart, acEveningEnd)
+      );
+
+      if (wpActive && !device3On) {
+        try { await applyUpdate({ device3: 1 }); } catch {}
+      }
+      if (!wpActive && wpFinished && device3On) {
+        const blockOff = dogField === 'device3' && dogActive;
+        if (!blockOff) {
+          try { await applyUpdate({ device3: 0 }); } catch {}
+        }
+      }
+
+      if (dogActive && !dogIsOn) {
+        try { await applyUpdate({ [dogField]: 1 }); } catch {}
+      }
+      if (!dogActive && dogFinished && dogIsOn) {
+        const blockOff = dogField === 'device3' && wpActive;
+        if (!blockOff) {
+          try { await applyUpdate({ [dogField]: 0 }); } catch {}
+        }
+      }
+
+      if (acActive && !device5On) {
+        try { await applyUpdate({ device5: 1 }); } catch {}
+      }
+      if (!acActive && acFinished && device5On) {
+        try { await applyUpdate({ device5: 0 }); } catch {}
       }
       // Headless no-flow auto OFF
       const noFlowEnabled = !!rules?.noFlow?.enabled;
       const noFlowDelaySec = Number(rules?.noFlow?.delaySec || 40);
       if (noFlowEnabled && isOn) {
+        // #region debug-point D:no-flow-eval
+        dbg('D', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'No-flow eval', {
+          deviceId,
+          isOn,
+          flow,
+          threshold: NO_FLOW_THRESHOLD,
+          delaySec: noFlowDelaySec,
+        });
+        // #endregion
         if (typeof flow === 'number' && isFinite(flow) && flow < NO_FLOW_THRESHOLD) {
           await scheduleNoFlowPending(deviceId, Math.max(1, noFlowDelaySec) * 1000);
         } else {
@@ -755,26 +1072,33 @@ async function scheduleNextAutomationTick(): Promise<void> {
       try { rules = JSON.parse(value); } catch {}
       if (!rules) continue;
 
-      const supply = rules?.supplyWater || {};
-      const enabled = !!supply?.enabled;
-      const freq = String(supply?.frequency || 'everyday');
+      const collect = (section: any) => {
+        const enabled = !!section?.enabled;
+        const freq = String(section?.frequency || 'everyday');
+        const morningAt = nextBoundaryForWindow(
+          now,
+          !!section?.morningEnabled && enabled,
+          freq,
+          section?.morningStart ? new Date(section.morningStart) : null,
+          section?.morningEnd ? new Date(section.morningEnd) : null
+        );
+        const eveningAt = nextBoundaryForWindow(
+          now,
+          !!section?.eveningEnabled && enabled,
+          freq,
+          section?.eveningStart ? new Date(section.eveningStart) : null,
+          section?.eveningEnd ? new Date(section.eveningEnd) : null
+        );
+        return [morningAt, eveningAt].filter((x): x is number => typeof x === 'number' && isFinite(x));
+      };
 
-      const morningAt = nextBoundaryForWindow(
-        now,
-        !!supply?.morningEnabled && enabled,
-        freq,
-        supply?.morningStart ? new Date(supply.morningStart) : null,
-        supply?.morningEnd ? new Date(supply.morningEnd) : null
-      );
-      const eveningAt = nextBoundaryForWindow(
-        now,
-        !!supply?.eveningEnabled && enabled,
-        freq,
-        supply?.eveningStart ? new Date(supply.eveningStart) : null,
-        supply?.eveningEnd ? new Date(supply.eveningEnd) : null
-      );
+      const candidates = [
+        ...collect(rules?.supplyWater),
+        ...collect(rules?.wateringPlants),
+        ...collect(rules?.dogFeed),
+        ...collect(rules?.acControl),
+      ];
 
-      const candidates = [morningAt, eveningAt].filter((x): x is number => typeof x === 'number' && isFinite(x));
       for (const c of candidates) {
         if (c <= now.getTime()) continue;
         if (nextAt === null || c < nextAt) nextAt = c;

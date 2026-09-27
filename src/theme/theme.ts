@@ -3,44 +3,62 @@ import { Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 export const COLORS = {
-  // Primary colors (Matte Indigo)
-  primary: '#5C6BC0',
-  primaryDark: '#3949AB',
-  primaryLight: '#C5CAE9',
+  // VooDoo Tech Brand Colors - Teal to Cyan Gradient Palette
+  primary: '#0EB8A8',
+  primaryDark: '#0A5C5C',
+  primaryLight: '#B2EDE6',
 
-  // Secondary colors (Matte Deep Orange)
-  secondary: '#FF7043',
-  secondaryDark: '#F4511E',
-  secondaryLight: '#FFCCBC',
+  primaryMid: '#06B89F',
+  primaryCyan: '#22C8DD',
+  accentMint: '#14C0A6',
 
-  // Accent colors (Matte Teal)
-  accent: '#26A69A',
-  accentDark: '#00897B',
-  accentLight: '#B2DFDB',
+  // Secondary colors (Soft accent)
+  secondary: '#22C8DD',
+  secondaryDark: '#1098AC',
+  secondaryLight: '#CDEFF6',
+
+  // Accent colors (Mint Infinity)
+  accent: '#14C0A6',
+  accentDark: '#0D8B7A',
+  accentLight: '#C7F1EA',
+
+  // Gradient corner accents
+  cornerDark: '#064A48',
+  cornerMint: '#06B89F',
+  cornerCyan: '#1EB8DA',
+
+  // Watermark infinity light backgrounds
+  watermarkMint: '#D5F5EE',
+  watermarkCyan: '#D6F2FA',
 
   // Neutral colors
   white: '#FFFFFF',
-  black: '#263238',       // Blue Grey 900
-  gray: '#78909C',        // Blue Grey 400
-  lightGray: '#ECEFF1',   // Blue Grey 50
-  border: '#E0E0E0',
-  darkGray: '#455A64',    // Blue Grey 700
+  black: '#0B1E2B',
+  gray: '#5B7384',
+  lightGray: '#EEF4F5',
+  border: '#D6E2E6',
+  darkGray: '#33505F',
 
   // Functional colors
-  success: '#66BB6A',     // Matte Green
-  warning: '#FFA726',     // Matte Orange
-  error: '#EF5350',       // Matte Red
-  info: '#42A5F5',        // Matte Blue
+  success: '#22A06B',
+  warning: '#F0A830',
+  error: '#E05252',
+  info: '#2B8FD4',
 
   // Background colors
-  background: '#F5F7FA',  // Very light cool grey
+  background: '#F6FBFA',
   card: '#FFFFFF',
+  surface: '#F0FAF9',
 
-  // Text colors
-  textDark: '#37474F',    // Blue Grey 800
-  textMedium: '#546E7A',  // Blue Grey 600
-  textLight: '#90A4AE',   // Blue Grey 300
-  textVeryLight: '#CFD8DC',// Blue Grey 100
+  // Text colors - Dark Navy / Charcoal
+  textDark: '#0B1E2B',
+  textMedium: '#1A3444',
+  textLight: '#5B7384',
+  textVeryLight: '#9DB0BB',
+
+  // Icon background circles (dark teal)
+  iconBg: '#0A5C5C',
+  divider: '#0EB8A8',
 };
 
 export const SIZES = {
