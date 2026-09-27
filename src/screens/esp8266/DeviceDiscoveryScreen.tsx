@@ -8,12 +8,13 @@ import {
   FlatList,
   TextInput,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
-import { SHADOWS } from '../../theme/theme';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Device {
   ip: string;
@@ -167,6 +168,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Text style={styles.title}>Discover Devices</Text>
@@ -176,7 +178,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           disabled={isScanning}
         >
           {isScanning ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.scanButtonText}>Scan</Text>
           )}
@@ -185,7 +187,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
       {isScanning ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4a90e2" />
+          <ActivityIndicator size="large" color={COLORS.primaryDark} />
           <Text style={styles.loadingText}>Scanning for devices...</Text>
         </View>
       ) : devices.length > 0 ? (
@@ -288,7 +290,7 @@ const DeviceDiscoveryScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -297,23 +299,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: SIZES.padding,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: COLORS.border,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   scanButton: {
-    backgroundColor: '#4a90e2',
-    borderRadius: 8,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   scanButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
   loadingContainer: {
@@ -323,29 +325,29 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#666',
+    color: COLORS.textLight,
   },
   deviceList: {
-    padding: 20,
+    padding: SIZES.padding,
   },
   deviceItem: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     ...SHADOWS.large,
   },
   deviceName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 5,
   },
   deviceIP: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textLight,
   },
   emptyContainer: {
     flex: 1,
@@ -353,18 +355,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#666',
+    color: COLORS.textLight,
     fontSize: 16,
   },
   manualContainer: {
-    padding: 20,
+    padding: SIZES.padding,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: COLORS.border,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 15,
   },
   inputContainer: {
@@ -372,26 +374,27 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textLight,
     marginBottom: 5,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
     padding: 12,
     fontSize: 16,
+    color: COLORS.textDark,
   },
   connectButton: {
-    backgroundColor: '#4a90e2',
-    borderRadius: 8,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
     padding: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   connectButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
   },

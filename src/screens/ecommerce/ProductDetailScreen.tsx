@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import productService from '../../services/ecommerce/productService';
 import cartService from '../../services/ecommerce/cartService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Product {
   id: string;
@@ -95,7 +97,7 @@ const ProductDetailScreen = ({ route, navigation }: any) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <ActivityIndicator size="large" color={COLORS.primaryDark} />
         <Text style={styles.loadingText}>Loading product details...</Text>
       </View>
     );
@@ -117,13 +119,14 @@ const ProductDetailScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      <View style={styles.headerBar}>
         {navigation.canGoBack() ? (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-            <Icon name="arrow-back" size={24} color="#222" />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SIZES.base * 1.5, padding: SIZES.base * 0.5 }}>
+            <Icon name="arrow-back" size={24} color={COLORS.textDark} />
           </TouchableOpacity>
         ) : null}
-        <Text style={{ fontSize: 18, fontWeight: '600', color: '#222' }}>Product Details</Text>
+        <Text style={styles.headerTitle}>Product Details</Text>
       </View>
       <ScrollView>
         <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
@@ -198,7 +201,7 @@ const ProductDetailScreen = ({ route, navigation }: any) => {
           disabled={isAddingToCart || !product.inStock}
         >
           {isAddingToCart ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.addToCartButtonText}>
               {product.inStock ? 'Add to Cart' : 'Out of Stock'}
@@ -213,7 +216,7 @@ const ProductDetailScreen = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
@@ -221,30 +224,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    marginTop: SIZES.base * 1.25,
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SIZES.padding,
   },
   errorText: {
-    fontSize: 18,
-    color: '#ff6b6b',
-    marginBottom: 20,
+    fontSize: SIZES.h3,
+    color: COLORS.error,
+    marginBottom: SIZES.padding,
   },
   backButton: {
-    backgroundColor: '#4a90e2',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+    backgroundColor: COLORS.primaryDark,
+    paddingVertical: SIZES.base * 1.25,
+    paddingHorizontal: SIZES.margin,
+    borderRadius: SIZES.base * 0.625,
   },
   backButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: SIZES.body1,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SIZES.base * 1.5,
+    backgroundColor: COLORS.card,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerTitle: {
+    fontSize: SIZES.h4,
+    fontWeight: '600',
+    color: COLORS.textDark,
   },
   productImage: {
     width: '100%',
@@ -252,126 +268,126 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   contentContainer: {
-    padding: 15,
+    padding: SIZES.margin,
   },
   productName: {
-    fontSize: 24,
+    fontSize: SIZES.h1,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    color: COLORS.textDark,
+    marginBottom: SIZES.base * 0.625,
   },
   productPrice: {
-    fontSize: 20,
-    color: '#4a90e2',
+    fontSize: SIZES.h2,
+    color: COLORS.primaryDark,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: SIZES.base * 0.625,
   },
   productCategory: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
+    marginBottom: SIZES.base * 1.875,
   },
   outOfStockContainer: {
-    backgroundColor: '#ff6b6b',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
+    backgroundColor: COLORS.error,
+    paddingVertical: SIZES.base * 0.625,
+    paddingHorizontal: SIZES.base * 1.25,
+    borderRadius: SIZES.base * 0.625,
     alignSelf: 'flex-start',
-    marginBottom: 15,
+    marginBottom: SIZES.base * 1.875,
   },
   outOfStockText: {
-    color: '#fff',
-    fontSize: 14,
+    color: COLORS.white,
+    fontSize: SIZES.body2,
     fontWeight: 'bold',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 10,
+    color: COLORS.textDark,
+    marginTop: SIZES.margin,
+    marginBottom: SIZES.base * 1.25,
   },
   description: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
     lineHeight: 24,
   },
   featuresList: {
-    marginBottom: 10,
+    marginBottom: SIZES.base * 1.25,
   },
   featureItem: {
-    marginBottom: 5,
+    marginBottom: SIZES.base * 0.625,
   },
   featureText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
     lineHeight: 24,
   },
   specsList: {
-    marginBottom: 20,
+    marginBottom: SIZES.margin,
   },
   specItem: {
     flexDirection: 'row',
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: SIZES.base,
+    paddingBottom: SIZES.base,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   specKey: {
     flex: 1,
-    fontSize: 16,
-    color: '#666',
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
   },
   specValue: {
     flex: 2,
-    fontSize: 16,
-    color: '#333',
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
   },
   bottomContainer: {
     flexDirection: 'row',
-    padding: 15,
-    backgroundColor: '#fff',
+    padding: SIZES.margin,
+    backgroundColor: COLORS.card,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: COLORS.border,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: SIZES.base * 1.875,
   },
   quantityButton: {
     width: 36,
     height: 36,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.lightGray,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quantityButtonText: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   quantityText: {
-    fontSize: 16,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
-    color: '#333',
-    marginHorizontal: 15,
+    color: COLORS.textDark,
+    marginHorizontal: SIZES.base * 1.875,
   },
   addToCartButton: {
     flex: 1,
-    backgroundColor: '#4a90e2',
-    paddingVertical: 8,
-    borderRadius: 5,
+    backgroundColor: COLORS.primaryDark,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.base * 0.625,
     justifyContent: 'center',
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#9e9e9e',
+    backgroundColor: COLORS.textVeryLight,
   },
   addToCartButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: COLORS.white,
+    fontSize: SIZES.body2,
     fontWeight: 'bold',
   },
 });

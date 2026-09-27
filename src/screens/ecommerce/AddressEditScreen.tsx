@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import addressApi, { AddressDTO } from '../../services/ecommerce/addressApi';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 type Address = {
   id: string;
@@ -72,7 +73,6 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
         });
       }
     } catch (err) {
-      // If API fails, keep form as-is
     }
   };
 
@@ -89,7 +89,6 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
   };
 
   const handleSave = async () => {
-    // Basic validation
     if (!form.name || !form.email || !form.phone || !form.addressLine1 || !form.city || !form.state || !form.zipCode || !form.country) {
       Toast.show({ type: 'error', text1: 'Please fill all required fields', position: 'bottom' });
       return;
@@ -138,6 +137,7 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>{editing ? 'Edit Address' : 'Add Address'}</Text>
 
@@ -197,21 +197,21 @@ const AddressEditScreen: React.FC<{ route: { params?: RouteParams }, navigation:
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16 },
-  title: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
-  label: { marginTop: 12, marginBottom: 6, color: '#333' },
-  input: { borderWidth: 1, borderColor: '#e3e7ee', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#f7f9fc' },
-  row: { flexDirection: 'row', gap: 12 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: SIZES.padding },
+  title: { fontSize: SIZES.h3, fontWeight: '600', marginBottom: SIZES.base, color: COLORS.textDark },
+  label: { marginTop: SIZES.base, marginBottom: SIZES.base * 0.75, color: COLORS.textDark },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: SIZES.radius, paddingHorizontal: SIZES.base * 1.5, paddingVertical: SIZES.base * 1.25, backgroundColor: COLORS.surface },
+  row: { flexDirection: 'row', gap: SIZES.base * 1.5 },
   col: { flex: 1 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
-  button: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8 },
-  autofill: { backgroundColor: '#e9eef6' },
-  save: { backgroundColor: '#4a90e2' },
-  buttonText: { color: '#1a3b5d', fontWeight: '600' },
-  saveText: { color: '#fff' },
-  delete: { backgroundColor: '#fdecec' },
-  deleteText: { color: '#d9534f' },
+  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.margin },
+  button: { paddingVertical: SIZES.base * 1.5, paddingHorizontal: SIZES.base * 1.75, borderRadius: SIZES.radius },
+  autofill: { backgroundColor: COLORS.lightGray },
+  save: { backgroundColor: COLORS.primaryDark },
+  buttonText: { color: COLORS.textMedium, fontWeight: '600' },
+  saveText: { color: COLORS.white },
+  delete: { backgroundColor: COLORS.lightGray },
+  deleteText: { color: COLORS.error },
 });
 
 export default AddressEditScreen;

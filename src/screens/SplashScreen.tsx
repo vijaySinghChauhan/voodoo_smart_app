@@ -83,7 +83,7 @@ const SplashScreen: React.FC = () => {
           <Text style={styles.logoTech}>T E C H</Text>
         </View>
 
-        <Text style={styles.appName}>VooDooHome</Text>
+        <Text style={styles.appName}>VooDoo</Text>
         <View style={styles.divider} />
         <Text style={styles.tagline}>IDEAS ∞ TECHNOLOGY ∞ IMPACT</Text>
       </Animated.View>

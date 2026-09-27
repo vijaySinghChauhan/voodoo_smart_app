@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -15,6 +16,7 @@ import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import * as constantsV from '../constants/constatantsV';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../theme/theme';
 
 const WiFiConfigScreen: React.FC = () => {
   const { user } = useAuth();
@@ -257,9 +259,9 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
 
   const canDisconnect = isConnected || !!deviceIP;
 
-  // Rest of the component remains the same
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>ESP8266 WiFi Configuration</Text>
         
@@ -284,7 +286,7 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
             disabled={isConnecting}
           >
             {isConnecting ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <Text style={styles.buttonText}>
                 {isConnected ? 'Reconnect' : 'Connect to Device'}
@@ -302,7 +304,7 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
             disabled={isConnecting || !canDisconnect}
           >
             {isConnecting ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <Text style={styles.buttonText}>Disconnect</Text>
             )}
@@ -320,11 +322,11 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
                     <Text style={styles.buttonText}>{showProfiles ? 'Hide Tester Defaults' : 'Select Tester Default WiFi'}</Text>
                   </TouchableOpacity>
                   {showProfiles && (
-                    <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}>
+                    <View style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: SIZES.radius }}>
                       {constantsV.DEFAULT_WIFI_PROFILES.map((p) => (
                         <TouchableOpacity key={p.label} style={{ padding: 12 }} onPress={() => { setSSID(p.ssid); setPassword(p.password); setShowProfiles(false); }}>
-                          <Text style={{ color: '#333' }}>{p.label}</Text>
-                          <Text style={{ color: '#777', fontSize: 12 }}>SSID: {p.ssid}</Text>
+                          <Text style={{ color: COLORS.textDark }}>{p.label}</Text>
+                          <Text style={{ color: COLORS.textLight, fontSize: 12 }}>SSID: {p.ssid}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -356,7 +358,7 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color="#666"
+                    color={COLORS.textLight}
                   />
                 </TouchableOpacity>
               </View>
@@ -366,7 +368,7 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
                 disabled={isConnecting}
               >
                 {isConnecting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={COLORS.white} />
                 ) : (
                   <Text style={styles.buttonText}>Configure WiFi</Text>
                 )}
@@ -415,47 +417,42 @@ NetworkInfoSafe.getSSID().then((ssid: string) => {
 };
 
 const styles = StyleSheet.create({
-  // Existing styles remain the same
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   scrollContainer: {
-    padding: 20,
+    padding: SIZES.padding,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
+    marginBottom: SIZES.padding,
+    color: COLORS.textDark,
     textAlign: 'center',
   },
   formContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    ...SHADOWS.large,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
     marginTop: 10,
-    color: '#333',
+    color: COLORS.textDark,
   },
   input: {
-    color:'#000',
+    color: COLORS.textDark,
     height: 50,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
     marginBottom: 15,
     paddingHorizontal: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.surface,
   },
   passwordRow: {
     position: 'relative',
@@ -475,18 +472,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   button: {
-    backgroundColor: '#4a90e2',
-    borderRadius: 8,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
   },
   disabledButton: {
-    backgroundColor: '#a0c0e8',
+    backgroundColor: COLORS.primaryLight,
   },
   buttonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -497,36 +494,36 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 0.48,
-    borderRadius: 8,
+    borderRadius: SIZES.radius,
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
   },
   resetButton: {
-    backgroundColor: '#f5a623',
+    backgroundColor: COLORS.warning,
   },
   disableButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: COLORS.error,
   },
   statusContainer: {
-    marginTop: 20,
+    marginTop: SIZES.padding,
     padding: 15,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   statusText: {
     fontSize: 16,
     marginBottom: 8,
-    color: '#555',
+    color: COLORS.textMedium,
   },
   statusInline: {
     marginBottom: 10,
   },
   statusTextSmall: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textLight,
     marginBottom: 4,
   },
 });

@@ -8,11 +8,13 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import logService from '../../services/logging/logService';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface DeviceUser {
   email: string;
@@ -63,7 +65,7 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
       if (success) {
         Toast.show({ type: 'success', text1: 'Success', text2: 'Device shared successfully' });
         setEmail('');
-        loadUsers(); // Refresh list
+        loadUsers();
       } else {
         Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to share device' });
       }
@@ -81,7 +83,6 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
         <Text style={styles.userEmail}>{item.email}</Text>
         <Text style={styles.userRole}>{item.role}</Text>
       </View>
-      {/* Future: Add Remove button here */}
       <TouchableOpacity 
         onPress={() => handleRemove(item.email)}
         style={styles.removeButton}
@@ -120,6 +121,7 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Back</Text>
@@ -145,7 +147,7 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
             disabled={sharing}
           >
             {sharing ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={COLORS.white} size="small" />
             ) : (
               <Text style={styles.shareButtonText}>Share</Text>
             )}
@@ -154,7 +156,7 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
 
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Current Users</Text>
         {loading ? (
-          <ActivityIndicator size="large" color="#4a90e2" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color={COLORS.primaryDark} style={{ marginTop: 20 }} />
         ) : (
           <FlatList
             data={users}
@@ -174,37 +176,38 @@ const DeviceAccessScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
+    ...SHADOWS.small,
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
-    color: '#4a90e2',
+    color: COLORS.primaryDark,
     fontSize: 16,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: SIZES.padding,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 12,
   },
   inputContainer: {
@@ -213,78 +216,75 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
     padding: 12,
     marginRight: 12,
     fontSize: 16,
+    color: COLORS.textDark,
   },
   shareButton: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: COLORS.primaryDark,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingHorizontal: SIZES.padding,
+    borderRadius: SIZES.radius,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 80,
   },
   disabledButton: {
-    backgroundColor: '#a0c4ff',
+    backgroundColor: COLORS.primaryLight,
   },
   shareButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '600',
     fontSize: 16,
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: SIZES.padding,
   },
   userItem: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: SIZES.radius,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...SHADOWS.medium,
   },
   userInfo: {
     flex: 1,
   },
   userEmail: {
     fontSize: 16,
-    color: '#333',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   userRole: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textLight,
     textTransform: 'capitalize',
   },
   removeButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#fff0f0',
-    borderRadius: 6,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
     borderWidth: 1,
-    borderColor: '#ff6b6b',
+    borderColor: COLORS.error,
     marginLeft: 10,
   },
   removeButtonText: {
-    color: '#ff6b6b',
+    color: COLORS.error,
     fontSize: 14,
     fontWeight: '600',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: COLORS.textVeryLight,
     marginTop: 20,
     fontStyle: 'italic',
   },

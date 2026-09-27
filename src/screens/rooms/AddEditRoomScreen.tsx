@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   ImageBackground,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 const getRoomImage = (name: string) => {
   const n = String(name || '').toLowerCase();
@@ -79,7 +81,6 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
     setIsLoading(true);
     try {
       if (room) {
-        // Update existing room
         await roomService.updateRoom({ id: room.id, name: roomName, deviceCount: room.deviceCount || 0 } as any);
         Toast.show({
           type: 'success',
@@ -88,7 +89,6 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
           position: 'bottom'
         });
       } else {
-        // Create new room
         await roomService.addRoom({ id: '', name: roomName, deviceCount: 0 } as any);
         Toast.show({
           type: 'success',
@@ -112,6 +112,7 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.formContainer}>
           <Text style={styles.label}>Room Name</Text>
@@ -142,7 +143,7 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
                 }}
                 style={[
                   styles.typeItem,
-                  { borderColor: selectedType === t ? '#3A56D4' : '#ddd', borderWidth: selectedType === t ? 2 : 1 },
+                  { borderColor: selectedType === t ? COLORS.primaryDark : COLORS.border, borderWidth: selectedType === t ? 2 : 1 },
                 ]}
                 activeOpacity={0.85}
               >
@@ -167,7 +168,7 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#ffffff" size="small" />
+              <ActivityIndicator color={COLORS.white} size="small" />
             ) : (
               <Text style={styles.saveButtonText}>
                 {room ? 'Update Room' : 'Create Room'}
@@ -183,37 +184,39 @@ const AddEditRoomScreen = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   scroll: {
     paddingBottom: 16,
   },
   formContainer: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   label: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: COLORS.textDark,
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 4,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
+    color: COLORS.textDark,
   },
   saveButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: COLORS.primaryDark,
     padding: 16,
-    borderRadius: 4,
+    borderRadius: SIZES.radius,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -226,7 +229,7 @@ const styles = StyleSheet.create({
   typeItem: {
     width: '48%',
     height: 80,
-    borderRadius: 8,
+    borderRadius: SIZES.radius,
     overflow: 'hidden',
     marginBottom: 10,
   },
@@ -235,10 +238,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   typeImageInner: {
-    borderRadius: 8,
+    borderRadius: SIZES.radius,
   },
   typeImageFallback: {
-    backgroundColor: '#eeeeee',
+    backgroundColor: COLORS.lightGray,
   },
   fallbackCenter: {
     flex: 1,
@@ -256,7 +259,7 @@ const styles = StyleSheet.create({
   typeLabelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textDark,
   },
 });
 

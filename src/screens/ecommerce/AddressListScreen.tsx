@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import addressApi from '../../services/ecommerce/addressApi';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 type Address = {
   id: string;
@@ -19,7 +20,7 @@ type Address = {
   isDefault?: boolean;
 };
 
-const DOUBLE_PRESS_DELAY = 300; // ms
+const DOUBLE_PRESS_DELAY = 300;
 
 const AddressListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -60,7 +61,6 @@ const AddressListScreen: React.FC = () => {
   const handlePressItem = async (address: Address) => {
     const now = Date.now();
     if (now - lastPressRef.current < DOUBLE_PRESS_DELAY) {
-      // Double press -> set default
       try {
         await addressApi.setDefault(address.id);
       } catch (err) {
@@ -69,7 +69,6 @@ const AddressListScreen: React.FC = () => {
       Toast.show({ type: 'success', text1: 'Default Address Set', position: 'bottom' });
       await loadAddresses();
     } else {
-      // Single press -> edit
       navigation.navigate('AddressEdit', { addressId: address.id });
     }
     lastPressRef.current = now;
@@ -107,11 +106,12 @@ const AddressListScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {navigation.canGoBack() ? (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color="#222" />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SIZES.base * 1.5, padding: SIZES.base * 0.5 }}>
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           ) : null}
           <Text style={styles.title}>My Addresses</Text>
@@ -142,29 +142,29 @@ const AddressListScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  title: { fontSize: 20, fontWeight: '600' },
-  addBtn: { backgroundColor: '#4a90e2', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6 },
-  addText: { color: '#fff', fontWeight: '600' },
-  list: { padding: 16 },
-  card: { backgroundColor: '#f7f9fc', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e3e7ee' },
-  defaultCard: { borderColor: '#4a90e2' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SIZES.padding },
+  title: { fontSize: SIZES.h3, fontWeight: '600', color: COLORS.textDark },
+  addBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: SIZES.base, paddingHorizontal: SIZES.base * 1.5, borderRadius: SIZES.radius },
+  addText: { color: COLORS.white, fontWeight: '600' },
+  list: { padding: SIZES.padding },
+  card: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: SIZES.base * 1.5, marginBottom: SIZES.base * 1.5, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.small },
+  defaultCard: { borderColor: COLORS.primaryDark },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '600' },
-  phone: { marginTop: 4, color: '#555' },
-  defaultBadge: { color: '#4a90e2', fontWeight: '700' },
-  addrLine: { marginTop: 2, color: '#333' },
-  actionsRow: { flexDirection: 'row', marginTop: 10 },
-  actionBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#e9eef6', marginRight: 8 },
-  actionText: { color: '#1a3b5d', fontWeight: '600' },
-  deleteBtn: { backgroundColor: '#fdecec' },
-  deleteText: { color: '#d9534f' },
+  name: { fontSize: SIZES.body1, fontWeight: '600', color: COLORS.textDark },
+  phone: { marginTop: SIZES.base * 0.5, color: COLORS.textLight },
+  defaultBadge: { color: COLORS.primaryDark, fontWeight: '700' },
+  addrLine: { marginTop: SIZES.base * 0.25, color: COLORS.textDark },
+  actionsRow: { flexDirection: 'row', marginTop: SIZES.base * 1.25 },
+  actionBtn: { paddingVertical: SIZES.base * 0.75, paddingHorizontal: SIZES.base * 1.5, borderRadius: SIZES.radius, backgroundColor: COLORS.lightGray, marginRight: SIZES.base },
+  actionText: { color: COLORS.textMedium, fontWeight: '600' },
+  deleteBtn: { backgroundColor: COLORS.lightGray },
+  deleteText: { color: COLORS.error },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#666', marginBottom: 12 },
-  addPrimaryBtn: { backgroundColor: '#4a90e2', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8 },
-  addPrimaryText: { color: '#fff', fontWeight: '600' },
-  loading: { padding: 16 },
+  emptyText: { color: COLORS.textLight, marginBottom: SIZES.base * 1.5 },
+  addPrimaryBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: SIZES.base * 1.25, paddingHorizontal: SIZES.base * 1.75, borderRadius: SIZES.radius },
+  addPrimaryText: { color: COLORS.white, fontWeight: '600' },
+  loading: { padding: SIZES.padding, color: COLORS.textDark },
 });
 
 export default AddressListScreen;

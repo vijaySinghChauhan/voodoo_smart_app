@@ -8,12 +8,14 @@ import {
   Image,
   ActivityIndicator,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import productService from '../../services/ecommerce/productService';
 import cartService from '../../services/ecommerce/cartService';
 import Toast from 'react-native-toast-message';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Product {
   id: string;
@@ -25,7 +27,6 @@ interface Product {
 }
 
 const ProductListScreen = () => {
-  // Relax navigation typing to avoid TS 'never' errors on navigate arguments
   const navigation = useNavigation<any>();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -47,7 +48,6 @@ const ProductListScreen = () => {
       setProducts(productsData);
       setFilteredProducts(productsData);
       
-      // Extract unique categories
       const uniqueCategories = Array.from(new Set(productsData.map(p => p.category)));
       setCategories(uniqueCategories);
     } catch (error) {
@@ -78,7 +78,6 @@ const ProductListScreen = () => {
   const filterProducts = () => {
     let filtered = [...products];
     
-    // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,7 +85,6 @@ const ProductListScreen = () => {
       );
     }
     
-    // Apply category filter
     if (selectedCategory) {
       filtered = filtered.filter(product => product.category === selectedCategory);
     }
@@ -164,6 +162,7 @@ const ProductListScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       
       <View style={styles.searchContainer}>
         <TextInput
@@ -187,7 +186,7 @@ const ProductListScreen = () => {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
+          <ActivityIndicator size="large" color={COLORS.primaryDark} />
         </View>
       ) : filteredProducts.length > 0 ? (
         <FlatList
@@ -212,68 +211,69 @@ const ProductListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#2196F3',
+    padding: SIZES.padding,
+    backgroundColor: COLORS.primaryDark,
   },
   title: {
-    fontSize: 20,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: COLORS.white,
   },
   cartButton: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SIZES.base * 1.5,
+    paddingVertical: SIZES.base * 0.75,
+    borderRadius: SIZES.base * 0.5,
   },
   cartButtonText: {
-    color: '#2196F3',
+    color: COLORS.primaryDark,
     fontWeight: 'bold',
   },
   searchContainer: {
-    padding: 16,
-    backgroundColor: '#ffffff',
+    padding: SIZES.padding,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   searchInput: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 16,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: SIZES.radius,
+    padding: SIZES.base,
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
   },
   categoriesContainer: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
+    backgroundColor: COLORS.card,
+    paddingVertical: SIZES.base,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   categoriesList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: SIZES.padding,
   },
   categoryItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 16,
-    backgroundColor: '#f0f0f0',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.base,
+    marginRight: SIZES.base,
+    borderRadius: SIZES.margin,
+    backgroundColor: COLORS.lightGray,
   },
   selectedCategoryItem: {
-    backgroundColor: '#2196F3',
+    backgroundColor: COLORS.primaryDark,
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: SIZES.body2,
     fontWeight: 'bold',
-    color: '#757575',
+    color: COLORS.textLight,
   },
   selectedCategoryText: {
-    color: '#ffffff',
+    color: COLORS.white,
   },
   loadingContainer: {
     flex: 1,
@@ -281,59 +281,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productsList: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   productsRow: {
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: SIZES.margin,
   },
   productItem: {
     height: 300,
     width: 200,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
     overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    ...SHADOWS.small,
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: SIZES.base,
   },
   productImage: {
-    borderRadius: 8,
-    marginTop: 8,
+    borderRadius: SIZES.radius,
+    marginTop: SIZES.base,
     width: '100%',
     height: 150,
     resizeMode: 'cover',
   },
   productInfo: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   productName: {
-    fontSize: 18,
+    fontSize: SIZES.h4,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: SIZES.base * 0.5,
     height: 20,
+    color: COLORS.textDark,
   },
   productPrice: {
-    fontSize: 16,
-    color: '#2196F3',
+    fontSize: SIZES.body1,
+    color: COLORS.primaryDark,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: SIZES.base * 0.5,
   },
   productCategory: {
-    fontSize: 14,
-    color: '#757575',
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
   },
   addToCartButton: {
-    backgroundColor: '#2196F3',
-    padding: 12,
+    backgroundColor: COLORS.primaryDark,
+    padding: SIZES.base * 1.5,
     alignItems: 'center',
   },
   addToCartButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
   emptyContainer: {
@@ -342,8 +339,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#757575',
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
   },
 });
 

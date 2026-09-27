@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ import Button from '../../components/Button';
 import * as constantsV from '../../constants/constatantsV';
 import authService from '../../services/auth/authService';
 import chatService from '../../services/chat/chatService';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 type Message = {
   id: string;
@@ -36,7 +38,6 @@ const ChatScreen = ({ route }: any) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Compute direct message room if target provided; use sorted ids for deterministic room
     if (user?.id && targetUserId) {
       const a = String(user.id);
       const b = String(targetUserId);
@@ -50,7 +51,6 @@ const ChatScreen = ({ route }: any) => {
   useEffect(() => {
     (async () => {
       let active = true;
-      // Load cached messages first for instant UI, scoped by room
       try {
         const cacheKey = `chat_cache_${room}`;
         const cached = await AsyncStorage.getItem(cacheKey);
@@ -71,9 +71,7 @@ const ChatScreen = ({ route }: any) => {
           }
         }
       } catch (e) {
-        // ignore cache load errors
       }
-      // Load message history first to avoid overwriting live messages
       try {
         const history = await chatService.getMessages(room);
       const mapped = (history || []).map((m: any) => ({
@@ -94,10 +92,8 @@ const ChatScreen = ({ route }: any) => {
           });
         }
       } catch (e) {
-        // ignore history load errors to keep chat usable
       }
 
-      // Connect to Socket.io server with JWT from storage
       const token = (await authService.getToken()) || '';
       
       if (!token) {
@@ -105,7 +101,6 @@ const ChatScreen = ({ route }: any) => {
         return;
       }
 
-      // Configure transports: favor polling on Android to avoid common WebSocket handshake issues
       const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : false);
       const transportList = Platform.OS === 'android' ? ['polling', 'websocket'] : (isDev ? ['polling', 'websocket'] : ['websocket', 'polling']);
 
@@ -113,18 +108,13 @@ const ChatScreen = ({ route }: any) => {
         transports: transportList,
         path: '/voodoo/socket.io',
         timeout: 10000,
-        // Allow continuous reconnection attempts; avoid hard stop after a few minutes
         reconnectionDelay: 1000,
         auth: { token },
         extraHeaders: { Authorization: `Bearer ${token}` },
       });
 
-      // Surface connection/auth errors to the UI to guide users
       socketRef.current.on('connect_error', (err: any) => {
         const msg = err?.message || 'Chat connection failed';
-        // 'websocket error' usually means the WS handshake failed; this often happens on corporate/cellular networks
-        // or due to certificate/proxy issues. The client should fall back to polling automatically,
-        // but we surface a friendly status while it retries.
         if (msg === 'websocket error' || msg === 'xhr poll error') {
           setConnectionError('Connecting...');
         } else {
@@ -132,12 +122,10 @@ const ChatScreen = ({ route }: any) => {
         }
       });
 
-      // Refresh auth token during reconnect attempts to avoid expired sessions
       socketRef.current.on('reconnect_attempt', async () => {
         const freshToken = (await authService.getToken()) || '';
         if (socketRef.current) {
           socketRef.current.auth = { token: freshToken } as any;
-          // socket.io client stores options under io.opts
           (socketRef.current as any).io.opts.extraHeaders = { Authorization: `Bearer ${freshToken}` };
         }
       });
@@ -146,7 +134,6 @@ const ChatScreen = ({ route }: any) => {
         setConnectionError('Reconnecting…');
       });
 
-      // Join room on connect/reconnect
       socketRef.current.on('connect', () => {
         setConnectionError('');
         socketRef.current?.emit('joinRoom', room);
@@ -155,10 +142,8 @@ const ChatScreen = ({ route }: any) => {
         setConnectionError('');
         socketRef.current?.emit('joinRoom', room);
       });
-      // Also attempt initial join
       socketRef.current.emit('joinRoom', room);
 
-      // Listen for messages
       socketRef.current.on('message', (msg: any) => {
         const mapped = {
           id: String(msg.id || Date.now()),
@@ -175,7 +160,6 @@ const ChatScreen = ({ route }: any) => {
     })();
 
     return () => {
-      // Clean up on unmount
       if (socketRef.current) {
         socketRef.current.off('message');
         socketRef.current.off('connect_error');
@@ -184,7 +168,6 @@ const ChatScreen = ({ route }: any) => {
     };
   }, [room, user?.id]);
 
-  // Persist messages to cache so navigating away and back keeps them
   useEffect(() => {
     (async () => {
       try {
@@ -197,7 +180,6 @@ const ChatScreen = ({ route }: any) => {
         }));
         await AsyncStorage.setItem(cacheKey, JSON.stringify(payload));
       } catch (e) {
-        // ignore cache save errors
       }
     })();
   }, [messages, room]);
@@ -205,13 +187,11 @@ const ChatScreen = ({ route }: any) => {
   const handleSend = () => {
     const text = message.trim();
     if (!text) return;
-    // Prefer socket if connected; otherwise fall back to REST API
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('sendMessage', { room, text, sender: user?.name || 'Me' });
       setMessage('');
       return;
     }
-    // REST fallback when socket is disconnected
     (async () => {
       try {
         const res = await chatService.sendMessage(room, text);
@@ -244,6 +224,7 @@ const ChatScreen = ({ route }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
@@ -276,7 +257,7 @@ const ChatScreen = ({ route }: any) => {
               value={message}
               onChangeText={setMessage}
               placeholder="Type a message..."
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textVeryLight}
             />
             <Button 
               label="Send" 
@@ -295,7 +276,7 @@ const ChatScreen = ({ route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   keyboardAvoid: {
     flex: 1,
@@ -304,59 +285,66 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 10,
     padding: 10,
+    ...SHADOWS.large,
   },
   messagesList: {
     paddingBottom: 10,
   },
   message: {
     padding: 10,
-    borderRadius: 8,
+    borderRadius: SIZES.radius,
     marginBottom: 8,
     maxWidth: '80%',
   },
   myMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#e3f2fd',
+    backgroundColor: COLORS.watermarkCyan,
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#f1f1f1',
+    backgroundColor: COLORS.lightGray,
   },
   sender: {
     fontWeight: 'bold',
     marginBottom: 4,
+    color: COLORS.textDark,
   },
   messageText: {
     fontSize: 16,
+    color: COLORS.textDark,
   },
   timestamp: {
     fontSize: 12,
-    color: '#666',
+    color: COLORS.textLight,
     marginTop: 4,
     textAlign: 'right',
   },
   errorBanner: {
-    backgroundColor: '#fdecea',
-    color: '#b71c1c',
+    backgroundColor: COLORS.white,
+    color: COLORS.error,
     padding: 8,
-    borderRadius: 6,
+    borderRadius: SIZES.radius,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: COLORS.border,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 10,
     marginRight: 10,
+    color: COLORS.textDark,
+    backgroundColor: COLORS.white,
   },
 });
 

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -16,6 +17,7 @@ import logService from '../../services/logging/logService';
 import { enqueueDeviceServerControl, resolvePendingDeviceCommand } from '../../services/background/backgroundService';
 import { AppSwitch } from '../../components/AppSwitch';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Device {
   id: string;
@@ -27,7 +29,6 @@ interface Device {
   room?: string | null;
 }
 
-// Local room model used in this screen (matches server payload without devices array)
 interface RoomDetailModel {
   id: string;
   name: string;
@@ -63,7 +64,6 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
     try {
       const roomData = await roomService.getRoomById(roomId);
       if (roomData) {
-        // Map server room response to local model to avoid type mismatches
         setRoom({
           id: (roomData as any).id,
           name: (roomData as any).name,
@@ -142,7 +142,6 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
       if (!ok) throw new Error('Control failed');
       await resolvePendingDeviceCommand(pendingKey);
       
-      // Update local state
       const updatedDevices = roomDevices.map(d => 
         d.id === device.id ? { ...d, isOn: newStatus === 'on' } : d
       );
@@ -162,12 +161,10 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
       style={styles.deviceItem}
       onPress={() => {
         try { logService.logButtonClick('Open Device From Room', { deviceId: item.id }); } catch (e) {}
-        // Navigate to Devices stack control screen
         const parent = navigation.getParent?.();
         if (parent) {
           parent.navigate('Devices', { screen: 'DeviceControl', params: { deviceId: item.id } });
         } else {
-          // Fallback if parent not available
           // @ts-ignore
           navigation.navigate('Devices', { screen: 'DeviceControl', params: { deviceId: item.id } });
         }
@@ -195,6 +192,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
         <View style={styles.loadingContainer}>
           <Text>Loading room details...</Text>
         </View>
@@ -204,11 +202,12 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {navigation.canGoBack() ? (
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color="#222" />
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           ) : null}
           <Text style={styles.roomName}>{room?.name}</Text>
@@ -248,7 +247,7 @@ const RoomDetailScreen: React.FC<RoomDetailScreenProps> = ({ route, navigation }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
@@ -260,27 +259,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   roomName: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   editButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: COLORS.primaryDark,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: SIZES.radius,
   },
   editButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
   devicesContainer: {
     flex: 1,
-    padding: 16,
+    padding: SIZES.padding,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -291,30 +291,27 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   addButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: COLORS.success,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: SIZES.radius,
   },
   addButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
   deviceItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.card,
     padding: 16,
     marginBottom: 8,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    borderRadius: SIZES.radius,
+    ...SHADOWS.medium,
   },
   deviceInfo: {
     flex: 1,
@@ -322,10 +319,11 @@ const styles = StyleSheet.create({
   deviceName: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   deviceType: {
     fontSize: 14,
-    color: '#757575',
+    color: COLORS.textLight,
     marginTop: 4,
   },
   deviceControls: {
@@ -333,14 +331,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: COLORS.error,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: SIZES.radius,
     marginLeft: 8,
   },
   removeButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 12,
   },
   emptyContainer: {
@@ -350,7 +348,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#757575',
+    color: COLORS.textLight,
   },
 });
 

@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import cartService from '../../services/ecommerce/cartService';
 import productService from '../../services/ecommerce/productService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface CartItem {
   id: string;
@@ -40,7 +42,6 @@ const CartScreen = ({ navigation }: any) => {
     try {
       const items = await cartService.getCartItems();
       
-      // Load product details for each cart item
       const itemsWithProducts = await Promise.all(
         items.map(async (item) => {
           const product = await productService.getProductById(item.productId);
@@ -50,7 +51,6 @@ const CartScreen = ({ navigation }: any) => {
       
       setCartItems(itemsWithProducts);
       
-      // Calculate total amount
       const total = itemsWithProducts.reduce(
         (sum, item) => sum + (item.product?.price || 0) * item.quantity,
         0
@@ -77,14 +77,12 @@ const CartScreen = ({ navigation }: any) => {
     try {
       await cartService.updateCartItemQuantity(itemId, newQuantity);
       
-      // Update local state
       const updatedItems = cartItems.map(item =>
         item.id === itemId ? { ...item, quantity: newQuantity } : item
       );
       
       setCartItems(updatedItems);
       
-      // Recalculate total
       const total = updatedItems.reduce(
         (sum, item) => sum + (item.product?.price || 0) * item.quantity,
         0
@@ -104,11 +102,9 @@ const CartScreen = ({ navigation }: any) => {
     try {
       await cartService.removeFromCart(itemId);
       
-      // Update local state
       const updatedItems = cartItems.filter(item => item.id !== itemId);
       setCartItems(updatedItems);
       
-      // Recalculate total
       const total = updatedItems.reduce(
         (sum, item) => sum + (item.product?.price || 0) * item.quantity,
         0
@@ -141,7 +137,6 @@ const CartScreen = ({ navigation }: any) => {
       });
       return;
     }
-    // Navigate into nested Ecommerce stack when Cart is opened from Drawer
     navigation.navigate('Shop', {
       screen: 'Checkout',
       params: { totalAmount },
@@ -186,11 +181,12 @@ const CartScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {navigation.canGoBack() ? (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color="#222" />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SIZES.base * 1.5, padding: SIZES.base * 0.5 }}>
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           ) : null}
           <Text style={styles.title}>Shopping Cart</Text>
@@ -199,7 +195,7 @@ const CartScreen = ({ navigation }: any) => {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
+          <ActivityIndicator size="large" color={COLORS.primaryDark} />
         </View>
       ) : cartItems.length > 0 ? (
         <>
@@ -246,17 +242,18 @@ const CartScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   header: {
-    padding: 16,
-    backgroundColor: '#ffffff',
+    padding: SIZES.padding,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 20,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   loadingContainer: {
     flex: 1,
@@ -264,45 +261,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cartList: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    marginBottom: 16,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.margin,
+    padding: SIZES.padding,
+    ...SHADOWS.small,
   },
   productImage: {
     width: 80,
     height: 80,
-    borderRadius: 4,
+    borderRadius: SIZES.base,
   },
   itemDetails: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: SIZES.margin,
   },
   productName: {
-    fontSize: 16,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: SIZES.base * 0.5,
+    color: COLORS.textDark,
   },
   productPrice: {
-    fontSize: 14,
-    color: '#2196F3',
-    marginBottom: 8,
+    fontSize: SIZES.body2,
+    color: COLORS.primaryDark,
+    marginBottom: SIZES.base,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   quantityButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.lightGray,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -310,72 +304,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quantityButtonText: {
-    fontSize: 16,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   quantityText: {
-    marginHorizontal: 12,
-    fontSize: 16,
+    marginHorizontal: SIZES.base * 1.5,
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
   },
   removeButton: {
     justifyContent: 'center',
   },
   removeButtonText: {
-    color: '#F44336',
-    fontSize: 14,
+    color: COLORS.error,
+    fontSize: SIZES.body2,
   },
   footer: {
-    backgroundColor: '#ffffff',
-    padding: 16,
+    backgroundColor: COLORS.card,
+    padding: SIZES.padding,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: COLORS.border,
   },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.margin,
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
+    color: COLORS.textDark,
   },
   totalAmount: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: COLORS.primaryDark,
   },
   checkoutButton: {
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 4,
+    backgroundColor: COLORS.success,
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
     alignItems: 'center',
   },
   checkoutButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: SIZES.padding,
   },
   emptyText: {
-    fontSize: 18,
-    color: '#757575',
-    marginBottom: 16,
+    fontSize: SIZES.h3,
+    color: COLORS.textLight,
+    marginBottom: SIZES.margin,
   },
   shopButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
+    backgroundColor: COLORS.primaryDark,
+    paddingHorizontal: SIZES.margin,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.radius,
   },
   shopButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
   },
 });

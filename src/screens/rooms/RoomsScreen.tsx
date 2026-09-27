@@ -9,12 +9,14 @@ import {
   TextInput,
   Alert,
   ImageBackground,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Room {
   id: string;
@@ -75,7 +77,6 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
 
     try {
       if (editingRoom) {
-        // Update existing room
         await roomService.updateRoom({
           ...editingRoom,
           name: roomName,
@@ -87,7 +88,6 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
           position: 'bottom'
         });
       } else {
-        // Add new room
         const room: Room = {
           id: Date.now().toString(),
           name: roomName,
@@ -176,11 +176,12 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {navigation.canGoBack() ? (
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color="#222" />
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           ) : null}
           <Text style={styles.headerTitle}>Your Rooms</Text>
@@ -189,7 +190,7 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
 
       {rooms.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#777' }}>No rooms found</Text>
+          <Text style={{ color: COLORS.textLight }}>No rooms found</Text>
         </View>
       ) : (
         <FlatList
@@ -208,7 +209,7 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
 
       <Modal visible={isModalVisible} animationType="fade" transparent onRequestClose={() => setIsModalVisible(false)}>
         <View style={styles.modal}>
-          <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, width: '85%' }}>
+          <View style={{ backgroundColor: COLORS.white, padding: 16, borderRadius: SIZES.radius, width: '85%' }}>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
               {editingRoom ? 'Edit Room' : 'Add Room'}
             </Text>
@@ -216,11 +217,11 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
               placeholder="Room name"
               value={roomName}
               onChangeText={setRoomName}
-              style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10 }}
+              style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: SIZES.radius, paddingHorizontal: 12, paddingVertical: 10 }}
             />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#9E9E9E', marginRight: 8 }]}
+                style={[styles.actionButton, { backgroundColor: COLORS.gray, marginRight: 8 }]}
                 onPress={() => setIsModalVisible(false)}
               >
                 <Text style={styles.actionButtonText}>Cancel</Text>
@@ -229,7 +230,7 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
                   <Text style={styles.actionButtonText}>Save</Text>
                 </TouchableOpacity>
               </View>
-              <View style={{ height: 1, marginVertical: 12, backgroundColor: '#eee' }} />
+              <View style={{ height: 1, marginVertical: 12, backgroundColor: COLORS.border }} />
               <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Select Room Type</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 {[
@@ -252,20 +253,20 @@ const RoomsScreen: React.FC<RoomsScreenProps> = ({ navigation }) => {
                       width: '48%',
                       height: 80,
                       marginBottom: 10,
-                      borderRadius: 8,
+                      borderRadius: SIZES.radius,
                       overflow: 'hidden',
                       borderWidth: selectedType === t ? 2 : 1,
-                      borderColor: selectedType === t ? '#3A56D4' : '#ddd',
+                      borderColor: selectedType === t ? COLORS.primaryDark : COLORS.border,
                     }}
                   >
                     <ImageBackground
                       source={imageFailedTypes[t] ? { uri: getRoomFallbackImage({ name: t }) } : { uri: getRoomImage({ name: t }) }}
                       style={{ flex: 1, justifyContent: 'flex-end' }}
-                      imageStyle={{ borderRadius: 8 }}
+                      imageStyle={{ borderRadius: SIZES.radius }}
                       onError={() => setImageFailedTypes((prev) => ({ ...prev, [t]: true }))}
                     >
                       <View style={{ backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 6, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#222' }}>{t}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textDark }}>{t}</Text>
                       </View>
                     </ImageBackground>
                   </TouchableOpacity>
@@ -281,7 +282,7 @@ export default RoomsScreen;
 
 const styles = StyleSheet.create({
   actionButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: 'bold'
   },
   roomInfo: {
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
   },
   deviceCount: {
     fontSize: 14,
-    color: '#888'
+    color: COLORS.textLight
   },
   modal: {
     flex: 1,
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f2f5f9'
+    backgroundColor: COLORS.background
   },
   header: {
     flexDirection: 'row',
@@ -312,38 +313,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16
   },
-  headerTitle: { fontSize: 22, fontWeight: '700' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: COLORS.textDark },
   actionButton: {
     padding: 6,
-    borderRadius: 4
+    borderRadius: SIZES.radius
   },
   editButton: {
-    backgroundColor: '#3498db'
+    backgroundColor: COLORS.primaryDark
   },
   deleteButton: {
-    backgroundColor: '#e74c3c'
+    backgroundColor: COLORS.error
   },
   cardWrap: {
     width: '48%',
     marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 6,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    ...SHADOWS.medium,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
   },
   cardImage: { width: '100%', height: 140, justifyContent: 'flex-end' },
-  cardImageInner: { borderRadius: 12 },
-  cardImageFallback: { backgroundColor: '#eeeeee', borderRadius: 12 },
+  cardImageInner: { borderRadius: SIZES.radius },
+  cardImageFallback: { backgroundColor: COLORS.lightGray, borderRadius: SIZES.radius },
   fallbackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   fallbackEmoji: { fontSize: 24 },
-  cardFooter: { backgroundColor: 'rgba(255,255,255,0.95)', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, padding: 10 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#222' },
-  cardDevicesBarWrap: { height: 4, backgroundColor: '#e6eaf2', borderRadius: 2, marginTop: 6 },
-  cardDevicesBar: { height: 4, backgroundColor: '#3A56D4', borderRadius: 2 },
-  cardDevicesText: { fontSize: 12, color: '#6C757D', marginTop: 6 },
-  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#0F4C81', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6 },
-  fabPlus: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -2 }
+  cardFooter: { backgroundColor: 'rgba(255,255,255,0.95)', borderBottomLeftRadius: SIZES.radius, borderBottomRightRadius: SIZES.radius, padding: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textDark },
+  cardDevicesBarWrap: { height: 4, backgroundColor: COLORS.lightGray, borderRadius: 2, marginTop: 6 },
+  cardDevicesBar: { height: 4, backgroundColor: COLORS.primaryDark, borderRadius: 2 },
+  cardDevicesText: { fontSize: 12, color: COLORS.textLight, marginTop: 6 },
+  fab: { position: 'absolute', right: SIZES.padding, bottom: SIZES.padding, width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primaryDark, alignItems: 'center', justifyContent: 'center', ...SHADOWS.large },
+  fabPlus: { color: COLORS.white, fontSize: 26, fontWeight: '700', marginTop: -2 }
 });

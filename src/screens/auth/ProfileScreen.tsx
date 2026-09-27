@@ -19,6 +19,8 @@ import logService from '../../services/logging/logService';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import ImageResizer from 'react-native-image-resizer';
 import subscriptionService, { Subscription } from '../../services/subscriptions/subscriptionService';
+import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
+import { StatusBar } from 'react-native';
 
 const RNFSSafe: any = (() => {
   try {
@@ -186,13 +188,14 @@ const ProfileScreen: React.FC = () => {
   if (!user) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <ActivityIndicator size="large" color={COLORS.primaryDark} />
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.profileContainer}>
           <View style={styles.avatarContainer}>
@@ -204,7 +207,7 @@ const ProfileScreen: React.FC = () => {
               </View>
             )}
             <TouchableOpacity style={styles.editBadge} onPress={chooseImageSource} activeOpacity={0.8}>
-              <Icon name="edit" size={18} color="#fff" />
+              <Icon name="edit" size={18} color={COLORS.white} />
             </TouchableOpacity>
             <View style={styles.photoActions}>
               <TouchableOpacity style={[styles.button, styles.photoBtn]} onPress={() => handlePickImage('camera')}>
@@ -237,7 +240,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.infoContainer}>
             <Text style={styles.sectionTitle}>My Subscriptions</Text>
             {subLoading ? (
-              <ActivityIndicator size="small" color="#4a90e2" />
+              <ActivityIndicator size="small" color={COLORS.primaryDark} />
             ) : mySubscriptions.length > 0 ? (
               mySubscriptions.map((s) => (
                 <View key={s.id} style={styles.subscriptionCard}>
@@ -299,7 +302,7 @@ const ProfileScreen: React.FC = () => {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={COLORS.white} size="small" />
                 ) : (
                   <Text style={styles.saveButtonText}>Save</Text>
                 )}
@@ -329,175 +332,205 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flexGrow: 1,
   },
   profileContainer: {
-    padding: 20,
+    padding: SIZES.padding,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: SIZES.padding * 1.5,
+    paddingTop: SIZES.base,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#ddd',
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    backgroundColor: COLORS.lightGray,
+    borderWidth: 3,
+    borderColor: COLORS.primary,
   },
   avatarFallback: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#ddd',
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.primary,
   },
   avatarFallbackText: {
-    fontSize: 54,
-    color: '#666',
+    fontSize: 56,
   },
   photoActions: {
     flexDirection: 'row',
-    marginTop: 12,
+    marginTop: SIZES.base * 1.5,
   },
   photoBtn: {
-    backgroundColor: '#4a90e2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginHorizontal: 6,
+    backgroundColor: COLORS.primaryDark,
+    paddingHorizontal: SIZES.base * 2,
+    paddingVertical: SIZES.base + 2,
+    borderRadius: SIZES.radius,
+    marginHorizontal: SIZES.base,
+    ...SHADOWS.small,
   },
   photoBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   infoContainer: {
-    marginBottom: 20,
+    marginBottom: SIZES.base * 2,
   },
   label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    fontSize: 13,
+    color: COLORS.textLight,
+    marginBottom: SIZES.base / 2,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   infoText: {
-    fontSize: 18,
-    color: '#333',
+    fontSize: 17,
+    color: COLORS.textDark,
+    fontWeight: '600',
+    backgroundColor: COLORS.card,
+    padding: SIZES.base * 1.3,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   sectionTitle: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-    marginBottom: 8,
+    color: COLORS.textDark,
+    fontWeight: '700',
+    marginBottom: SIZES.base,
+    letterSpacing: 0.2,
   },
   subscriptionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius + 2,
+    padding: SIZES.base * 1.3,
+    marginTop: SIZES.base,
+    ...SHADOWS.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   subscriptionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: SIZES.base / 1.5,
   },
   subscriptionLabel: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textLight,
+    fontWeight: '500',
   },
   subscriptionValue: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+    color: COLORS.textDark,
+    fontWeight: '700',
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    backgroundColor: COLORS.card,
+    borderWidth: 1.2,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    padding: SIZES.base * 1.3,
+    fontSize: 15,
+    color: COLORS.textDark,
+    fontWeight: '600',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: SIZES.base,
   },
   button: {
-    borderRadius: 8,
-    padding: 15,
+    borderRadius: SIZES.radius,
+    paddingVertical: SIZES.base * 1.7,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: SIZES.base,
   },
   editButton: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: COLORS.primaryDark,
+    ...SHADOWS.medium,
   },
   editButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: COLORS.success,
     flex: 1,
-    marginLeft: 10,
+    marginLeft: SIZES.base,
+    ...SHADOWS.small,
   },
   saveButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: COLORS.card,
+    borderWidth: 1.2,
+    borderColor: COLORS.border,
     flex: 1,
   },
   cancelButtonText: {
-    color: '#666',
+    color: COLORS.textMedium,
     fontSize: 16,
+    fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#ff6b6b',
-    marginTop: 30,
+    backgroundColor: COLORS.card,
+    borderWidth: 1.2,
+    borderColor: COLORS.error,
+    marginTop: SIZES.padding * 1.5,
   },
   logoutButtonText: {
-    color: '#ff6b6b',
+    color: COLORS.error,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   subscribeButton: {
-    backgroundColor: '#4a90e2',
-    marginTop: 10,
+    backgroundColor: COLORS.primaryDark,
+    marginTop: SIZES.base,
+    ...SHADOWS.medium,
   },
   subscribeButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   editBadge: {
     position: 'absolute',
     right: 18,
     bottom: 18,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#4a90e2',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    ...SHADOWS.medium,
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
 });
 

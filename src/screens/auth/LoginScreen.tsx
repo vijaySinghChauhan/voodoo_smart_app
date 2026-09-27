@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -16,15 +17,17 @@ import { useAuth } from '../../context/AuthContext';
 import logService from '../../services/logging/logService';
 import configService from '../../services/config/configService';
 import * as constantsV from '../../constants/constatantsV';
+import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [baseUrl, setBaseUrl] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
 
   useEffect(() => {
-    // Load current or default base URL into field
     (async () => {
       const current = await configService.getBaseUrl();
       setBaseUrl(current || constantsV.BASE_URL);
@@ -33,10 +36,6 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const handleLogin = async () => {
     try { await logService.logButtonClick('Login Attempt', { email }); } catch (e) {}
-    // navigation.reset({
-    //   index: 0,
-    //   routes: [{ name: 'Auth' as never }],
-    // });
 
     if (!email || !password) {
       Toast.show({
@@ -70,51 +69,77 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
+      <View style={styles.cornerTopRight} />
+      <View style={styles.cornerBottomLeft} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollView}>
           <View style={styles.formContainer}>
-            <Text style={styles.title}>VoodooTech Smart</Text>
-            <Text style={styles.subtitle}>Login to your account</Text>
-
-            {/* Base URL field removed per request; login uses fixed endpoint */}
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your email"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+            <View style={styles.brandHeader}>
+              <View style={styles.brandLogo}>
+                <Text style={styles.brandV}>V</Text>
+                <View style={[styles.infinityRing, styles.infinityMint]} />
+                <View style={[styles.infinityRing, styles.infinityCyan]} />
+                <Text style={styles.brandDoo}>Doo</Text>
+              </View>
+              <Text style={styles.brandTech}>T E C H</Text>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-            </View>
+            <View style={styles.brandDivider} />
 
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => handleLogin()}         
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
-              )}
-            </TouchableOpacity>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Login to your VooDoo account</Text>
+
+            <View style={styles.card}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="mail-outline" size={18} color={COLORS.textLight} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email"
+                    placeholderTextColor={COLORS.textVeryLight}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={18} color={COLORS.textLight} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your password"
+                    placeholderTextColor={COLORS.textVeryLight}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.inputEye}>
+                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={COLORS.textLight} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => handleLogin()}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.loginButtonText}>Login</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Don't have an account?</Text>
@@ -122,6 +147,8 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 <Text style={styles.signupLink}>Sign up</Text>
               </TouchableOpacity>
             </View>
+
+            <Text style={styles.footerTagline}>BUILD ∞ AUTOMATE ∞ GROW</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -132,7 +159,28 @@ const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.white,
+    overflow: 'hidden',
+  },
+  cornerTopRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 180,
+    height: 180,
+    backgroundColor: COLORS.cornerMint,
+    borderBottomLeftRadius: 180,
+    opacity: 0.85,
+  },
+  cornerBottomLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 160,
+    height: 160,
+    backgroundColor: COLORS.cornerDark,
+    borderTopRightRadius: 160,
+    opacity: 0.9,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -140,77 +188,152 @@ const styles = StyleSheet.create({
   scrollView: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: SIZES.padding * 2,
   },
   formContainer: {
-    padding: 20,
+    padding: SIZES.padding,
+    zIndex: 10,
+  },
+  brandHeader: {
+    alignItems: 'center',
+    marginBottom: SIZES.margin,
+  },
+  brandLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandV: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: COLORS.primaryDark,
+    letterSpacing: -1,
+  },
+  infinityRing: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 5,
+  },
+  infinityMint: {
+    borderColor: COLORS.primaryMid,
+    marginRight: -10,
+  },
+  infinityCyan: {
+    borderColor: COLORS.primaryCyan,
+    marginLeft: -10,
+  },
+  brandDoo: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: COLORS.primaryCyan,
+    letterSpacing: -1,
+  },
+  brandTech: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textMedium,
+    letterSpacing: 7,
+    marginTop: 2,
+  },
+  brandDivider: {
+    alignSelf: 'center',
+    width: 64,
+    height: 3,
+    backgroundColor: COLORS.divider,
+    borderRadius: 2,
+    marginBottom: SIZES.padding,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    fontWeight: '800',
+    color: COLORS.textDark,
+    marginBottom: 6,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
+    fontSize: 15,
+    color: COLORS.textLight,
+    marginBottom: SIZES.padding * 1.2,
     textAlign: 'center',
+    fontWeight: '500',
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius + 4,
+    padding: SIZES.padding * 1.2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.large,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: SIZES.margin,
   },
   label: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
+    fontSize: 14,
+    marginBottom: SIZES.base,
+    color: COLORS.textDark,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.2,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: SIZES.padding / 2,
+  },
+  inputIcon: {
+    marginRight: SIZES.base,
+  },
+  inputEye: {
+    padding: SIZES.base,
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    color: '#000',
-    fontSize: 16,
+    flex: 1,
+    paddingVertical: SIZES.padding / 2 + 2,
+    color: COLORS.textDark,
+    fontSize: 15,
+    fontWeight: '500',
   },
   loginButton: {
-    backgroundColor: '#4a90e2',
-    borderRadius: 8,
-    padding: 15,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
+    paddingVertical: SIZES.base * 1.8,
     alignItems: 'center',
-    marginTop: 10,
-  },
-  smallButton: {
-    backgroundColor: '#e0e7ff',
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  smallButtonText: {
-    color: '#1f3b7d',
-    fontSize: 12,
-    fontWeight: '600',
+    marginTop: SIZES.base,
+    ...SHADOWS.medium,
   },
   loginButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: SIZES.padding,
   },
   signupText: {
-    color: '#666',
+    color: COLORS.textLight,
     fontSize: 14,
+    fontWeight: '500',
   },
   signupLink: {
-    color: '#4a90e2',
+    color: COLORS.primaryDark,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginLeft: 5,
+  },
+  footerTagline: {
+    marginTop: SIZES.padding * 1.5,
+    textAlign: 'center',
+    color: COLORS.textVeryLight,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 3,
   },
 });
 

@@ -6,11 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import orderService, { Order } from '../../services/ecommerce/orderService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 const OrderHistoryScreen = ({ navigation }: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -24,7 +26,6 @@ const OrderHistoryScreen = ({ navigation }: any) => {
     setIsLoading(true);
     try {
       const userOrders = await orderService.getOrders();
-      // Sort orders by date (newest first)
       userOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setOrders(userOrders);
     } catch (error) {
@@ -53,17 +54,17 @@ const OrderHistoryScreen = ({ navigation }: any) => {
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending':
-        return '#FFA500'; // Orange
+        return COLORS.warning;
       case 'processing':
-        return '#3498DB'; // Blue
+        return COLORS.primaryDark;
       case 'shipped':
-        return '#9B59B6'; // Purple
+        return COLORS.primary;
       case 'delivered':
-        return '#2ECC71'; // Green
+        return COLORS.success;
       case 'cancelled':
-        return '#E74C3C'; // Red
+        return COLORS.error;
       default:
-        return '#7F8C8D'; // Gray
+        return COLORS.textLight;
     }
   };
 
@@ -91,7 +92,7 @@ const OrderHistoryScreen = ({ navigation }: any) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <ActivityIndicator size="large" color={COLORS.primaryDark} />
         <Text style={styles.loadingText}>Loading orders...</Text>
       </View>
     );
@@ -99,11 +100,12 @@ const OrderHistoryScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {navigation.canGoBack() ? (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
-              <Icon name="arrow-back" size={24} color="#222" />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SIZES.base * 1.5, padding: SIZES.base * 0.5 }}>
+              <Icon name="arrow-back" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           ) : null}
           <Text style={styles.title}>Order History</Text>
@@ -135,18 +137,18 @@ const OrderHistoryScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   header: {
-    padding: 15,
-    backgroundColor: '#fff',
+    padding: SIZES.margin,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 20,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   loadingContainer: {
     flex: 1,
@@ -154,46 +156,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    marginTop: SIZES.base * 1.25,
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
   },
   ordersList: {
-    padding: 15,
+    padding: SIZES.margin,
   },
   orderItem: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
+    padding: SIZES.margin,
+    marginBottom: SIZES.margin,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: SIZES.base * 1.25,
   },
   orderId: {
-    fontSize: 16,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    paddingVertical: SIZES.base * 0.5,
+    paddingHorizontal: SIZES.base,
+    borderRadius: SIZES.base * 0.5,
   },
   statusText: {
-    color: '#fff',
-    fontSize: 12,
+    color: COLORS.white,
+    fontSize: SIZES.body3,
     fontWeight: 'bold',
   },
   orderDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
+    marginBottom: SIZES.base * 1.25,
   },
   orderInfo: {
     flexDirection: 'row',
@@ -201,35 +204,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemCount: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
   },
   orderTotal: {
-    fontSize: 16,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
-    color: '#4a90e2',
+    color: COLORS.primaryDark,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SIZES.padding,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
+    marginBottom: SIZES.padding,
     textAlign: 'center',
   },
   shopButton: {
-    backgroundColor: '#4a90e2',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+    backgroundColor: COLORS.primaryDark,
+    paddingVertical: SIZES.base * 1.5,
+    paddingHorizontal: SIZES.margin,
+    borderRadius: SIZES.base * 0.625,
   },
   shopButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
   },
 });

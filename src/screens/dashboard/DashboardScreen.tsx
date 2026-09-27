@@ -1202,7 +1202,7 @@ productPrice: {
   },
   metricLabel: {
     ...FONTS.body2,
-    color: "#48A14D",
+    color: COLORS.success,
     marginBottom: SIZES.base / 2,
     fontSize: 20,
     fontWeight: 'bold',

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface Device {
   id: string;
@@ -21,7 +22,6 @@ const AddDeviceToRoomScreen = ({ route, navigation }: any) => {
   const loadUnassignedDevices = async () => {
     setLoading(true);
     try {
-      // Reuse device service to fetch unassigned, or call backend and filter
       const list = await (await import('../../services/esp8266/esp8266Service')).default.getUnassignedDevices();
       setDevices(list as any);
     } catch (err) {
@@ -61,6 +61,7 @@ const AddDeviceToRoomScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <View style={styles.header}>
         <Text style={styles.title}>Add Device to Room</Text>
       </View>
@@ -76,15 +77,15 @@ const AddDeviceToRoomScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  title: { fontSize: 18, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { padding: SIZES.padding, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border, ...SHADOWS.small },
+  title: { fontSize: 18, fontWeight: 'bold', color: COLORS.textDark },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 16, marginVertical: 8, borderRadius: 8, elevation: 2 },
-  name: { fontSize: 16, fontWeight: 'bold' },
-  meta: { fontSize: 12, color: '#666', marginTop: 4 },
-  addBtn: { backgroundColor: '#4CAF50', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4 },
-  addTxt: { color: '#fff', fontWeight: 'bold' },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: SIZES.padding, marginHorizontal: 16, marginVertical: 8, borderRadius: SIZES.radius, ...SHADOWS.medium },
+  name: { fontSize: 16, fontWeight: 'bold', color: COLORS.textDark },
+  meta: { fontSize: 12, color: COLORS.textLight, marginTop: 4 },
+  addBtn: { backgroundColor: COLORS.success, paddingHorizontal: 12, paddingVertical: 6, borderRadius: SIZES.radius },
+  addTxt: { color: COLORS.white, fontWeight: 'bold' },
 });
 
 export default AddDeviceToRoomScreen;

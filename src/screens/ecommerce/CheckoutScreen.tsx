@@ -10,6 +10,7 @@ import {
   Alert,
   Linking,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -20,6 +21,7 @@ import paymentService from '../../services/ecommerce/paymentService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import addressApi, { AddressDTO } from '../../services/ecommerce/addressApi';
 import * as constantsV from '../../constants/constatantsV';
+import { COLORS, SHADOWS, SIZES, FONTS } from '../../theme/theme';
 
 interface CheckoutProps {
   route: { params: { totalAmount: number } };
@@ -55,7 +57,6 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
         setCountry(def.country || '');
       }
     } catch (e) {
-      // Ignore address load errors
     }
   };
 
@@ -157,7 +158,6 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
     setIsLoading(true);
     try {
       let keyId = await paymentService.getRazorpayKey();
-      // Fallback to test key if backend key is not available
       if (!keyId) {
         keyId = 'rzp_test_q6jv7paIUDvF6t';
       }
@@ -178,7 +178,6 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
         return;
       }
 
-      // Initialize Razorpay payment
       const options = {
         description: 'VoodooTech Smart Home Products',
         image: 'https://your-app-logo-url.png',
@@ -192,16 +191,14 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           contact: phone,
           name,
         },
-        theme: { color: '#2196F3' },
+        theme: { color: COLORS.primaryDark },
       };
 
       RazorpayCheckout.open(options)
         .then((data) => {
-          // Handle success
           handlePaymentSuccess(data.razorpay_payment_id);
         })
         .catch((error) => {
-          // Handle failure
           setIsLoading(false);
                           Toast.show({
                             type: 'error',
@@ -224,7 +221,6 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
   const handlePaymentSuccess = async (paymentId: string) => {
     setIsLoading(true);
     try {
-      // Create the order in your system
       const shippingAddress = {
         name,
         email,
@@ -238,10 +234,8 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       const items = await cartService.getCartItems();
       await orderService.createOrder({ paymentId, amount: totalAmount, shippingAddress, items });
 
-      // Clear the cart
       await cartService.clearCart();
 
-      // Show success message
       Toast.show({
         type: 'success',
         text1: 'Order Placed',
@@ -249,7 +243,6 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
         position: 'bottom'
       });
 
-      // Navigate to order history
       navigation.navigate('OrderHistory');
     } catch (error) {
       Toast.show({
@@ -265,6 +258,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Checkout</Text>
@@ -284,7 +278,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           ) : (
             <Text style={styles.summaryLabel}>No default address set</Text>
           )}
-          <TouchableOpacity style={[styles.payButton, { marginTop: 12 }]} onPress={() => navigation.navigate('AddressList')}>
+          <TouchableOpacity style={[styles.payButton, { marginTop: SIZES.base * 1.5 }]} onPress={() => navigation.navigate('AddressList')}>
             <Text style={styles.payButtonText}>Change Address</Text>
           </TouchableOpacity>
         </View>
@@ -377,7 +371,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.payButtonText}>Pay with Razorpay</Text>
           )}
@@ -388,7 +382,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.payButtonText}>Pay with PhonePe</Text>
           )}
@@ -401,43 +395,39 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: SIZES.margin,
   },
   title: {
-    fontSize: 24,
+    fontSize: SIZES.h1,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    marginBottom: SIZES.margin,
+    ...SHADOWS.small,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
+    marginBottom: SIZES.margin,
+    color: COLORS.textDark,
   },
   input: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 4,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.base * 1.5,
+    marginBottom: SIZES.base * 1.5,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
   },
   row: {
     flexDirection: 'row',
@@ -449,48 +439,48 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: SIZES.base,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   summaryLabel: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
   },
   summaryValue: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: SIZES.body1,
+    color: COLORS.textDark,
   },
   totalRow: {
     borderBottomWidth: 0,
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: SIZES.base,
+    paddingTop: SIZES.base,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: COLORS.border,
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.textDark,
   },
   totalValue: {
-    fontSize: 18,
+    fontSize: SIZES.h3,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: COLORS.primaryDark,
   },
   payButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 4,
-    padding: 16,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: SIZES.margin,
   },
   phonepeButton: {
-    backgroundColor: '#6b1f9d',
+    backgroundColor: COLORS.primaryDark,
   },
   payButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: SIZES.body1,
     fontWeight: 'bold',
   },
 });
