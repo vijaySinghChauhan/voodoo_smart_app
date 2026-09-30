@@ -1,5 +1,6 @@
 import BackgroundFetch from 'react-native-background-fetch';
-import { Platform } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
+import BackgroundActions from 'react-native-background-actions';
 import esp8266Service from '../esp8266/esp8266Service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackgroundTimer from 'react-native-background-timer';
@@ -8,6 +9,9 @@ import * as appConstants from '../../constants/constatantsV';
 import authService from '../auth/authService';
 
 let backgroundFetchConfigured = false;
+let foregroundMonitorIntervalRef: any = null;
+let foregroundActionRunning = false;
+const BgActionsModule: any = (BackgroundActions as any)?.default ?? BackgroundActions;
 
 // #region debug-point A:reporter
 const DEBUG_SESSION_ID = 'water-schedule-no-off';
@@ -35,78 +39,15 @@ function dbg(hypothesisId: string, location: string, msg: string, data?: Record<
 }
 // #endregion
 
-export async function initBackgroundDevicePolling() {
-  try {
-    if (backgroundFetchConfigured) return;
-    await BackgroundFetch.configure(
-      {
-        minimumFetchInterval: Platform.OS === 'ios' ? 15 : 1,
-        stopOnTerminate: false,
-        startOnBoot: true,
-        requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
-        enableHeadless: true,
-      },
-      async (taskId: string) => {
-        // #region debug-point A:fetch-callback
-        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch callback', {
-          taskId,
-          os: Platform.OS,
-        });
-        // #endregion
-        try {
-          try {
-            await processPendingDeviceCommands();
-          } catch {}
-          const list = await esp8266Service.getDevicesFromServer();
-          await AsyncStorage.setItem('last_background_device_count', String(Array.isArray(list) ? list.length : 0));
-          try {
-            const unassigned = await esp8266Service.getUnassignedDevices();
-            await AsyncStorage.setItem('last_background_unassigned_count', String(Array.isArray(unassigned) ? unassigned.length : 0));
-          } catch {}
-          try {
-            await processPendingLockAutoOff();
-          } catch {}
-          try {
-            await evaluateAutomationRulesHeadless();
-          } catch {}
-          try {
-            await processPendingNoFlowAutoOff();
-          } catch {}
-          try {
-            await runHeadlessSocketSession();
-          } catch {}
-        } catch {}
-        BackgroundFetch.finish(taskId);
-      },
-      async (taskId: string) => {
-        // #region debug-point A:fetch-timeout
-        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch timeout', {
-          taskId,
-          os: Platform.OS,
-        });
-        // #endregion
-        BackgroundFetch.finish(taskId);
-      }
-    );
-    await BackgroundFetch.start();
-    backgroundFetchConfigured = true;
-  } catch {}
-}
-
-export const BackgroundDeviceHeadless = async (event: any) => {
-  // #region debug-point A:headless-entry
-  dbg('A', 'backgroundService.ts:BackgroundDeviceHeadless', 'Headless task entry', {
-    taskId: event?.taskId,
-    timeout: event?.timeout,
-    os: Platform.OS,
-  });
-  // #endregion
+export async function runBackgroundPipeline(taskId?: string): Promise<void> {
   try {
     try {
       await processPendingDeviceCommands();
     } catch {}
-    const list = await esp8266Service.getDevicesFromServer();
-    await AsyncStorage.setItem('last_background_device_count', String(Array.isArray(list) ? list.length : 0));
+    try {
+      const list = await esp8266Service.getDevicesFromServer();
+      await AsyncStorage.setItem('last_background_device_count', String(Array.isArray(list) ? list.length : 0));
+    } catch {}
     try {
       const unassigned = await esp8266Service.getUnassignedDevices();
       await AsyncStorage.setItem('last_background_unassigned_count', String(Array.isArray(unassigned) ? unassigned.length : 0));
@@ -114,16 +55,79 @@ export const BackgroundDeviceHeadless = async (event: any) => {
     try {
       await processPendingLockAutoOff();
     } catch {}
-    try {
-      await evaluateAutomationRulesHeadless();
-    } catch {}
+    if (taskId === AUTOMATION_TASK_ID || taskId === LOCK_AUTO_OFF_TASK_ID || taskId === DEVICE_COMMAND_TASK_ID || taskId === NO_FLOW_TASK_ID) {
+      try {
+        await evaluateAutomationRulesHeadless();
+      } catch {}
+    } else {
+      try {
+        await evaluateAutomationRulesHeadless();
+      } catch {}
+    }
     try {
       await processPendingNoFlowAutoOff();
     } catch {}
     try {
       await runHeadlessSocketSession();
     } catch {}
+    try {
+      await refreshAutomationSchedule();
+    } catch {}
+    try {
+      await scheduleNextPendingCommandsTick();
+    } catch {}
   } catch {}
+}
+
+export async function initBackgroundDevicePolling() {
+  try {
+    if (backgroundFetchConfigured) return;
+    const taskId = 'react-native-background-fetch';
+    await BackgroundFetch.configure(
+      {
+        minimumFetchInterval: Platform.OS === 'ios' ? 15 : 1,
+        stopOnTerminate: false,
+        startOnBoot: true,
+        enableHeadless: true,
+        requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: false,
+        forceAlarmManager: true,
+      },
+      async (taskIdParam: string) => {
+        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch callback', {
+          taskId: taskIdParam,
+          os: Platform.OS,
+        });
+        await runBackgroundPipeline(taskIdParam);
+        BackgroundFetch.finish(taskIdParam);
+      },
+      async (taskIdParam: string) => {
+        dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch timeout', {
+          taskId: taskIdParam,
+          os: Platform.OS,
+        });
+        BackgroundFetch.finish(taskIdParam);
+      }
+    );
+    await BackgroundFetch.start();
+    try {
+      await AppState.addEventListener('change', handleAppStateChange);
+    } catch {}
+    backgroundFetchConfigured = true;
+  } catch {}
+}
+
+export const BackgroundDeviceHeadless = async (event: any) => {
+  dbg('A', 'backgroundService.ts:BackgroundDeviceHeadless', 'Headless task entry', {
+    taskId: event?.taskId,
+    timeout: event?.timeout,
+    os: Platform.OS,
+  });
+  const taskId: string | undefined = event?.taskId;
+  await runBackgroundPipeline(taskId);
   BackgroundFetch.finish(event.taskId);
 };
 
@@ -301,7 +305,7 @@ async function schedulePendingDeviceCommands(delayMs: number): Promise<void> {
   } catch {}
 }
 
-async function processPendingDeviceCommands(): Promise<void> {
+export async function processPendingDeviceCommands(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
     const list: PendingDeviceCommand[] = raw ? JSON.parse(raw) : [];
@@ -401,7 +405,7 @@ export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 0)
   } catch {}
 }
 
-async function processPendingLockAutoOff(): Promise<void> {
+export async function processPendingLockAutoOff(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_LOCK_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
@@ -504,7 +508,7 @@ async function clearNoFlowPending(deviceId: string): Promise<void> {
   } catch {}
 }
 
-async function processPendingNoFlowAutoOff(): Promise<void> {
+export async function processPendingNoFlowAutoOff(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
@@ -619,7 +623,7 @@ async function processPendingNoFlowAutoOff(): Promise<void> {
   } catch {}
 }
 
-async function evaluateAutomationRulesHeadless(): Promise<void> {
+export async function evaluateAutomationRulesHeadless(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
@@ -971,52 +975,11 @@ function isFinishedWindow(now: Date, frequency: string, start: Date | null, end:
   return nowM > endM;
 }
 
-let automationIntervalRef: any = null;
-export function startAutomationMonitorForeground(): void {
-  try {
-    if (automationIntervalRef) {
-      BackgroundTimer.clearInterval(automationIntervalRef);
-      automationIntervalRef = null;
-    }
-    try {
-      const bt: any = BackgroundTimer as any;
-      if (typeof bt?.stopBackgroundTimer === 'function') bt.stopBackgroundTimer();
-    } catch {}
-    const bt: any = BackgroundTimer as any;
-    if (typeof bt?.runBackgroundTimer === 'function') {
-      bt.runBackgroundTimer(async () => {
-        try { await processPendingDeviceCommands(); } catch {}
-        try { await evaluateAutomationRulesHeadless(); } catch {}
-        try { await processPendingLockAutoOff(); } catch {}
-        try { await processPendingNoFlowAutoOff(); } catch {}
-        try { await runHeadlessSocketSession(); } catch {}
-      }, 10000);
-    } else {
-      automationIntervalRef = BackgroundTimer.setInterval(async () => {
-        try { await processPendingDeviceCommands(); } catch {}
-        try { await evaluateAutomationRulesHeadless(); } catch {}
-        try { await processPendingLockAutoOff(); } catch {}
-        try { await processPendingNoFlowAutoOff(); } catch {}
-        try { await runHeadlessSocketSession(); } catch {}
-      }, 10000);
-    }
-  } catch {}
-}
-
-export function stopAutomationMonitorForeground(): void {
-  try {
-    if (automationIntervalRef) {
-      BackgroundTimer.clearInterval(automationIntervalRef);
-      automationIntervalRef = null;
-    }
-    const bt: any = BackgroundTimer as any;
-    if (typeof bt?.stopBackgroundTimer === 'function') bt.stopBackgroundTimer();
-  } catch {}
-}
-
 export async function refreshAutomationSchedule(): Promise<void> {
   try {
-    await scheduleNextAutomationTick();
+    try { await scheduleNextAutomationTick(); } catch {}
+    try { await scheduleNextPendingCommandsTick(); } catch {}
+    try { await ensureForegroundServiceRunningIfNeeded(); } catch {}
   } catch {}
 }
 
@@ -1053,20 +1016,78 @@ function nextBoundaryForWindow(now: Date, enabled: boolean, frequency: string, s
   return endToday + 24 * 60 * 60 * 1000;
 }
 
+async function scheduleNextPendingCommandsTick(): Promise<void> {
+  try {
+    const now = Date.now();
+    let earliest: number | null = null;
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list) && list.length > 0) {
+        for (const it of list) {
+          if (it && typeof it?.dueAt === 'number' && isFinite(it.dueAt) && it.dueAt >= now) {
+            if (earliest === null || it.dueAt < earliest) earliest = it.dueAt;
+          }
+        }
+      }
+    } catch {}
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_LOCK_KEY);
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list) && list.length > 0) {
+        for (const it of list) {
+          if (it && typeof it?.dueAt === 'number' && isFinite(it.dueAt) && it.dueAt >= now) {
+            if (earliest === null || it.dueAt < earliest) earliest = it.dueAt;
+          }
+        }
+      }
+    } catch {}
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list) && list.length > 0) {
+        for (const it of list) {
+          if (it && typeof it?.dueAt === 'number' && isFinite(it.dueAt) && it.dueAt >= now) {
+            if (earliest === null || it.dueAt < earliest) earliest = it.dueAt;
+          }
+        }
+      }
+    } catch {}
+
+    const existing = await AsyncStorage.getItem(DEVICE_COMMAND_SCHEDULE_AT_KEY);
+    const existingAt = existing ? parseInt(existing, 10) : NaN;
+    if (earliest === null) {
+      try { await AsyncStorage.removeItem(DEVICE_COMMAND_SCHEDULE_AT_KEY); } catch {}
+      return;
+    }
+
+    const SIGNIFICANT_DELTA_MS = 60 * 1000;
+    const sig = typeof existingAt === 'number' && isFinite(existingAt)
+      ? (Math.abs(existingAt - earliest) >= SIGNIFICANT_DELTA_MS)
+      : true;
+    if (!sig) return;
+
+    await AsyncStorage.setItem(DEVICE_COMMAND_SCHEDULE_AT_KEY, String(earliest));
+    const delay = Math.max(0, earliest - now);
+    await BackgroundFetch.scheduleTask({
+      taskId: DEVICE_COMMAND_TASK_ID,
+      delay,
+      periodic: false,
+      stopOnTerminate: false,
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+      enableHeadless: true,
+    } as any);
+  } catch {}
+}
+
 async function scheduleNextAutomationTick(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
-    if (ruleKeys.length === 0) {
-      try { await AsyncStorage.removeItem(AUTOMATION_SCHEDULE_AT_KEY); } catch {}
-      return;
-    }
-
-    const entries = await AsyncStorage.multiGet(ruleKeys);
     const now = new Date();
     let nextAt: number | null = null;
 
-    for (const [, value] of entries) {
+    for (const [, value] of ruleKeys.length > 0 ? await AsyncStorage.multiGet(ruleKeys) : []) {
       if (!value) continue;
       let rules: any = null;
       try { rules = JSON.parse(value); } catch {}
@@ -1105,6 +1126,30 @@ async function scheduleNextAutomationTick(): Promise<void> {
       }
     }
 
+    const nowTs = now.getTime();
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) {
+        for (const it of list) {
+          if (it && typeof it?.dueAt === 'number' && isFinite(it.dueAt) && it.dueAt > nowTs) {
+            if (nextAt === null || it.dueAt < nextAt) nextAt = it.dueAt;
+          }
+        }
+      }
+    } catch {}
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_LOCK_KEY);
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) {
+        for (const it of list) {
+          if (it && typeof it?.dueAt === 'number' && isFinite(it.dueAt) && it.dueAt > nowTs) {
+            if (nextAt === null || it.dueAt < nextAt) nextAt = it.dueAt;
+          }
+        }
+      }
+    } catch {}
+
     if (nextAt === null) {
       try { await AsyncStorage.removeItem(AUTOMATION_SCHEDULE_AT_KEY); } catch {}
       return;
@@ -1112,10 +1157,12 @@ async function scheduleNextAutomationTick(): Promise<void> {
 
     const existing = await AsyncStorage.getItem(AUTOMATION_SCHEDULE_AT_KEY);
     const existingAt = existing ? parseInt(existing, 10) : NaN;
-    if (typeof existingAt === 'number' && isFinite(existingAt) && existingAt <= nextAt + 2000) return;
+    const SIGNIFICANT_DELTA_MS = 60 * 1000;
+    const shouldReschedule = !(typeof existingAt === 'number' && isFinite(existingAt) && Math.abs(existingAt - nextAt) < SIGNIFICANT_DELTA_MS);
+    if (!shouldReschedule) return;
 
     await AsyncStorage.setItem(AUTOMATION_SCHEDULE_AT_KEY, String(nextAt));
-    const delay = Math.max(0, nextAt - Date.now());
+    const delay = Math.max(0, nextAt - nowTs);
     await BackgroundFetch.scheduleTask({
       taskId: AUTOMATION_TASK_ID,
       delay,
@@ -1219,5 +1266,150 @@ async function runHeadlessSocketSession(): Promise<void> {
       };
       socket?.on('disconnect', () => cleanup());
     });
+  } catch {}
+}
+
+export async function hasAnyActiveAutomationSchedules(): Promise<boolean> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
+    if (ruleKeys.length === 0) return false;
+    const entries = await AsyncStorage.multiGet(ruleKeys);
+    for (const [, value] of entries) {
+      if (!value) continue;
+      let rules: any = null;
+      try { rules = JSON.parse(value); } catch {}
+      if (!rules) continue;
+      const checkSec = (sec: any) => {
+        if (!sec) return false;
+        if (!sec.enabled) return false;
+        if (sec.morningEnabled || sec.eveningEnabled) return true;
+        return false;
+      };
+      if (checkSec(rules?.supplyWater)) return true;
+      if (checkSec(rules?.wateringPlants)) return true;
+      if (checkSec(rules?.dogFeed)) return true;
+      if (checkSec(rules?.acControl)) return true;
+    }
+  } catch {}
+  try {
+    const locks = await AsyncStorage.getItem(PENDING_LOCK_KEY);
+    if (locks) {
+      const list = JSON.parse(locks);
+      if (Array.isArray(list) && list.length > 0) return true;
+    }
+  } catch {}
+  try {
+    const cmds = await AsyncStorage.getItem(PENDING_DEVICE_COMMANDS_KEY);
+    if (cmds) {
+      const list = JSON.parse(cmds);
+      if (Array.isArray(list) && list.length > 0) return true;
+    }
+  } catch {}
+  try {
+    const noflow = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
+    if (noflow) {
+      const list = JSON.parse(noflow);
+      if (Array.isArray(list) && list.length > 0) return true;
+    }
+  } catch {}
+  return false;
+}
+
+const verySleepyForegroundServiceTask = async (taskDataArguments?: any): Promise<void> => {
+  await new Promise<void>(async (resolve) => {
+    try {
+      for (;;) {
+        try {
+          const delayMs = (taskDataArguments && typeof taskDataArguments?.delay === 'number') ? taskDataArguments.delay : 30000;
+          await new Promise<void>((inner) => BackgroundTimer.setTimeout(() => inner(), delayMs));
+          try { await runBackgroundPipeline('com.voodoosmart.foreground_tick'); } catch {}
+        } catch {}
+      }
+    } finally {
+      resolve();
+    }
+  });
+};
+
+export async function ensureForegroundServiceRunningIfNeeded(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    if (typeof BgActionsModule?.isRunning === 'function') {
+      const running: boolean = await BgActionsModule.isRunning();
+      foregroundActionRunning = !!running;
+    }
+  } catch {}
+  const active = await hasAnyActiveAutomationSchedules();
+  if (!active && foregroundActionRunning && typeof BgActionsModule?.stop === 'function') {
+    try {
+      await BgActionsModule.stop();
+      foregroundActionRunning = false;
+    } catch {}
+    return;
+  }
+  if (!active) return;
+  if (foregroundActionRunning) return;
+  try {
+    const options = {
+      taskName: 'VooDooAutomation',
+      taskTitle: 'VooDoo',
+      taskDesc: 'Running device timers in background',
+      taskIcon: { name: 'ic_launcher', type: 'mipmap' },
+      color: '#0E7C7B',
+      parameters: { delay: 15000 },
+      linkingURI: 'voodoohomes2://shortcut',
+    } as any;
+    if (typeof BgActionsModule?.start === 'function') {
+      await BgActionsModule.start(verySleepyForegroundServiceTask, options);
+      foregroundActionRunning = true;
+    }
+  } catch {}
+}
+
+async function handleAppStateChange(next: AppStateStatus): Promise<void> {
+  try {
+    if (Platform.OS === 'android' && (next === 'background' || next === 'inactive')) {
+      try { await ensureForegroundServiceRunningIfNeeded(); } catch {}
+      try { await refreshAutomationSchedule(); } catch {}
+    }
+    if (next === 'active') {
+      try { await refreshAutomationSchedule(); } catch {}
+      try { await scheduleNextPendingCommandsTick(); } catch {}
+    }
+  } catch {}
+}
+
+async function foregroundMonitorTick(): Promise<void> {
+  try {
+    try { await runBackgroundPipeline('com.voodoosmart.foreground_interval_tick'); } catch {}
+  } catch {}
+}
+
+export async function startAutomationMonitorForeground(): Promise<void> {
+  try {
+    if (foregroundMonitorIntervalRef != null) return;
+    try {
+      const anyActive = await hasAnyActiveAutomationSchedules();
+      if (anyActive) try { await ensureForegroundServiceRunningIfNeeded(); } catch {}
+    } catch {}
+    foregroundMonitorIntervalRef = BackgroundTimer.setInterval(() => {
+      foregroundMonitorTick().catch(() => {});
+    }, 60 * 1000);
+  } catch {}
+}
+
+export async function stopAutomationMonitorForeground(): Promise<void> {
+  try {
+    if (foregroundMonitorIntervalRef != null) {
+      BackgroundTimer.clearInterval(foregroundMonitorIntervalRef);
+      foregroundMonitorIntervalRef = null;
+    }
+    if (Platform.OS === 'android' && foregroundActionRunning && typeof BgActionsModule?.stop === 'function') {
+      try {
+        await BgActionsModule.stop();
+        foregroundActionRunning = false;
+      } catch {}
+    }
   } catch {}
 }

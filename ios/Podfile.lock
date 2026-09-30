@@ -1653,6 +1653,8 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
+  - react-native-background-actions (4.1.0):
+    - React-Core
   - react-native-background-timer (2.4.1):
     - React-Core
   - react-native-image-picker (8.2.1):
@@ -2730,6 +2732,7 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-background-actions (from `../node_modules/react-native-background-actions`)
   - react-native-background-timer (from `../node_modules/react-native-background-timer`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-image-resizer (from `../node_modules/react-native-image-resizer`)
@@ -2875,6 +2878,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-background-actions:
+    :path: "../node_modules/react-native-background-actions"
   react-native-background-timer:
     :path: "../node_modules/react-native-background-timer"
   react-native-image-picker:
@@ -3025,6 +3030,7 @@ SPEC CHECKSUMS:
   React-logger: b69e65dc60f768e5509ac0cc27a360124bf70478
   React-Mapbuffer: b48f9f3311fd0ec0f7a5dc39d707eff521fb5f38
   React-microtasksnativemodule: d8568d0485a350c720c061ae835e09fc88c28715
+  react-native-background-actions: 7f9a821aa7407704fde837221addb0f11283201e
   react-native-background-timer: 17ea5e06803401a379ebf1f20505b793ac44d0fe
   react-native-image-picker: df98fd6bf821b49ae97a383fd4adb1430f659a67
   react-native-image-resizer: d9fb629a867335bdc13230ac2a58702bb8c8828f

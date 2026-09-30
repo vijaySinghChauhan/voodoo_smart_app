@@ -32,7 +32,8 @@ import { io, Socket } from 'socket.io-client';
 import authService from '../../services/auth/authService';
 import * as constantsV from '../../constants/constatantsV';
 import BackgroundTimer from 'react-native-background-timer';
-import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
+import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, resolvePendingDeviceCommand, scheduleLockAutoOff, refreshAutomationSchedule } from '../../services/background/backgroundService';
+import { startAutomationBackgroundService } from '../../services/background/backgroundAutomationRunner';
 
 const normalizeVersion = (v: string) => String(v || '').trim();
 const compareVersions = (a: string, b: string) => {
@@ -53,6 +54,67 @@ const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Pr
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
   ]);
 };
+
+async function ensureDeviceRulesSaved(deviceId: string): Promise<void> {
+  try {
+    if (!deviceId) return;
+    const key = `auto_rules_${String(deviceId)}`;
+    const existing = await AsyncStorage.getItem(key);
+    if (existing) return;
+    const nowStr = new Date().toISOString();
+    const defaultMorningStart = new Date(); defaultMorningStart.setHours(6, 0, 0, 0);
+    const defaultMorningEnd = new Date(); defaultMorningEnd.setHours(8, 0, 0, 0);
+    const defaultEveningStart = new Date(); defaultEveningStart.setHours(18, 0, 0, 0);
+    const defaultEveningEnd = new Date(); defaultEveningEnd.setHours(20, 0, 0, 0);
+    const defaults = {
+      on: { enabled: false, operator: 'lt' as const, threshold: 50 },
+      off: { enabled: false, operator: 'ge' as const, threshold: 80 },
+      noFlow: { enabled: false, delaySec: 40 },
+      supplyWater: {
+        enabled: false,
+        frequency: 'everyday',
+        morningEnabled: false,
+        morningStart: nowStr,
+        morningEnd: nowStr,
+        eveningEnabled: false,
+        eveningStart: nowStr,
+        eveningEnd: nowStr,
+      },
+      wateringPlants: {
+        enabled: false,
+        frequency: 'everyday',
+        morningEnabled: false,
+        morningStart: defaultMorningStart.toISOString(),
+        morningEnd: defaultMorningEnd.toISOString(),
+        eveningEnabled: false,
+        eveningStart: defaultEveningStart.toISOString(),
+        eveningEnd: defaultEveningEnd.toISOString(),
+      },
+      dogFeed: {
+        enabled: false,
+        frequency: 'everyday',
+        morningEnabled: false,
+        morningStart: defaultMorningStart.toISOString(),
+        morningEnd: defaultMorningEnd.toISOString(),
+        eveningEnabled: false,
+        eveningStart: defaultEveningStart.toISOString(),
+        eveningEnd: defaultEveningEnd.toISOString(),
+      },
+      acControl: {
+        enabled: false,
+        frequency: 'everyday',
+        morningEnabled: false,
+        morningStart: defaultMorningStart.toISOString(),
+        morningEnd: defaultMorningEnd.toISOString(),
+        eveningEnabled: false,
+        eveningStart: defaultEveningStart.toISOString(),
+        eveningEnd: defaultEveningEnd.toISOString(),
+      },
+    };
+    await AsyncStorage.setItem(key, JSON.stringify(defaults));
+    try { await refreshAutomationSchedule(); } catch {}
+  } catch {}
+}
 
 interface Room {
   id: string;
@@ -260,6 +322,47 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
     return unsubscribe || (() => {});
   }, [navigation, loadDashboardData]);
+
+  // Start the cross-platform background automation + foreground monitor.
+  // iOS/Android both use react-native-background-fetch for app-killed scheduling,
+  // plus BackgroundTimer foreground 10s tick to keep timers accurate while app is open.
+  // IMPORTANT: Do not stop this service when Dashboard unmounts. It must continue
+  // running while the user navigates to other screens or backgrounds the app.
+  useEffect(() => {
+    let cancelled = false;
+
+    const startBackgroundAutomation = async () => {
+      try {
+        if (cancelled) return;
+
+        const token =
+          (await authService.getToken()) ||
+          (await AsyncStorage.getItem('auth_token')) ||
+          '';
+
+        if (!token || cancelled) {
+          console.log('[Dashboard] Background automation not started: no auth token');
+          return;
+        }
+
+        console.log('[Dashboard] Starting background automation service...');
+        await startAutomationBackgroundService();
+        console.log('[Dashboard] Background automation service started on', Platform.OS);
+      } catch (error) {
+        console.error(
+          '[Dashboard] Failed to start background automation service:',
+          error,
+        );
+      }
+    };
+
+    startBackgroundAutomation();
+
+    return () => {
+      cancelled = true;
+      // DO NOT stop the background service here.
+    };
+  }, []);
 
   useEffect(() => {
     const checkAppUpdate = async () => {
@@ -770,6 +873,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
                       return;
                     }
+                    void ensureDeviceRulesSaved(devId);
                     if (typeof (target as any).device1 !== 'undefined') {
                       const currentRaw = (target as any).device1;
                       const current = typeof currentRaw === 'number' ? currentRaw === 1
@@ -782,6 +886,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         await resolvePendingDeviceCommand(pendingKey);
                         Toast.show({ type: 'success', text1: 'Motor', text2: nextVal === 1 ? 'ON' : 'OFF', position: 'bottom' });
                         setMotorOn(nextVal === 1);
+                        try { await refreshAutomationSchedule(); } catch {}
                       } else {
                         Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device1', position: 'bottom' });
                       }
@@ -796,6 +901,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         await resolvePendingDeviceCommand(pendingKey);
                         Toast.show({ type: 'success', text1: 'Motor', text2: nextAction.toUpperCase(), position: 'bottom' });
                         setMotorOn(nextAction === 'on');
+                        try { await refreshAutomationSchedule(); } catch {}
                       } else {
                         Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Control endpoint error', position: 'bottom' });
                       }
@@ -823,6 +929,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       Toast.show({ type: 'error', text1: 'Invalid device', position: 'bottom' });
                       return;
                     }
+                    void ensureDeviceRulesSaved(devId);
+                    if (lockTimeoutRef.current) {
+                      BackgroundTimer.clearTimeout(lockTimeoutRef.current);
+                      lockTimeoutRef.current = null;
+                    }
                     const currentRaw = (target as any).device2;
                     const current = typeof currentRaw === 'number' ? currentRaw === 1
                       : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
@@ -832,11 +943,28 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                     const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
                     if (ok) {
                       await resolvePendingDeviceCommand(pendingKey);
-                      Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Locked' : 'Unlocked', position: 'bottom' });
+                      Toast.show({ type: 'success', text1: 'Door', text2: nextVal === 1 ? 'Unlocked' : 'Locked', position: 'bottom' });
                       setLockOn(nextVal === 1);
-                      if (lockTimeoutRef.current) {
-                        BackgroundTimer.clearTimeout(lockTimeoutRef.current);
-                        lockTimeoutRef.current = null;
+                      try { await refreshAutomationSchedule(); } catch {}
+                      if (nextVal === 1) {
+                        try { await scheduleLockAutoOff(devId, 3500); } catch {}
+                        lockTimeoutRef.current = BackgroundTimer.setTimeout(async () => {
+                          try {
+                            if (lockTimeoutRef.current) {
+                              BackgroundTimer.clearTimeout(lockTimeoutRef.current);
+                              lockTimeoutRef.current = null;
+                            }
+                            const offPending = await enqueueDeviceServerUpdate(devId, { device2: 0 });
+                            const okOff = await esp8266Service.updateDeviceOnServer(devId, { device2: 0 });
+                            if (okOff) {
+                              await resolvePendingDeviceCommand(offPending);
+                              setLockOn(false);
+                              Toast.show({ type: 'info', text1: 'Door Lock', text2: 'Auto-locked after 3.5s', position: 'bottom' });
+                              try { await refreshAutomationSchedule(); } catch {}
+                            }
+                          } catch {}
+                        }, 3500);
+                        Toast.show({ type: 'info', text1: 'Door Lock', text2: 'Auto-lock scheduled in 3.5s', position: 'bottom' });
                       }
                     } else {
                       Toast.show({ type: 'error', text1: 'Failed to toggle', text2: 'Could not update device2', position: 'bottom' });

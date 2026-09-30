@@ -22,15 +22,26 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
 
-    <uses-permission android:name="android.permission.BACKGROUND_SERVICE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Exact Alarms (Android 12+) - required for timer exact firing in Doze -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Ignore Battery Optimizations (helps with Doze) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Background Fetch -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+
+    <!-- Foreground Service - Android 14+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".MainApplication"
@@ -94,6 +105,17 @@
             </intent-filter>
 
         </activity>
+
+
+        <!-- ======================================= -->
+        <!-- React Native Background Actions         -->
+        <!-- ======================================= -->
+
+        <service
+            android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
 
         <!-- ======================================= -->
         <!-- React Native Background Fetch           -->

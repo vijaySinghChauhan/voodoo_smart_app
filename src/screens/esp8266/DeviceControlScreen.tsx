@@ -894,19 +894,15 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
   }, [route?.params?.deviceId]);
 
   useEffect(() => {
-    try {
-      if (device2TimerRef.current) {
-        BackgroundTimer.clearTimeout(device2TimerRef.current);
-        device2TimerRef.current = null;
-      }
-    } catch {}
     return () => {
-      if (device2TimerRef.current) {
-        BackgroundTimer.clearTimeout(device2TimerRef.current);
-        device2TimerRef.current = null;
-      }
+      try {
+        if (device2TimerRef.current) {
+          BackgroundTimer.clearTimeout(device2TimerRef.current);
+          device2TimerRef.current = null;
+        }
+      } catch {}
     };
-  }, [device2On, selectedDeviceId]);
+  }, [selectedDeviceId]);
 
   // Re-subscribe brightness updates when IP becomes available or changes
   useEffect(() => {
@@ -1912,6 +1908,50 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
     }
   };
 
+  const handleDoorLockToggle = async (nextValue: boolean) => {
+    try {
+      if (!canControl) {
+        Toast.show({ type: 'error', text1: 'Subscription', text2: 'Subscription inactive. Please subscribe.', position: 'bottom' });
+        return;
+      }
+      try {
+        if (device2TimerRef.current) {
+          BackgroundTimer.clearTimeout(device2TimerRef.current);
+          device2TimerRef.current = null;
+        }
+      } catch {}
+
+      setDevice2On(nextValue);
+      void toggleDeviceField('device2', nextValue);
+
+      if (nextValue) {
+        if (!selectedDeviceId) return;
+        try {
+          await scheduleLockAutoOff(selectedDeviceId, 3500);
+        } catch {}
+        device2TimerRef.current = BackgroundTimer.setTimeout(() => {
+          device2TimerRef.current = null;
+          try {
+            setDevice2On(false);
+            void (async () => {
+              try {
+                if (selectedDeviceId) {
+                  const ok = await sendServerUpdate(selectedDeviceId, { device2: 0 });
+                  if (ok) {
+                    Toast.show({ type: 'info', text1: 'Door Lock', text2: 'Auto-locked after 3.5s', position: 'bottom' });
+                  }
+                }
+              } catch {}
+            })();
+          } catch {}
+        }, 3500);
+        Toast.show({ type: 'info', text1: 'Door Lock', text2: 'Auto-lock scheduled in 3.5s', position: 'bottom' });
+      } else {
+        Toast.show({ type: 'info', text1: 'Door Lock', text2: 'Manually locked', position: 'bottom' });
+      }
+    } catch {}
+  };
+
   const handleSaveTarget = async () => {
     try {
       await logService.logButtonClick('Save Target', { targetInput});
@@ -2493,8 +2533,7 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
                     <AppSwitch
                       value={device2On}
                       onValueChange={(val) => {
-                        setDevice2On(val);
-                        toggleDeviceField('device2', val);
+                        handleDoorLockToggle(val);
                       }}
                       
                       

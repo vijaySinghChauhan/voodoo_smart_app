@@ -434,15 +434,24 @@ const AppNavigator = () => {
   }, []);
 
   React.useEffect(() => {
-    try {
-      if (Platform.OS !== 'web') {
+    let mounted = true;
+    (async () => {
+      try {
+        if (Platform.OS === 'web') return;
+        const token = (await authService.getToken()) || (await AsyncStorage.getItem('auth_token')) || '';
+        if (!token) {
+          return;
+        }
         const mod = require('./src/services/background/backgroundService');
         const init = mod?.initBackgroundDevicePolling;
         const start = mod?.startAutomationMonitorForeground;
-        if (typeof init === 'function') init();
-        if (typeof start === 'function') start();
-      }
-    } catch {}
+        const refresh = mod?.refreshAutomationSchedule;
+        if (typeof init === 'function') await init();
+        if (mounted && typeof start === 'function') start();
+        if (mounted && typeof refresh === 'function') await refresh();
+      } catch {}
+    })();
+    return () => { mounted = false; };
   }, []);
 
   // Connect to signaling and listen for incoming call invites
