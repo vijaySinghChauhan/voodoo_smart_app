@@ -629,12 +629,40 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
     const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
     if (ruleKeys.length === 0) return;
     const entries = await AsyncStorage.multiGet(ruleKeys);
+    const RULE_DEBOUNCE_MS = 2 * 60 * 1000;
     for (const [key, value] of entries) {
       if (!value) continue;
       const deviceId = key.replace('auto_rules_', '');
       let rules: any = null;
       try { rules = JSON.parse(value); } catch {}
       if (!rules || !deviceId) continue;
+      let rulesChanged = false;
+      if (!rules?.lastFire || typeof rules.lastFire !== 'object') {
+        rules.lastFire = {};
+        rulesChanged = true;
+      }
+      const getLastFire = (sectionKey: string, kind: 'on' | 'off', k: string): number | null => {
+        try {
+          const sec = rules.lastFire[sectionKey];
+          if (!sec || !sec[kind]) return null;
+          const v = Number(sec[kind][k]);
+          return typeof v === 'number' && isFinite(v) ? v : null;
+        } catch { return null; }
+      };
+      const markLastFire = (sectionKey: string, kind: 'on' | 'off', k: string, at: number) => {
+        try {
+          if (!rules.lastFire[sectionKey]) rules.lastFire[sectionKey] = { on: {}, off: {} };
+          if (!rules.lastFire[sectionKey][kind]) rules.lastFire[sectionKey][kind] = {};
+          const prev = Number(rules.lastFire[sectionKey][kind][k] || 0);
+          if (prev !== at) rulesChanged = true;
+          rules.lastFire[sectionKey][kind][k] = at;
+        } catch {}
+      };
+      const lastFiredWithin = (sectionKey: string, kind: 'on' | 'off', k: string, windowMs: number): boolean => {
+        const last = getLastFire(sectionKey, kind, k);
+        if (last == null) return false;
+        return (Date.now() - last) < windowMs;
+      };
       const offEnabled = !!rules?.off?.enabled;
       const offOperator = String(rules?.off?.operator || 'ge');
       const offThreshold = Number(rules?.off?.threshold || 80);
@@ -783,32 +811,30 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
 
       if (onEnabled) {
         const onMet = onOperator === 'lt' ? level < onThreshold : level >= onThreshold;
-        if (onMet && !isOn) {
-          // #region debug-point E:on-by-level
+        if (onMet && !isOn && !lastFiredWithin('threshold', 'on', 'on', RULE_DEBOUNCE_MS)) {
           dbg('E', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'ON by level', {
             deviceId,
             level,
             operator: onOperator,
             threshold: onThreshold,
           });
-          // #endregion
           try { await applyControl('on'); } catch {}
           try { await applyUpdate({ device1: 1 }); } catch {}
+          markLastFire('threshold', 'on', 'on', Date.now());
         }
       }
       if (offEnabled) {
         const offMet = offOperator === 'lt' ? level < offThreshold : level >= offThreshold;
-        if (offMet && isOn) {
-          // #region debug-point E:off-by-level
+        if (offMet && isOn && !lastFiredWithin('threshold', 'off', 'off', RULE_DEBOUNCE_MS)) {
           dbg('E', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'OFF by level', {
             deviceId,
             level,
             operator: offOperator,
             threshold: offThreshold,
           });
-          // #endregion
           try { await applyControl('off'); } catch {}
           try { await applyUpdate({ device1: 0 }); } catch {}
+          markLastFire('threshold', 'off', 'off', Date.now());
         }
       }
 
@@ -816,32 +842,43 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
         const inMorning = isInWindow(now, morningEnabled, freq, morningStart, morningEnd);
         const inEvening = isInWindow(now, eveningEnabled, freq, eveningStart, eveningEnd);
         const active = inMorning || inEvening;
-        // #region debug-point B:supply-window
+        const mkMorning = windowKey(now, freq, 'morning', morningStart, morningEnd);
+        const mkEvening = windowKey(now, freq, 'evening', eveningStart, eveningEnd);
         dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Supply window', {
           deviceId,
           inMorning,
           inEvening,
           active,
         });
-        // #endregion
-        if (active && !isOn) {
+        const fireOnMorning = inMorning && getLastFire('supplyWater', 'on', mkMorning) == null;
+        const fireOnEvening = inEvening && getLastFire('supplyWater', 'on', mkEvening) == null;
+        if ((fireOnMorning || fireOnEvening) && !isOn) {
           try { await applyControl('on'); } catch {}
           try { await applyUpdate({ device1: 1 }); } catch {}
-        } else {
-          const finishedMorning = isFinishedWindow(now, freq, morningStart, morningEnd);
-          const finishedEvening = isFinishedWindow(now, freq, eveningStart, eveningEnd);
-          // #region debug-point B:supply-finished
-          dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Supply finished check', {
-            deviceId,
-            finishedMorning,
-            finishedEvening,
-            isOn,
-          });
-          // #endregion
-          if ((finishedMorning || finishedEvening) && isOn) {
-            try { await applyControl('off'); } catch {}
-            try { await applyUpdate({ device1: 0 }); } catch {}
-          }
+          if (inMorning) markLastFire('supplyWater', 'on', mkMorning, Date.now());
+          if (inEvening) markLastFire('supplyWater', 'on', mkEvening, Date.now());
+        } else if (active) {
+          if (inMorning) markLastFire('supplyWater', 'on', mkMorning, getLastFire('supplyWater', 'on', mkMorning) ?? Date.now());
+          if (inEvening) markLastFire('supplyWater', 'on', mkEvening, getLastFire('supplyWater', 'on', mkEvening) ?? Date.now());
+        }
+        const finishedMorning = isFinishedWindow(now, freq, morningStart, morningEnd);
+        const finishedEvening = isFinishedWindow(now, freq, eveningStart, eveningEnd);
+        dbg('B', 'backgroundService.ts:evaluateAutomationRulesHeadless', 'Supply finished check', {
+          deviceId,
+          finishedMorning,
+          finishedEvening,
+          isOn,
+        });
+        const fireOffMorning = finishedMorning && getLastFire('supplyWater', 'off', mkMorning) == null;
+        const fireOffEvening = finishedEvening && getLastFire('supplyWater', 'off', mkEvening) == null;
+        if ((fireOffMorning || fireOffEvening) && isOn) {
+          try { await applyControl('off'); } catch {}
+          try { await applyUpdate({ device1: 0 }); } catch {}
+          if (finishedMorning) markLastFire('supplyWater', 'off', mkMorning, Date.now());
+          if (finishedEvening) markLastFire('supplyWater', 'off', mkEvening, Date.now());
+        } else if (finishedMorning || finishedEvening) {
+          if (finishedMorning) markLastFire('supplyWater', 'off', mkMorning, getLastFire('supplyWater', 'off', mkMorning) ?? Date.now());
+          if (finishedEvening) markLastFire('supplyWater', 'off', mkEvening, getLastFire('supplyWater', 'off', mkEvening) ?? Date.now());
         }
       }
 
@@ -854,14 +891,14 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
       const wpMorningEnd = wp?.morningEnd ? new Date(wp.morningEnd) : null;
       const wpEveningStart = wp?.eveningStart ? new Date(wp.eveningStart) : null;
       const wpEveningEnd = wp?.eveningEnd ? new Date(wp.eveningEnd) : null;
-      const wpActive = wpEnabled && (
-        isInWindow(now, wpMorningEnabled, wpFreq, wpMorningStart, wpMorningEnd) ||
-        isInWindow(now, wpEveningEnabled, wpFreq, wpEveningStart, wpEveningEnd)
-      );
-      const wpFinished = wpEnabled && (
-        isFinishedWindow(now, wpFreq, wpMorningStart, wpMorningEnd) ||
-        isFinishedWindow(now, wpFreq, wpEveningStart, wpEveningEnd)
-      );
+      const wpMorningActive = wpEnabled && isInWindow(now, wpMorningEnabled, wpFreq, wpMorningStart, wpMorningEnd);
+      const wpEveningActive = wpEnabled && isInWindow(now, wpEveningEnabled, wpFreq, wpEveningStart, wpEveningEnd);
+      const wpActive = wpMorningActive || wpEveningActive;
+      const wpMKMorning = windowKey(now, wpFreq, 'morning', wpMorningStart, wpMorningEnd);
+      const wpMKEvening = windowKey(now, wpFreq, 'evening', wpEveningStart, wpEveningEnd);
+      const wpMorningFinished = wpEnabled && isFinishedWindow(now, wpFreq, wpMorningStart, wpMorningEnd);
+      const wpEveningFinished = wpEnabled && isFinishedWindow(now, wpFreq, wpEveningStart, wpEveningEnd);
+      const wpFinished = wpMorningFinished || wpEveningFinished;
 
       const dog = rules?.dogFeed || {};
       const dogEnabled = !!dog?.enabled;
@@ -872,14 +909,14 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
       const dogMorningEnd = dog?.morningEnd ? new Date(dog.morningEnd) : null;
       const dogEveningStart = dog?.eveningStart ? new Date(dog.eveningStart) : null;
       const dogEveningEnd = dog?.eveningEnd ? new Date(dog.eveningEnd) : null;
-      const dogActive = dogEnabled && (
-        isInWindow(now, dogMorningEnabled, dogFreq, dogMorningStart, dogMorningEnd) ||
-        isInWindow(now, dogEveningEnabled, dogFreq, dogEveningStart, dogEveningEnd)
-      );
-      const dogFinished = dogEnabled && (
-        isFinishedWindow(now, dogFreq, dogMorningStart, dogMorningEnd) ||
-        isFinishedWindow(now, dogFreq, dogEveningStart, dogEveningEnd)
-      );
+      const dogMorningActive = dogEnabled && isInWindow(now, dogMorningEnabled, dogFreq, dogMorningStart, dogMorningEnd);
+      const dogEveningActive = dogEnabled && isInWindow(now, dogEveningEnabled, dogFreq, dogEveningStart, dogEveningEnd);
+      const dogActive = dogMorningActive || dogEveningActive;
+      const dogMKMorning = windowKey(now, dogFreq, 'morning', dogMorningStart, dogMorningEnd);
+      const dogMKEvening = windowKey(now, dogFreq, 'evening', dogEveningStart, dogEveningEnd);
+      const dogMorningFinished = dogEnabled && isFinishedWindow(now, dogFreq, dogMorningStart, dogMorningEnd);
+      const dogEveningFinished = dogEnabled && isFinishedWindow(now, dogFreq, dogEveningStart, dogEveningEnd);
+      const dogFinished = dogMorningFinished || dogEveningFinished;
       const dogField: 'device4' | 'device3' = typeof getStateField(state, 'device4') !== 'undefined' ? 'device4' : 'device3';
       const dogIsOn = dogField === 'device4' ? device4On : device3On;
 
@@ -892,40 +929,97 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
       const acMorningEnd = ac?.morningEnd ? new Date(ac.morningEnd) : null;
       const acEveningStart = ac?.eveningStart ? new Date(ac.eveningStart) : null;
       const acEveningEnd = ac?.eveningEnd ? new Date(ac.eveningEnd) : null;
-      const acActive = acEnabled && (
-        isInWindow(now, acMorningEnabled, acFreq, acMorningStart, acMorningEnd) ||
-        isInWindow(now, acEveningEnabled, acFreq, acEveningStart, acEveningEnd)
-      );
-      const acFinished = acEnabled && (
-        isFinishedWindow(now, acFreq, acMorningStart, acMorningEnd) ||
-        isFinishedWindow(now, acFreq, acEveningStart, acEveningEnd)
-      );
-
-      if (wpActive && !device3On) {
-        try { await applyUpdate({ device3: 1 }); } catch {}
+      const acMorningActive = acEnabled && isInWindow(now, acMorningEnabled, acFreq, acMorningStart, acMorningEnd);
+      const acEveningActive = acEnabled && isInWindow(now, acEveningEnabled, acFreq, acEveningStart, acEveningEnd);
+      const acActive = acMorningActive || acEveningActive;
+      const acMKMorning = windowKey(now, acFreq, 'morning', acMorningStart, acMorningEnd);
+      const acMKEvening = windowKey(now, acFreq, 'evening', acEveningStart, acEveningEnd);
+      const acMorningFinished = acEnabled && isFinishedWindow(now, acFreq, acMorningStart, acMorningEnd);
+      const acEveningFinished = acEnabled && isFinishedWindow(now, acFreq, acEveningStart, acEveningEnd);
+      const acFinished = acMorningFinished || acEveningFinished;
+      let acField: 'device5' | 'device4' | 'device3' = 'device5';
+      if (typeof getStateField(state, 'device5') === 'undefined') {
+        if (dogField === 'device3') {
+          acField = 'device4';
+        } else if (typeof getStateField(state, 'device4') !== 'undefined' && dogField !== 'device4') {
+          acField = 'device4';
+        } else {
+          acField = 'device3';
+        }
       }
-      if (!wpActive && wpFinished && device3On) {
-        const blockOff = dogField === 'device3' && dogActive;
+      const acIsOn = (() => {
+        if (acField === 'device5') return device5On;
+        if (acField === 'device4') return device4On;
+        return device3On;
+      })();
+
+      const fireWpOnMorning = wpMorningActive && getLastFire('wateringPlants', 'on', wpMKMorning) == null;
+      const fireWpOnEvening = wpEveningActive && getLastFire('wateringPlants', 'on', wpMKEvening) == null;
+      if ((fireWpOnMorning || fireWpOnEvening) && !device3On) {
+        try { await applyUpdate({ device3: 1 }); } catch {}
+        if (wpMorningActive) markLastFire('wateringPlants', 'on', wpMKMorning, Date.now());
+        if (wpEveningActive) markLastFire('wateringPlants', 'on', wpMKEvening, Date.now());
+      } else if (wpActive) {
+        if (wpMorningActive) markLastFire('wateringPlants', 'on', wpMKMorning, getLastFire('wateringPlants', 'on', wpMKMorning) ?? Date.now());
+        if (wpEveningActive) markLastFire('wateringPlants', 'on', wpMKEvening, getLastFire('wateringPlants', 'on', wpMKEvening) ?? Date.now());
+      }
+      const fireWpOffMorning = wpMorningFinished && getLastFire('wateringPlants', 'off', wpMKMorning) == null;
+      const fireWpOffEvening = wpEveningFinished && getLastFire('wateringPlants', 'off', wpMKEvening) == null;
+      if (!wpActive && (fireWpOffMorning || fireWpOffEvening) && device3On) {
+        const blockOff = dogField === 'device3' && (dogActive || !dogFinished);
         if (!blockOff) {
           try { await applyUpdate({ device3: 0 }); } catch {}
+          if (wpMorningFinished) markLastFire('wateringPlants', 'off', wpMKMorning, Date.now());
+          if (wpEveningFinished) markLastFire('wateringPlants', 'off', wpMKEvening, Date.now());
         }
+      } else if (wpMorningFinished || wpEveningFinished) {
+        if (wpMorningFinished) markLastFire('wateringPlants', 'off', wpMKMorning, getLastFire('wateringPlants', 'off', wpMKMorning) ?? Date.now());
+        if (wpEveningFinished) markLastFire('wateringPlants', 'off', wpMKEvening, getLastFire('wateringPlants', 'off', wpMKEvening) ?? Date.now());
       }
 
-      if (dogActive && !dogIsOn) {
+      const fireDogOnMorning = dogMorningActive && getLastFire('dogFeed', 'on', dogMKMorning) == null;
+      const fireDogOnEvening = dogEveningActive && getLastFire('dogFeed', 'on', dogMKEvening) == null;
+      if ((fireDogOnMorning || fireDogOnEvening) && !dogIsOn) {
         try { await applyUpdate({ [dogField]: 1 }); } catch {}
+        if (dogMorningActive) markLastFire('dogFeed', 'on', dogMKMorning, Date.now());
+        if (dogEveningActive) markLastFire('dogFeed', 'on', dogMKEvening, Date.now());
+      } else if (dogActive) {
+        if (dogMorningActive) markLastFire('dogFeed', 'on', dogMKMorning, getLastFire('dogFeed', 'on', dogMKMorning) ?? Date.now());
+        if (dogEveningActive) markLastFire('dogFeed', 'on', dogMKEvening, getLastFire('dogFeed', 'on', dogMKEvening) ?? Date.now());
       }
-      if (!dogActive && dogFinished && dogIsOn) {
-        const blockOff = dogField === 'device3' && wpActive;
+      const fireDogOffMorning = dogMorningFinished && getLastFire('dogFeed', 'off', dogMKMorning) == null;
+      const fireDogOffEvening = dogEveningFinished && getLastFire('dogFeed', 'off', dogMKEvening) == null;
+      if (!dogActive && (fireDogOffMorning || fireDogOffEvening) && dogIsOn) {
+        const blockOff = dogField === 'device3' && (wpActive || !wpFinished);
         if (!blockOff) {
           try { await applyUpdate({ [dogField]: 0 }); } catch {}
+          if (dogMorningFinished) markLastFire('dogFeed', 'off', dogMKMorning, Date.now());
+          if (dogEveningFinished) markLastFire('dogFeed', 'off', dogMKEvening, Date.now());
         }
+      } else if (dogMorningFinished || dogEveningFinished) {
+        if (dogMorningFinished) markLastFire('dogFeed', 'off', dogMKMorning, getLastFire('dogFeed', 'off', dogMKMorning) ?? Date.now());
+        if (dogEveningFinished) markLastFire('dogFeed', 'off', dogMKEvening, getLastFire('dogFeed', 'off', dogMKEvening) ?? Date.now());
       }
 
-      if (acActive && !device5On) {
-        try { await applyUpdate({ device5: 1 }); } catch {}
+      const fireAcOnMorning = acMorningActive && getLastFire('acControl', 'on', acMKMorning) == null;
+      const fireAcOnEvening = acEveningActive && getLastFire('acControl', 'on', acMKEvening) == null;
+      if ((fireAcOnMorning || fireAcOnEvening) && !acIsOn) {
+        try { await applyUpdate({ [acField]: 1 }); } catch {}
+        if (acMorningActive) markLastFire('acControl', 'on', acMKMorning, Date.now());
+        if (acEveningActive) markLastFire('acControl', 'on', acMKEvening, Date.now());
+      } else if (acActive) {
+        if (acMorningActive) markLastFire('acControl', 'on', acMKMorning, getLastFire('acControl', 'on', acMKMorning) ?? Date.now());
+        if (acEveningActive) markLastFire('acControl', 'on', acMKEvening, getLastFire('acControl', 'on', acMKEvening) ?? Date.now());
       }
-      if (!acActive && acFinished && device5On) {
-        try { await applyUpdate({ device5: 0 }); } catch {}
+      const fireAcOffMorning = acMorningFinished && getLastFire('acControl', 'off', acMKMorning) == null;
+      const fireAcOffEvening = acEveningFinished && getLastFire('acControl', 'off', acMKEvening) == null;
+      if (!acActive && (fireAcOffMorning || fireAcOffEvening) && acIsOn) {
+        try { await applyUpdate({ [acField]: 0 }); } catch {}
+        if (acMorningFinished) markLastFire('acControl', 'off', acMKMorning, Date.now());
+        if (acEveningFinished) markLastFire('acControl', 'off', acMKEvening, Date.now());
+      } else if (acMorningFinished || acEveningFinished) {
+        if (acMorningFinished) markLastFire('acControl', 'off', acMKMorning, getLastFire('acControl', 'off', acMKMorning) ?? Date.now());
+        if (acEveningFinished) markLastFire('acControl', 'off', acMKEvening, getLastFire('acControl', 'off', acMKEvening) ?? Date.now());
       }
       // Headless no-flow auto OFF
       const noFlowEnabled = !!rules?.noFlow?.enabled;
@@ -948,6 +1042,9 @@ export async function evaluateAutomationRulesHeadless(): Promise<void> {
       } else {
         await clearNoFlowPending(deviceId);
       }
+      if (rulesChanged) {
+        try { await AsyncStorage.setItem(`auto_rules_${deviceId}`, JSON.stringify(rules)); } catch {}
+      }
     }
     try { await AsyncStorage.setItem('last_headless_eval', String(Date.now())); } catch {}
     try { await scheduleNextAutomationTick(); } catch {}
@@ -962,7 +1059,11 @@ function isInWindow(now: Date, enabled: boolean, frequency: string, start: Date 
   const startM = start.getHours() * 60 + start.getMinutes();
   const endM = end.getHours() * 60 + end.getMinutes();
   const nowM = now.getHours() * 60 + now.getMinutes();
-  return nowM >= startM && nowM <= endM;
+  if (endM >= startM) {
+    return nowM >= startM && nowM <= endM;
+  }
+  // Overnight window (e.g., 22:00 -> 02:00)
+  return nowM >= startM || nowM <= endM;
 }
 
 function isFinishedWindow(now: Date, frequency: string, start: Date | null, end: Date | null): boolean {
@@ -970,9 +1071,43 @@ function isFinishedWindow(now: Date, frequency: string, start: Date | null, end:
   if (frequency === 'once') {
     return now.getTime() > end.getTime();
   }
+  const startM = start.getHours() * 60 + start.getMinutes();
   const endM = end.getHours() * 60 + end.getMinutes();
   const nowM = now.getHours() * 60 + now.getMinutes();
-  return nowM > endM;
+  if (endM >= startM) {
+    return nowM > endM;
+  }
+  // Overnight: "finished" = we passed end minute AND we're no longer within the overnight window
+  return nowM > endM && nowM < startM;
+}
+
+function windowKey(now: Date, freq: string, slot: 'morning' | 'evening', start: Date | null, end: Date | null): string {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (freq === 'once') {
+    const s = start ? new Date(start.getTime()) : null;
+    if (!s) return `${slot}:once:no-start`;
+    return `${slot}:once:${ymd(s)}:${s.getHours()}-${s.getMinutes()}`;
+  }
+  const nowTs = now.getTime();
+  const today00 = new Date(now);
+  today00.setHours(0, 0, 0, 0);
+  const ts00 = today00.getTime();
+  const startT = start ? new Date(start.getTime()) : null;
+  const endT = end ? new Date(end.getTime()) : null;
+  const startMin = startT ? (startT.getHours() * 60 + startT.getMinutes()) : -1;
+  const endMin = endT ? (endT.getHours() * 60 + endT.getMinutes()) : -1;
+  let dayKey = ymd(now);
+  if (endMin !== -1 && startMin !== -1 && endMin < startMin) {
+    // Overnight window: any time after start tonight up to end tomorrow should share same key
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (nowMin <= endMin) {
+      // It's the "tomorrow morning" portion of overnight — day key = yesterday
+      const yesterday = new Date(nowTs - DAY_MS);
+      dayKey = ymd(yesterday);
+    }
+  }
+  return `${slot}:everyday:${dayKey}`;
 }
 
 export async function refreshAutomationSchedule(): Promise<void> {
@@ -1005,15 +1140,27 @@ function nextBoundaryForWindow(now: Date, enabled: boolean, frequency: string, s
   const endToday = timeOnDate(now, end).getTime();
   if (!isFinite(startToday) || !isFinite(endToday)) return null;
 
+  const DAY_MS = 24 * 60 * 60 * 1000;
   if (endToday >= startToday) {
+    // Normal same-day window
     if (nowMs < startToday) return startToday;
     if (nowMs <= endToday) return endToday;
-    return startToday + 24 * 60 * 60 * 1000;
+    return startToday + DAY_MS;
   }
 
-  if (nowMs <= endToday) return endToday;
-  if (nowMs < startToday) return startToday;
-  return endToday + 24 * 60 * 60 * 1000;
+  // Overnight window (e.g., 22:00 -> 02:00): startToday=22:00, endToday=02:00 < startToday
+  // Logical: window starts at startToday, ends at endToday + DAY_MS (next day 02:00)
+  const endTomorrow = endToday + DAY_MS;
+  if (nowMs < endToday) {
+    // Still within previous overnight window (before 02:00) — next boundary is endToday (02:00)
+    return endToday;
+  }
+  if (nowMs < startToday) {
+    // Between 02:00 and 22:00 — next boundary is startToday (22:00)
+    return startToday;
+  }
+  // After 22:00 today — next boundary is endTomorrow (02:00 next day)
+  return endTomorrow;
 }
 
 async function scheduleNextPendingCommandsTick(): Promise<void> {
