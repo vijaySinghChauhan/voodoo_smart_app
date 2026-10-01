@@ -1,6 +1,7 @@
 import BackgroundFetch from 'react-native-background-fetch';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { Platform, AppState, AppStateStatus, Vibration } from 'react-native';
 import BackgroundActions from 'react-native-background-actions';
+import PushNotification from 'react-native-push-notification';
 import esp8266Service from '../esp8266/esp8266Service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackgroundTimer from 'react-native-background-timer';
@@ -11,7 +12,105 @@ import authService from '../auth/authService';
 let backgroundFetchConfigured = false;
 let foregroundMonitorIntervalRef: any = null;
 let foregroundActionRunning = false;
+let iosBackupNotificationsHooked = false;
 const BgActionsModule: any = (BackgroundActions as any)?.default ?? BackgroundActions;
+
+async function bgScheduleTask(opts: {
+  taskId: string;
+  delay: number;
+  periodic?: boolean;
+  stopOnTerminate?: boolean;
+  enableHeadless?: boolean;
+  requiredNetworkType?: any;
+}): Promise<void> {
+  try {
+    await BackgroundFetch.scheduleTask({
+      taskId: opts.taskId,
+      delay: Math.max(0, opts.delay),
+      periodic: !!opts.periodic,
+      stopOnTerminate: opts.stopOnTerminate ?? false,
+      requiredNetworkType: opts.requiredNetworkType ?? BackgroundFetch.NETWORK_TYPE_ANY,
+      enableHeadless: opts.enableHeadless ?? true,
+    } as any);
+  } catch {}
+  if (Platform.OS !== 'ios') return;
+  try {
+    const delayMs = Math.max(1000, opts.delay);
+    const fireDate = new Date(Date.now() + delayMs);
+    const id = `bg-${opts.taskId}-${Math.floor(delayMs)}`;
+    const PN: any = PushNotification as any;
+    if (typeof PN?.localNotificationSchedule === 'function') {
+      PN.localNotificationSchedule({
+        id,
+        userInfo: { id, taskId: opts.taskId, source: 'voodoo-backup-notification' },
+        message: ' ',
+        playSound: false,
+        soundName: undefined as any,
+        number: 0,
+        vibrate: false,
+        priority: 'min' as any,
+        showWhen: false,
+        autoCancel: false,
+        onlyAlertOnce: true,
+        allowWhileIdle: true,
+        ignoreInForeground: false,
+        invokeApp: false,
+        date: fireDate,
+      });
+    }
+  } catch {}
+}
+
+function hookIosBackupNotificationCallbacks(): void {
+  if (Platform.OS !== 'ios' || iosBackupNotificationsHooked) return;
+  try {
+    const PN: any = PushNotification as any;
+    if (typeof PN?.addEventListener === 'function') {
+      try {
+        PN.addEventListener('notification', (notif: any) => {
+          try {
+            const ui = notif?.data?.userInfo ?? notif?.userInfo ?? {};
+            if (ui?.source === 'voodoo-backup-notification' && typeof ui?.taskId === 'string') {
+              runBackgroundPipeline(String(ui.taskId)).catch(() => {});
+            }
+          } catch {}
+        });
+      } catch {}
+      try {
+        PN.addEventListener('localNotification', (notif: any) => {
+          try {
+            const ui = notif?.data?.userInfo ?? notif?.userInfo ?? {};
+            if (ui?.source === 'voodoo-backup-notification' && typeof ui?.taskId === 'string') {
+              runBackgroundPipeline(String(ui.taskId)).catch(() => {});
+            }
+          } catch {}
+        });
+      } catch {}
+    }
+    if (typeof PN?.configure === 'function') {
+      try {
+        PN.configure({
+          onNotification: (_notif: any) => {
+            try {
+              const ui = _notif?.data?.userInfo ?? _notif?.userInfo ?? {};
+              if (ui?.source === 'voodoo-backup-notification' && typeof ui?.taskId === 'string') {
+                runBackgroundPipeline(String(ui.taskId)).catch(() => {});
+              }
+              if (typeof _notif?.finish === 'function') {
+                try { _notif.finish(('backgroundFetchResultNoData' as any) ?? 'UIBackgroundFetchResultNoData'); } catch {}
+              }
+            } catch {}
+          },
+          senderID: undefined as any,
+          permissions: { alert: false, badge: false, sound: false },
+          popInitialNotification: false,
+          requestPermissions: false,
+        });
+      } catch {}
+    }
+    iosBackupNotificationsHooked = true;
+  } catch {}
+}
 
 // #region debug-point A:reporter
 const DEBUG_SESSION_ID = 'water-schedule-no-off';
@@ -82,20 +181,31 @@ export async function runBackgroundPipeline(taskId?: string): Promise<void> {
 export async function initBackgroundDevicePolling() {
   try {
     if (backgroundFetchConfigured) return;
-    const taskId = 'react-native-background-fetch';
-    await BackgroundFetch.configure(
-      {
-        minimumFetchInterval: Platform.OS === 'ios' ? 15 : 1,
-        stopOnTerminate: false,
-        startOnBoot: true,
-        enableHeadless: true,
-        requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
-        requiresBatteryNotLow: false,
-        requiresCharging: false,
-        requiresDeviceIdle: false,
-        requiresStorageNotLow: false,
+    const baseConfig = {
+      minimumFetchInterval: Platform.OS === 'ios' ? 15 : 1,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      enableHeadless: true,
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+      requiresBatteryNotLow: false,
+      requiresCharging: false,
+      requiresDeviceIdle: false,
+      requiresStorageNotLow: false,
+    } as any;
+    let cfg: any = baseConfig;
+    if (Platform.OS === 'android') {
+      cfg = {
+        ...baseConfig,
         forceAlarmManager: true,
-      },
+      };
+    } else {
+      cfg = {
+        ...baseConfig,
+        minimumFetchInterval: 15,
+      };
+    }
+    await BackgroundFetch.configure(
+      cfg,
       async (taskIdParam: string) => {
         dbg('A', 'backgroundService.ts:initBackgroundDevicePolling', 'BackgroundFetch callback', {
           taskId: taskIdParam,
@@ -114,7 +224,11 @@ export async function initBackgroundDevicePolling() {
     );
     await BackgroundFetch.start();
     try {
-      await AppState.addEventListener('change', handleAppStateChange);
+      const _sub: any = AppState.addEventListener('change', handleAppStateChange);
+      void _sub;
+    } catch {}
+    try {
+      hookIosBackupNotificationCallbacks();
     } catch {}
     backgroundFetchConfigured = true;
   } catch {}
@@ -294,14 +408,14 @@ async function schedulePendingDeviceCommands(delayMs: number): Promise<void> {
     const existingAt = existing ? parseInt(existing, 10) : NaN;
     if (typeof existingAt === 'number' && isFinite(existingAt) && existingAt <= dueAt + 2000) return;
     await AsyncStorage.setItem(DEVICE_COMMAND_SCHEDULE_AT_KEY, String(dueAt));
-    await BackgroundFetch.scheduleTask({
+    await bgScheduleTask({
       taskId: DEVICE_COMMAND_TASK_ID,
       delay: Math.max(0, delayMs),
       periodic: false,
       stopOnTerminate: false,
-      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
       enableHeadless: true,
-    } as any);
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+    });
   } catch {}
 }
 
@@ -392,14 +506,14 @@ export async function scheduleLockAutoOff(deviceId: string, delayMs: number = 0)
       const earliest = filtered.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
       if (earliest) {
         const delay = Math.max(0, earliest - Date.now());
-        await BackgroundFetch.scheduleTask({
+        await bgScheduleTask({
           taskId: LOCK_AUTO_OFF_TASK_ID,
           delay,
           periodic: false,
           stopOnTerminate: false,
-          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
           enableHeadless: true,
-        } as any);
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+        });
       }
     } catch {}
   } catch {}
@@ -432,14 +546,14 @@ export async function processPendingLockAutoOff(): Promise<void> {
       const earliest = keep.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
       if (earliest) {
         const delay = Math.max(0, earliest - Date.now());
-        await BackgroundFetch.scheduleTask({
+        await bgScheduleTask({
           taskId: LOCK_AUTO_OFF_TASK_ID,
           delay,
           periodic: false,
           stopOnTerminate: false,
-          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
           enableHeadless: true,
-        } as any);
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+        });
       }
     } catch {}
   } catch {}
@@ -480,14 +594,14 @@ async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise
       const earliest = filtered.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
       if (earliest) {
         const delay = Math.max(0, earliest - Date.now());
-        await BackgroundFetch.scheduleTask({
+        await bgScheduleTask({
           taskId: NO_FLOW_TASK_ID,
           delay,
           periodic: false,
           stopOnTerminate: false,
-          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
           enableHeadless: true,
-        } as any);
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+        });
       }
     } catch {}
   } catch {}
@@ -610,14 +724,14 @@ export async function processPendingNoFlowAutoOff(): Promise<void> {
       const earliest = keep.reduce((acc: number | null, curr) => (acc === null || curr.dueAt < acc ? curr.dueAt : acc), null);
       if (earliest) {
         const delay = Math.max(0, earliest - Date.now());
-        await BackgroundFetch.scheduleTask({
+        await bgScheduleTask({
           taskId: NO_FLOW_TASK_ID,
           delay,
           periodic: false,
           stopOnTerminate: false,
-          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
           enableHeadless: true,
-        } as any);
+          requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+        });
       }
     } catch {}
   } catch {}
@@ -1216,14 +1330,14 @@ async function scheduleNextPendingCommandsTick(): Promise<void> {
 
     await AsyncStorage.setItem(DEVICE_COMMAND_SCHEDULE_AT_KEY, String(earliest));
     const delay = Math.max(0, earliest - now);
-    await BackgroundFetch.scheduleTask({
+    await bgScheduleTask({
       taskId: DEVICE_COMMAND_TASK_ID,
       delay,
       periodic: false,
       stopOnTerminate: false,
-      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
       enableHeadless: true,
-    } as any);
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+    });
   } catch {}
 }
 
@@ -1310,14 +1424,14 @@ async function scheduleNextAutomationTick(): Promise<void> {
 
     await AsyncStorage.setItem(AUTOMATION_SCHEDULE_AT_KEY, String(nextAt));
     const delay = Math.max(0, nextAt - nowTs);
-    await BackgroundFetch.scheduleTask({
+    await bgScheduleTask({
       taskId: AUTOMATION_TASK_ID,
       delay,
       periodic: false,
       stopOnTerminate: false,
-      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
       enableHeadless: true,
-    } as any);
+      requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY,
+    });
   } catch {}
 }
 
