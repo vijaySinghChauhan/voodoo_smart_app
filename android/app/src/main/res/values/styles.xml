@@ -15,11 +15,13 @@
         <item name="android:textColorSecondary">@color/text_medium</item>
     </style>
 
-    <!-- Splash Screen Theme (optional if you add a splash activity) -->
+    <!-- Splash Screen Theme (Android pre-JS launch screen window background) -->
     <style name="SplashTheme" parent="AppTheme">
-        <item name="android:windowBackground">@color/surface</item>
-        <item name="android:statusBarColor">@color/status_bar_color</item>
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
 </resources>

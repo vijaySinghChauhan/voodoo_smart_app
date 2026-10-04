@@ -1,41 +1,47 @@
 import React, { useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   Dimensions,
   StatusBar,
-  ScrollView,
+  Platform,
 } from 'react-native';
-import { Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { COLORS } from '../theme/theme';
+import BrandLogo from '../components/BrandLogo';
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+const TOP_LEFT_GRADIENT = 'topLeftWaveGradient';
+const BOTTOM_LAYER1_GRADIENT = 'bottomL1';
+const BOTTOM_LAYER2_GRADIENT = 'bottomL2';
+const BOTTOM_LAYER3_GRADIENT = 'bottomL3';
+const BOTTOM_LAYER4_GRADIENT = 'bottomL4';
 
 const SplashScreen: React.FC = () => {
   const navigation = useNavigation();
   const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.3);
-  const slideUpAnim = new Animated.Value(40);
+  const scaleAnim = new Animated.Value(0.82);
+  const slideUpAnim = new Animated.Value(60);
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 900,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 10,
-        friction: 2,
+        tension: 18,
+        friction: 5,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(slideUpAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 900,
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
@@ -51,20 +57,63 @@ const SplashScreen: React.FC = () => {
   }, [navigation]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
-      <View style={styles.cornerTopRight} />
-      <View style={styles.cornerBottomLeft} />
+    <View style={styles.container}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      <View style={styles.watermarkContainer} pointerEvents="none">
-        <View style={[styles.watermarkMint, styles.watermarkLeft]} />
-        <View style={[styles.watermarkCyan, styles.watermarkRight]} />
+      {/* ===================== TOP-LEFT WAVE DECOR ===================== */}
+      <View style={[styles.layer, styles.layerTop]} pointerEvents="none">
+        <Svg width={SCREEN_W * 1.2} height={SCREEN_H * 0.45} viewBox={`0 0 ${SCREEN_W} ${Math.round(SCREEN_H * 0.45)}`}>
+          <Defs>
+            <LinearGradient id={TOP_LEFT_GRADIENT} x1="0%" y1="0%" x2="85%" y2="100%">
+              <Stop offset="0%"   stopColor="#BFF0DD" />
+              <Stop offset="55%"  stopColor="#86E3D0" />
+              <Stop offset="100%" stopColor="#6DCDFF" />
+            </LinearGradient>
+          </Defs>
+          {/* Two overlapping flowing wave curves top-left corner */}
+          <Path
+            d={`M0 0
+                L ${SCREEN_W * 0.78} 0
+                C ${SCREEN_W * 0.70} ${SCREEN_H * 0.10}, ${SCREEN_W * 0.40} ${SCREEN_H * 0.16}, ${SCREEN_W * 0.28} ${SCREEN_H * 0.28}
+                C ${SCREEN_W * 0.16} ${SCREEN_H * 0.40}, 0 ${SCREEN_H * 0.33}, 0 ${SCREEN_H * 0.45}
+                Z`}
+            fill={`url(#${TOP_LEFT_GRADIENT})`}
+            opacity={0.78}
+          />
+          <Path
+            d={`M0 0
+                L ${SCREEN_W * 0.55} 0
+                C ${SCREEN_W * 0.52} ${SCREEN_H * 0.08}, ${SCREEN_W * 0.22} ${SCREEN_H * 0.12}, ${SCREEN_W * 0.10} ${SCREEN_H * 0.22}
+                C ${SCREEN_W * 0.02} ${SCREEN_H * 0.30}, 0 ${SCREEN_H * 0.24}, 0 ${SCREEN_H * 0.34}
+                Z`}
+            fill={`url(#${TOP_LEFT_GRADIENT})`}
+            opacity={0.42}
+          />
+        </Svg>
       </View>
 
+      {/* ===================== CENTERED FAINT INFINITY WATERMARK ===================== */}
+      <View style={[styles.layer, styles.watermarkLayer]} pointerEvents="none">
+        <Svg width={SCREEN_W * 1.2} height={SCREEN_W * 0.7} viewBox="0 0 600 360">
+          <Defs>
+            <LinearGradient id="watermarkInf" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#CFF4EA" />
+              <Stop offset="50%"  stopColor="#CCECFF" />
+              <Stop offset="100%" stopColor="#C4E7FF" />
+            </LinearGradient>
+          </Defs>
+          <GiantInfinity cx={300} cy={180} rx={240} ry={120} fill={`url(#watermarkInf)`} opacity={0.55} />
+        </Svg>
+      </View>
+
+      {/* ===================== CENTERED BRAND LOGO ===================== */}
+      {/* 20% upward from center: original center = 50% of SCREEN_H from top.
+          Subtract 20% of SCREEN_H → place it at absolute top 30%. */}
       <Animated.View
         style={[
-          styles.logoContainer,
+          styles.brandCenter,
           {
+            top: SCREEN_H * 0.30,
             opacity: fadeAnim,
             transform: [
               { scale: scaleAnim },
@@ -73,178 +122,163 @@ const SplashScreen: React.FC = () => {
           },
         ]}
       >
-        <View style={styles.logo}>
-          <View style={styles.logoInfinity}>
-            <Text style={styles.logoTextV}>V</Text>
-            <View style={styles.infinityLoopMint} />
-            <View style={styles.infinityLoopCyan} />
-            <Text style={styles.logoTextDo}>Doo</Text>
-          </View>
-          <Text style={styles.logoTech}>T E C H</Text>
-        </View>
-
-        <Text style={styles.appName}>VooDoo</Text>
-        <View style={styles.divider} />
-        <Text style={styles.tagline}>IDEAS ∞ TECHNOLOGY ∞ IMPACT</Text>
+        <BrandLogo size="xlarge" showTagline={true} />
       </Animated.View>
 
+      {/* ===================== BOTTOM LAYERED WAVES ===================== */}
+      <View style={[styles.layer, styles.layerBottom]} pointerEvents="none">
+        <Svg width={SCREEN_W} height={SCREEN_H * 0.52} viewBox={`0 0 ${SCREEN_W} ${Math.round(SCREEN_H * 0.52)}`}>
+          <Defs>
+            <LinearGradient id={BOTTOM_LAYER1_GRADIENT} x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor={COLORS.primaryDark} />
+              <Stop offset="100%" stopColor="#0E6B8F" />
+            </LinearGradient>
+            <LinearGradient id={BOTTOM_LAYER2_GRADIENT} x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#0B837F" />
+              <Stop offset="100%" stopColor="#1B7CD0" />
+            </LinearGradient>
+            <LinearGradient id={BOTTOM_LAYER3_GRADIENT} x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#10B8A0" />
+              <Stop offset="100%" stopColor="#29B6F6" />
+            </LinearGradient>
+            <LinearGradient id={BOTTOM_LAYER4_GRADIENT} x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#6FE2CB" />
+              <Stop offset="100%" stopColor="#8EDBFF" />
+            </LinearGradient>
+          </Defs>
+
+          {/* Layer 1 — bottom-most (deepest blue/teal), tallest */}
+          <Path
+            d={bottomWavePath(SCREEN_W, SCREEN_H * 0.52, 0, 38, 0.30)}
+            fill={`url(#${BOTTOM_LAYER1_GRADIENT})`}
+          />
+          {/* Layer 2 */}
+          <Path
+            d={bottomWavePath(SCREEN_W, SCREEN_H * 0.52, 56, 44, 0.18)}
+            fill={`url(#${BOTTOM_LAYER2_GRADIENT})`}
+            opacity={0.92}
+          />
+          {/* Layer 3 */}
+          <Path
+            d={bottomWavePath(SCREEN_W, SCREEN_H * 0.52, 110, 34, 0.08)}
+            fill={`url(#${BOTTOM_LAYER3_GRADIENT})`}
+            opacity={0.92}
+          />
+          {/* Layer 4 — topmost (light mint/blue), thin highlight curve with highlight stroke */}
+          <Path
+            d={bottomWavePath(SCREEN_W, SCREEN_H * 0.52, 152, 22, -0.02)}
+            fill={`url(#${BOTTOM_LAYER4_GRADIENT})`}
+            opacity={0.92}
+          />
+
+          {/* Thin white highlight curve (mimics the reference wavy line highlight) */}
+          <Path
+            d={bottomWavePath(SCREEN_W, SCREEN_H * 0.52, 124, 16, 0.22)}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeOpacity={0.55}
+            strokeWidth={1.4}
+          />
+        </Svg>
+      </View>
+
+      {/* Loading dots near bottom (above waves, subtle) */}
       <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
         <View style={styles.loadingDots}>
-          <View style={[styles.dot, styles.dotTeal]} />
-          <View style={[styles.dot, styles.dotMint]} />
-          <View style={[styles.dot, styles.dotCyan]} />
+          <View style={[styles.dot, styles.dot1]} />
+          <View style={[styles.dot, styles.dot2]} />
+          <View style={[styles.dot, styles.dot3]} />
         </View>
-        <Text style={styles.footerTagline}>BUILD ∞ AUTOMATE ∞ GROW</Text>
       </Animated.View>
-    </ScrollView>
+    </View>
+  );
+};
+
+/** Builds a curved wave path starting `topOffset` from the top, ending at view bottom. */
+function bottomWavePath(W: number, H: number, topOffset: number, amplitude: number, phaseShift: number) {
+  const baseY = topOffset;
+  const p1x = W * (0.18 + phaseShift);
+  const p1y = baseY + amplitude * 0.5;
+  const p2x = W * (0.52 + phaseShift);
+  const p2y = baseY - amplitude;
+  const p3x = W * (0.82 + phaseShift);
+  const p3y = baseY + amplitude * 0.6;
+  return (
+    `M -20 ${H + 20} ` +
+    `L -20 ${baseY + amplitude * 0.3} ` +
+    `C ${W * 0.05} ${baseY + amplitude * 0.9}, ${p1x * 0.45} ${p1y + amplitude * 0.3}, ${p1x} ${p1y} ` +
+    `S ${p2x} ${p2y - amplitude * 0.1}, ${p3x} ${p3y} ` +
+    `C ${W - 20} ${baseY + amplitude * 0.4}, ${W + 20} ${baseY + amplitude * 0.2}, ${W + 40} ${baseY + amplitude * 0.5} ` +
+    `L ${W + 40} ${H + 20} Z`
+  );
+}
+
+const GiantInfinity: React.FC<{ cx: number; cy: number; rx: number; ry: number; fill: string; opacity?: number }> = ({ cx, cy, rx, ry, fill, opacity }) => {
+  const build = (xC: number, rX: number, rY: number) => {
+    const x1 = xC - rX;
+    const x2 = xC + rX;
+    const y1 = cy - rY;
+    const y2 = cy + rY;
+    const k = 0.55;
+    return (
+      `M ${x1} ${cy} ` +
+      `C ${x1} ${cy - k * rY}, ${xC - k * rX} ${y1}, ${xC} ${y1} ` +
+      `C ${xC + k * rX} ${y1}, ${x2} ${cy - k * rY}, ${x2} ${cy} ` +
+      `C ${x2} ${cy + k * rY}, ${xC + k * rX} ${y2}, ${xC} ${y2} ` +
+      `C ${xC - k * rX} ${y2}, ${x1} ${cy + k * rY}, ${x1} ${cy} Z`
+    );
+  };
+  return (
+    <>
+      <Path d={build(cx - rx * 0.45, rx * 0.55, ry)} fill={fill} opacity={opacity} />
+      <Path d={build(cx + rx * 0.45, rx * 0.55, ry)} fill={fill} opacity={opacity} />
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  cornerTopRight: {
+  layer: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 200,
-    height: 200,
-    backgroundColor: COLORS.cornerMint,
-    borderBottomLeftRadius: 200,
-    opacity: 0.9,
-  },
-  cornerBottomLeft: {
-    position: 'absolute',
-    bottom: 0,
     left: 0,
-    width: 180,
-    height: 180,
-    backgroundColor: COLORS.cornerDark,
-    borderTopRightRadius: 180,
-    opacity: 0.9,
+    right: 0,
   },
-  watermarkContainer: {
+  layerTop: {
+    top: 0,
+    left: -30,
+  },
+  layerBottom: {
+    bottom: 0,
+  },
+  watermarkLayer: {
+    top: '32%',
+    left: '-10%',
+    opacity: 0.7,
+  },
+  brandCenter: {
     position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  watermarkMint: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    borderWidth: 36,
-    borderColor: COLORS.watermarkMint,
-    borderLeftColor: 'transparent',
-    borderBottomColor: 'transparent',
-    transform: [{ rotate: '-30deg' }],
-  },
-  watermarkCyan: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    borderWidth: 36,
-    borderColor: COLORS.watermarkCyan,
-    borderRightColor: 'transparent',
-    borderTopColor: 'transparent',
-    transform: [{ rotate: '-30deg' }],
-  },
-  watermarkLeft: {
-    bottom: -80,
-    left: -100,
-  },
-  watermarkRight: {
-    bottom: -80,
-    left: 60,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 60,
-    zIndex: 10,
-  },
-  logo: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  logoInfinity: {
-    flexDirection: 'row',
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoTextV: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: COLORS.primaryDark,
-    letterSpacing: -2,
-  },
-  infinityLoopMint: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 7,
-    borderColor: COLORS.primaryMid,
-    marginRight: -13,
-  },
-  infinityLoopCyan: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 7,
-    borderColor: COLORS.primaryCyan,
-    marginLeft: -13,
-  },
-  logoTextDo: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: COLORS.primaryCyan,
-    letterSpacing: -2,
-  },
-  logoTech: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.textMedium,
-    letterSpacing: 10,
-    marginTop: 4,
-  },
-  appName: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginBottom: 14,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  divider: {
-    width: 80,
-    height: 4,
-    backgroundColor: COLORS.divider,
-    borderRadius: 2,
-    marginBottom: 14,
-  },
-  tagline: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textLight,
-    textAlign: 'center',
-    letterSpacing: 3,
+    zIndex: 10,
   },
   loadingContainer: {
     position: 'absolute',
-    bottom: 80,
+    bottom: Math.max(70, SCREEN_H * 0.10),
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 20,
   },
   loadingDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
   dot: {
     width: 10,
@@ -252,21 +286,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginHorizontal: 6,
   },
-  dotTeal: {
-    backgroundColor: COLORS.primaryDark,
-  },
-  dotMint: {
-    backgroundColor: COLORS.accentMint,
-  },
-  dotCyan: {
-    backgroundColor: COLORS.primaryCyan,
-  },
-  footerTagline: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textLight,
-    letterSpacing: 4,
-  },
+  dot1: { backgroundColor: COLORS.primaryDark },
+  dot2: { backgroundColor: COLORS.primaryMid },
+  dot3: { backgroundColor: COLORS.primaryCyan },
 });
 
 export default SplashScreen;

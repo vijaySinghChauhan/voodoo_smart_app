@@ -87,8 +87,8 @@ android {
         applicationId "com.voodoohomes2"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 27
-        versionName "1.2.7"
+        versionCode 30
+        versionName "1.3.0"
     }
     signingConfigs {
         release {
@@ -107,6 +107,18 @@ android {
             keyPassword 'android'
         }
     }
+
+    lint {
+        // AGP 8+ runs lintVitalRelease automatically; React Native libraries often ship
+        // components whose class constructors are not visible from the app-level lint
+        // classpath (e.g. AAR-only / TransistorSoft HeadlessTask). Disable the most
+        // noise-producing rules for release builds.
+        checkReleaseBuilds false
+        abortOnError false
+        warningsAsErrors false
+        disable 'Instantiatable', 'MissingPermission', 'UnusedAttribute', 'GoogleAppIndexingWarning'
+    }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug

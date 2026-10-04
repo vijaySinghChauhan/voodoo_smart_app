@@ -28,6 +28,9 @@ class MainActivity : ReactActivity() {
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // Switch to AppTheme after the splash windowBackground has been shown.
+    // SplashTheme is only used for the pre-launch window background.
+    setTheme(R.style.AppTheme)
     super.onCreate(savedInstanceState)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
       val mgr = getSystemService(ShortcutManager::class.java)

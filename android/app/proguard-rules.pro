@@ -36,12 +36,11 @@
 # WebRTC
 -keep class org.webrtc.** { *; }
 
-# Razorpay
+# Razorpay (keep all SDK classes + JSON reflection + signature/annotations needed for signature verification)
 -keep class com.razorpay.** { *; }
+-keep class org.json.** { *; }
+-keepattributes Signature,Annotation,InnerClasses,EnclosingMethod,*Annotation*
 
 # OkHttp/Okio often used by RN networking; keep public APIs
 -keep class okhttp3.** { *; }
 -keep class okio.** { *; }
-
-# Keep annotations and inner class metadata for reflection
--keepattributes *Annotation*,InnerClasses,EnclosingMethod

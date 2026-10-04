@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, FlatList, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, ActivityIndicator, Alert, Linking, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import subscriptionService from '../../services/subscriptions/subscriptionService';
-import RazorpayCheckout from 'react-native-razorpay';
 import paymentService, { Coupon } from '../../services/ecommerce/paymentService';
+import authService from '../../services/auth/authService';
 import Toast from 'react-native-toast-message';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../theme/theme';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -19,6 +19,10 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
   const [isProcessing, setIsProcessing] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+
+  const isPayingRef = useRef<boolean>(false);
+  const lastPayClickAtRef = useRef<number>(0);
+  const MIN_MS_BETWEEN_PAY_CLICKS = 3500;
 
   const summaryText = useMemo(() => {
     if (!plan) return '';
@@ -43,7 +47,28 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
     return Math.max(0, price - selectedCoupon.value);
   };
 
+  const isLocked = (): boolean => !!isProcessing || !!isPayingRef.current;
+
+  const tryAcquirePaymentLock = (): boolean => {
+    const now = Date.now();
+    if (isPayingRef.current) {
+      Toast.show({ type: 'info', text1: 'Payment in progress', text2: 'Please wait…', position: 'bottom' });
+      return false;
+    }
+    if (now - lastPayClickAtRef.current < MIN_MS_BETWEEN_PAY_CLICKS) {
+      return false;
+    }
+    lastPayClickAtRef.current = now;
+    isPayingRef.current = true;
+    return true;
+  };
+
+  const releasePaymentLock = () => {
+    isPayingRef.current = false;
+  };
+
   const applyCoupon = (c: Coupon) => {
+    if (isLocked()) return;
     if (!plan) return;
     if (Array.isArray(c.applicablePlanIds) && c.applicablePlanIds.length > 0) {
       const ok = c.applicablePlanIds.includes(plan.id);
@@ -57,78 +82,65 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
   };
 
   const removeCoupon = () => {
+    if (isLocked()) return;
     setSelectedCoupon(null);
     Toast.show({ type: 'info', text1: 'Coupon Removed', position: 'bottom' });
   };
 
-  /*
-  const handleConfirm = async () => {
-    if (!plan) return;
-    setIsProcessing(true);
-    try {
-      await subscriptionService.purchase(plan.id);
-      Alert.alert('Success', 'Subscription purchased successfully');
-      navigation.navigate('SubscriptionList');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to purchase subscription');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  */
-
   const handleRazorpaySubscribe = async () => {
-    if (!plan) return;
+    if (!plan || isLocked()) return;
+    if (!tryAcquirePaymentLock()) return;
     setIsProcessing(true);
     try {
-      let keyId = await paymentService.getRazorpayKey();
-      if (!keyId) {
-        keyId = 'rzp_test_q6jv7paIUDvF6t';
-      }
-
       const finalAmount = computeAmount(plan.price);
+      const amountPaise = Math.max(200, Math.round(finalAmount * 100));
+      const user = await authService.getCurrentUser();
       const { orderId } = await paymentService.createRazorpayOrder({
-        amount: Math.round(finalAmount * 100),
+        amount: amountPaise,
         currency: plan.currency || 'INR',
         planId: plan.id
       });
-
-      const options = {
-        description: 'Subscription purchase',
-        image: 'https://your-app-logo-url.png',
+      const data = await paymentService.openRazorpayPayment({
+        description: `Subscription: ${plan.name}`,
         currency: plan.currency || 'INR',
-        key: keyId,
-        amount: Math.round(finalAmount * 100),
-        name: 'VoodooTech Smart',
-        order_id: orderId || '',
-        prefill: {},
+        amount: amountPaise,
+        orderId: orderId || undefined,
+        name: 'VooDoo',
         theme: { color: COLORS.primary },
-      } as any;
-
-      RazorpayCheckout.open(options)
-        .then(async (_data: any) => {
-          try {
-            await subscriptionService.purchase(plan.id);
-            Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
-            navigation.navigate('SubscriptionList');
-          } catch (e) {
-            Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to activate subscription', position: 'bottom' });
-          } finally {
-            setIsProcessing(false);
-          }
-        })
-        .catch((error: any) => {
-          setIsProcessing(false);
-          Toast.show({ type: 'error', text1: 'Payment Failed', text2: error?.description || 'Something went wrong', position: 'bottom' });
-        });
-    } catch (error: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: error?.message || 'Could not start payment', position: 'bottom' });
+        prefill: {
+          name: user?.name || undefined,
+          email: user?.email || undefined,
+          contact: user?.phone || undefined,
+        },
+      });
+      if (!data?.razorpay_payment_id) {
+        Toast.show({ type: 'error', text1: 'Payment Failed', text2: 'No payment ID returned', position: 'bottom' });
+        return;
+      }
+      try {
+        await subscriptionService.purchase(plan.id);
+        Toast.show({ type: 'success', text1: 'Subscribed', text2: 'Subscription activated successfully', position: 'bottom' });
+        navigation.navigate('SubscriptionList');
+      } catch (e) {
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to activate subscription', position: 'bottom' });
+      }
+    } catch (rawErr) {
+      const norm = paymentService.normalizeRazorpayError(rawErr);
+      Toast.show({
+        type: 'error',
+        text1: norm.message === 'Payment cancelled by user' ? 'Cancelled' : 'Payment Failed',
+        text2: norm.message,
+        position: 'bottom',
+      });
+    } finally {
       setIsProcessing(false);
+      releasePaymentLock();
     }
   };
 
   const handlePhonePeSubscribe = async () => {
-    if (!plan) return;
+    if (!plan || isLocked()) return;
+    if (!tryAcquirePaymentLock()) return;
     setIsProcessing(true);
     try {
       const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
@@ -209,12 +221,16 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
       }
     } finally {
       setIsProcessing(false);
+      releasePaymentLock();
     }
   };
 
   const handleCancel = () => {
+    if (isLocked()) return;
     navigation.goBack();
   };
+
+  const anyLocked = isProcessing || !!isPayingRef.current;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -222,7 +238,7 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {navigation.canGoBack() ? (
-              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }} disabled={anyLocked}>
                 <Icon name="arrow-back" size={24} color={COLORS.textDark} />
               </TouchableOpacity>
             ) : null}
@@ -245,13 +261,14 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
                 horizontal
                 contentContainerStyle={{ paddingVertical: 8 }}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.couponChip, selectedCoupon?.code === item.code ? styles.couponChipActive : undefined]}
                     onPress={() => applyCoupon(item)}
-                    disabled={isProcessing}
+                    disabled={anyLocked}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
                   >
                     <Text style={styles.couponText}>{item.code}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
                 showsHorizontalScrollIndicator={false}
               />
@@ -261,9 +278,9 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
             {selectedCoupon && (
               <View style={styles.couponRow}>
                 <Text style={styles.appliedTxt}>Applied: {selectedCoupon.code}</Text>
-                <TouchableOpacity onPress={removeCoupon} disabled={isProcessing}>
+                <Pressable onPress={removeCoupon} disabled={anyLocked} hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}>
                   <Text style={styles.removeTxt}>Remove</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
             <View style={styles.amountRow}>
@@ -279,18 +296,35 @@ const SubscriptionCheckoutScreen: React.FC<SubscriptionCheckoutProps> = ({ navig
               {'\n'}- Refunds are subject to our policy.
             </Text>
             <View style={styles.actions}>
-              <TouchableOpacity style={[styles.button, styles.cancelBtn]} onPress={handleCancel} disabled={isProcessing}>
+              <TouchableOpacity style={[styles.button, styles.cancelBtn]} onPress={handleCancel} disabled={anyLocked}>
                 <Text style={styles.cancelTxt}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={[styles.payBtn]} onPress={handleRazorpaySubscribe} disabled={isProcessing}>
-              {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with Razorpay</Text>}
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [
+                styles.payBtn,
+                anyLocked ? { opacity: 0.6 } : pressed ? { opacity: 0.85 } : undefined,
+              ]}
+              onPress={handleRazorpaySubscribe}
+              disabled={anyLocked}
+              hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+            >
+              {anyLocked ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with Razorpay</Text>}
+            </Pressable>
 
-            <TouchableOpacity style={[styles.payBtn, styles.phonepeBtn]} onPress={handlePhonePeSubscribe} disabled={isProcessing}>
-              {isProcessing ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with PhonePe</Text>}
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [
+                styles.payBtn,
+                styles.phonepeBtn,
+                anyLocked ? { opacity: 0.6 } : pressed ? { opacity: 0.85 } : undefined,
+              ]}
+              onPress={handlePhonePeSubscribe}
+              disabled={anyLocked}
+              hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+            >
+              {anyLocked ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.payTxt}>Subscribe with PhonePe</Text>}
+            </Pressable>
           </View>
         )}
       </ScrollView>

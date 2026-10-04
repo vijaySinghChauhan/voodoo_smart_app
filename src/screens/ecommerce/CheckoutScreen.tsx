@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
   Linking,
   Platform,
   StatusBar,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import orderService from '../../services/ecommerce/orderService';
 import cartService from '../../services/ecommerce/cartService';
-import RazorpayCheckout from 'react-native-razorpay';
 import paymentService from '../../services/ecommerce/paymentService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import addressApi, { AddressDTO } from '../../services/ecommerce/addressApi';
@@ -40,6 +40,10 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
   const [country, setCountry] = useState('');
   const [selectedAddress, setSelectedAddress] = useState<AddressDTO | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const isPayingRef = useRef<boolean>(false);
+  const lastPayClickAtRef = useRef<number>(0);
+  const MIN_MS_BETWEEN_PAY_CLICKS = 3500;
 
   const loadDefaultAddress = async () => {
     try {
@@ -66,6 +70,26 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
+  const isLocked = (): boolean => !!isLoading || !!isPayingRef.current;
+
+  const tryAcquirePaymentLock = (label: string): boolean => {
+    const now = Date.now();
+    if (isPayingRef.current) {
+      Toast.show({ type: 'info', text1: 'Payment in progress', text2: 'Please wait…', position: 'bottom' });
+      return false;
+    }
+    if (now - lastPayClickAtRef.current < MIN_MS_BETWEEN_PAY_CLICKS) {
+      return false;
+    }
+    lastPayClickAtRef.current = now;
+    isPayingRef.current = true;
+    return true;
+  };
+
+  const releasePaymentLock = () => {
+    isPayingRef.current = false;
+  };
+
   const validateForm = () => {
     if (!name || !email || !phone || !address || !city || !state || !zipCode) {
       Toast.show({
@@ -76,11 +100,23 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       });
       return false;
     }
+    const clean = paymentService.sanitizePhone(phone);
+    if (clean.length < 10) {
+      Toast.show({ type: 'error', text1: 'Invalid phone', text2: 'Enter a valid 10-digit phone number', position: 'bottom' });
+      return false;
+    }
+    const em = paymentService.sanitizeEmail(email);
+    if (!/^\S+@\S+\.\S+$/.test(em)) {
+      Toast.show({ type: 'error', text1: 'Invalid email', text2: 'Enter a valid email address', position: 'bottom' });
+      return false;
+    }
     return true;
   };
 
   const handlePhonePePay = async () => {
+    if (isLocked()) return;
     if (!validateForm()) return;
+    if (!tryAcquirePaymentLock('phonepe')) return;
     setIsLoading(true);
     try {
       const callbackUrl = 'voodoohomeS2://payment/phonepe?status=success';
@@ -88,6 +124,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       const flowId = 'flow_' + Date.now();
       const merchantIdConst = String((constantsV as any).PHONEPE_MERCHANT_ID || '').trim();
       const initOk = await paymentService.initPhonePeSDK({ environment: env as any, merchantId: merchantIdConst || 'merchant', flowId, enableLogging: env !== 'PRODUCTION' });
+      void initOk;
       const order = await paymentService.createPhonePeOrder({ amount: totalAmount, currency: 'INR', callbackUrl });
       const mId = String(order?.merchantId || merchantIdConst || '').trim();
       const oId = order?.orderId;
@@ -148,21 +185,17 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       }
     } finally {
       setIsLoading(false);
+      releasePaymentLock();
     }
   };
 
-  
   const handlePayment = async () => {
+    if (isLocked()) return;
     if (!validateForm()) return;
-
+    if (!tryAcquirePaymentLock('razorpay')) return;
     setIsLoading(true);
     try {
-      let keyId = await paymentService.getRazorpayKey();
-      if (!keyId) {
-        keyId = 'rzp_test_q6jv7paIUDvF6t';
-      }
-
-      const amountPaise = Math.round(totalAmount * 100);
+      const amountPaise = Math.max(200, Math.round(totalAmount * 100));
       const { orderId } = await paymentService.createRazorpayOrder({
         amount: amountPaise,
         currency: 'INR'
@@ -174,51 +207,44 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           text2: 'Unable to create payment order. Please try again.',
           position: 'bottom'
         });
-        setIsLoading(false);
         return;
       }
-
-      const options = {
-        description: 'VoodooTech Smart Home Products',
-        image: 'https://your-app-logo-url.png',
+      const data = await paymentService.openRazorpayPayment({
+        description: 'VooDoo Smart Home Products',
         currency: 'INR',
-        key: keyId,
         amount: amountPaise,
-        name: 'VoodooTech Smart',
-        order_id: orderId,
+        orderId,
+        name: 'VooDoo',
         prefill: {
+          name,
           email,
           contact: phone,
-          name,
         },
-        theme: { color: COLORS.primaryDark },
-      };
-
-      RazorpayCheckout.open(options)
-        .then((data) => {
-          handlePaymentSuccess(data.razorpay_payment_id);
-        })
-        .catch((error) => {
-          setIsLoading(false);
-                          Toast.show({
-                            type: 'error',
-                            text1: 'Payment Failed',
-                            text2: error.description || 'Something went wrong',
-                            position: 'bottom'
-                          });
-                        });
-    } catch (error) {
+        theme: { color: COLORS.primary },
+      });
+      if (!data?.razorpay_payment_id) {
+        Toast.show({ type: 'error', text1: 'Payment Failed', text2: 'No payment ID returned', position: 'bottom' });
+        return;
+      }
+      await handlePaymentSuccess(data.razorpay_payment_id);
+    } catch (rawErr) {
+      const norm = paymentService.normalizeRazorpayError(rawErr);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: '' + (error instanceof Error ? error.message : String(error)),
+        text1: norm.message === 'Payment cancelled by user' ? 'Cancelled' : 'Payment Failed',
+        text2: norm.message,
         position: 'bottom'
       });
+    } finally {
       setIsLoading(false);
+      releasePaymentLock();
     }
   };
 
   const handlePaymentSuccess = async (paymentId: string) => {
+    if (isPayingRef.current === false) {
+      // already completed — dedupe
+    }
     setIsLoading(true);
     try {
       const shippingAddress = {
@@ -253,6 +279,7 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
       });
     } finally {
       setIsLoading(false);
+      releasePaymentLock();
     }
   };
 
@@ -365,28 +392,37 @@ const CheckoutScreen: React.FC<CheckoutProps> = ({ route, navigation }) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.payButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.payButton,
+            (isLoading || isPayingRef.current) ? { opacity: 0.6 } : pressed ? { opacity: 0.85 } : undefined,
+          ]}
           onPress={handlePayment}
-          disabled={isLoading}
+          disabled={isLoading || isPayingRef.current}
+          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
         >
-          {isLoading ? (
+          {isLoading || isPayingRef.current ? (
             <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.payButtonText}>Pay with Razorpay</Text>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.payButton, styles.phonepeButton]}
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.payButton,
+            styles.phonepeButton,
+            (isLoading || isPayingRef.current) ? { opacity: 0.6 } : pressed ? { opacity: 0.85 } : undefined,
+          ]}
           onPress={handlePhonePePay}
-          disabled={isLoading}
+          disabled={isLoading || isPayingRef.current}
+          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
         >
-          {isLoading ? (
+          {isLoading || isPayingRef.current ? (
             <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.payButtonText}>Pay with PhonePe</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
