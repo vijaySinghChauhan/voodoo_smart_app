@@ -47,13 +47,13 @@ xmlns:tools="http://schemas.android.com/tools">
          foregroundServiceType because the service maintains an ongoing
          command channel to Wi-Fi/ESP8266 devices and their server state. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICES" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
     <!-- Required runtime permission for foregroundServiceType connectedDevice
          on Android 13+ (Nearby devices). If the user denies, the foreground
          service for automation still runs via the fallback Wifi lock + exact
          alarms, but we still need to DECLARE the permission for Play policy. -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICE" android:usesPermissionFlags="neverForLocation" />
     <!-- Foreground Service -->
 
 
