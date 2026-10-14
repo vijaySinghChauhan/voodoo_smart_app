@@ -33,6 +33,19 @@
 -keep class com.facebook.hermes.unicode.** { *; }
 
 # Third‑party SDKs used in this app
+# React Native Gesture Handler & Software Mansion
+-keep class com.swmansion.gesturehandler.** { *; }
+-keep class com.swmansion.gesturehandler.react.** { *; }
+-keep interface com.swmansion.gesturehandler.** { *; }
+-keep class com.swmansion.reanimated.** { *; }
+-keep class com.swmansion.rnscreens.** { *; }
+
+# Keep React Native NativeModules & TurboModules Specs
+-keep class * extends com.facebook.react.bridge.ReactContextBaseJavaModule { *; }
+-keep class * implements com.facebook.react.bridge.NativeModule { *; }
+-keep class * extends com.facebook.react.bridge.NativeModule { *; }
+-keep class * implements com.facebook.react.turbomodule.core.interfaces.TurboModule { *; }
+
 # WebRTC
 -keep class org.webrtc.** { *; }
 

@@ -23,6 +23,7 @@
     <color name="error">#E05252</color>
     <color name="info">#2B8FD4</color>
 
+    <color name="white">#FFFFFF</color>
     <color name="status_bar_color">#FFFFFF</color>
     <color name="navigation_bar_color">#FFFFFF</color>
 </resources>

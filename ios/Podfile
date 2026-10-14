@@ -32,11 +32,50 @@ target 'voodoohomeS2' do
       # :ccache_enabled => true
     )
 
-    # Allow non-modular includes in framework modules to fix
-    # ReactCodegen and certain RN pods when using use_frameworks!
+    # ==============================================
+    # FIX: fmt 11.0.2 "Call to consteval function basic_format_string is not a
+    #      constant expression" compile errors on Xcode 15.3+
+    # Root cause:  fmt 11+ uses C++20 `consteval` on basic_format_string ctor,
+    #              and this fails whenever callers (Folly, Flipper, FB_LOG,
+    #              folly::dynamic, to<> etc.) pass a non-constexpr/runtime format
+    #              string as the 1st argument.
+    # Fix:         Force C++ language standard back to gnu++17 for ALL pod
+    #              targets (so fmt's consteval codepath is disabled), AND add a
+    #              preprocessor `FMT_CONSTEVAL=` override so even if c++20 is
+    #              ever re-enabled, the consteval keyword becomes empty (no-op).
+    # ==============================================
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
-        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        settings = build_config.build_settings
+
+        # --- Language standard: gnu++17 ---
+        settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+        settings['GCC_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+
+        # --- fmt consteval safety: force FMT_CONSTEVAL empty ---
+        # (fmt 11 on C++20 uses consteval; we disable it unconditionally)
+        existing_gcc_pre = (settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)'])
+        unless existing_gcc_pre.any? { |d| d.to_s.start_with?('FMT_CONSTEVAL') }
+          existing_gcc_pre << 'FMT_CONSTEVAL='
+        end
+
+        # --- fmt runtime-format safety: enable FMT_GCC_PRINTF_RANGE_CHECKS=0 ---
+        unless existing_gcc_pre.any? { |d| d.to_s.start_with?('FMT_GCC_PRINTF_RANGE_CHECKS') }
+          existing_gcc_pre << 'FMT_GCC_PRINTF_RANGE_CHECKS=0'
+        end
+
+        # --- Same defines applied via OTHER_CFLAGS / OTHER_CPLUSPLUSFLAGS for any target ---
+        extra_cxx_flags = '-DFMT_CONSTEVAL= -DFMT_GCC_PRINTF_RANGE_CHECKS=0'
+        %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |k|
+          cur = (settings[k] ||= '$(inherited)')
+          unless cur.include?('-DFMT_CONSTEVAL=')
+            settings[k] = "#{cur} #{extra_cxx_flags}"
+          end
+        end
+
+        # Allow non-modular includes in framework modules to fix ReactCodegen
+        # and certain RN pods when using use_frameworks!
+        settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
       end
     end
   end

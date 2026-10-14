@@ -17,7 +17,7 @@ export interface RazorpayOpenOptions {
   prefill?: {
     name?: string;
     email?: string;
-    contact?: string;
+    contact?: string; 
     method?: 'card' | 'netbanking' | 'wallet' | 'emi' | 'upi';
   };
   notes?: Record<string, string>;

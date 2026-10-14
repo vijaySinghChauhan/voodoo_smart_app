@@ -19,13 +19,17 @@ import Toast from 'react-native-toast-message';
 import roomService from '../../services/rooms/roomService';
 import esp8266Service from '../../services/esp8266/esp8266Service';
 import productService, { Product } from '../../services/ecommerce/productService';
+import cartService from '../../services/ecommerce/cartService';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
+import BrandLogo from '../../components/BrandLogo';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../../theme/theme';
 import logService from '../../services/logging/logService';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { notificationService } from '../../services/notifications/notificationService';
 import WaterTank from '../esp8266/WaterTank';
 import { io, Socket } from 'socket.io-client';
@@ -145,6 +149,7 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [waterDeviceId, setWaterDeviceId] = useState<string | null>(null);
   const [showWater, setShowWater] = useState<boolean>(false);
   const [imageFailedRooms, setImageFailedRooms] = useState<Record<string, boolean>>({});
+  const [cartCount, setCartCount] = useState<number>(0);
   const { user } = useAuth();
   const lockTimeoutRef = useRef<any>(null);
   const beepTimeoutRef = useRef<any>(null);
@@ -176,6 +181,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
+      try {
+        const n = await cartService.getCartItemCount();
+        setCartCount(Math.max(0, Math.round(Number(n) || 0)));
+      } catch {}
       const roomsData = await withTimeout(roomService.getRooms(), 6000, []);
       setRooms(roomsData);
       const devicesData = await withTimeout(esp8266Service.getAllDevices(), 6000, []);
@@ -794,10 +803,10 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }
 
   return (
-  <View style={{ flex: 1, minHeight: SIZES.height, backgroundColor: COLORS.background }}>
+    <View style={styles.page}>
       <Modal visible={!!forceUpdateUrl} animationType="fade" transparent={false}>
         <View style={{ flex: 1, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Card style={{ width: '90%' }} elevation="large">
+          <Card style={{ width: '90%', elevation: 4 }}>
             <Text style={{ ...FONTS.h2, color: COLORS.textDark, marginBottom: 8 }}>Update Required</Text>
             <Text style={{ ...FONTS.body2, color: COLORS.textLight, marginBottom: 16 }}>A newer version of the app is available. Please update to continue.</Text>
             <Button
@@ -809,52 +818,140 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           </Card>
         </View>
       </Modal>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-     
 
-        {/* Statistics Cards */}
-        <View style={styles.statsContainer}>
-          <Card style={{ ...styles.statCard, ...styles.statCardRooms }} elevation="large">
-            <Text style={[styles.statValue, styles.statValueRooms]}>{rooms.length}</Text>
-            <Text style={[styles.statLabel, styles.statLabelRooms]}>Rooms</Text>
-          </Card>
-          <Card style={{ ...styles.statCard, ...styles.statCardDevices }} elevation="large">
-            <Text style={[styles.statValue, styles.statValueDevices]}>{totalDevices}</Text>
-            <Text style={[styles.statLabel, styles.statLabelDevices]}>Devices</Text>
-          </Card>
-          <Card style={{ ...styles.statCard, ...styles.statCardActive }} elevation="large">
-            <Text style={[styles.statValue, styles.statValueActive]}>{activeDevices}</Text>
-            <Text style={[styles.statLabel, styles.statLabelActive]}>Active</Text>
-          </Card>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeTop}>
+        {/* ============== TOP BAR ============== */}
+        <View style={styles.topBar}>
+          {/* <TouchableOpacity
+            style={styles.topBarIconBtn}
+            onPress={async () => {
+              try { await logService.logButtonClick('Dashboard Menu'); } catch (e) {}
+              navigation.openDrawer?.();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="menu-outline" size={24} color="#0B1F3A" />
+          </TouchableOpacity>
+
+          <BrandLogo size="small" showTagline={true} /> */}
+
+          {/* <TouchableOpacity
+            style={styles.topBarIconBtn}
+            onPress={async () => {
+              try { await logService.logButtonClick('Dashboard Cart'); } catch (e) {}
+              navigation.navigate('Shop', { screen: 'Cart' });
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="cart-outline" size={24} color="#0B1F3A" />
+            {(cartCount ?? 0) > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity> */}
         </View>
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Water</Text>
-            <TouchableOpacity onPress={() => setShowWater((v) => !v)}>
-              <Text style={styles.seeAllText}>{showWater ? 'Hide Tank' : 'Show Tank'}</Text>
-            </TouchableOpacity>
+        
+      </SafeAreaView>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* background decorative shapes */}
+        <View pointerEvents="none" style={styles.bgWave1} />
+        <View pointerEvents="none" style={styles.bgWave2} />
+
+        {/* ============== HEADING ============== */}
+        <View style={styles.headingRow}>
+          <View>
+            <Text style={styles.headingSub}>Welcome, {user?.name || 'User'}</Text>
           </View>
-          <View style={styles.waterMetrics}>
-            {showWater ? (
-              <WaterTank percentage={typeof waterPercentage === 'number' ? waterPercentage : 0} />
-            ) : null}
-            <View style={styles.row}>
-              <Text style={styles.metricLabel}>
-                Water: {typeof waterPercentage === 'number' ? `${waterPercentage}%` : '—'}
-              </Text>
-              <Text style={styles.metricLabel}>
-                Flow: {typeof waterFlow === 'number' ? `${Number(waterFlow).toFixed(1)} L/min` : '—'}
-              </Text>
+        </View>
+
+        {/* ============== STAT CARDS ============== */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, styles.statCardRooms]}>
+            <View style={styles.statIconPill}>
+              <FontAwesome5 name="bed" size={15} color={COLORS.primary} solid />
+            </View>
+            <Text style={styles.statValue}>{rooms.length}</Text>
+            <Text style={styles.statLabelRooms}>Rooms</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardDevices]}>
+            <View style={styles.statIconPill}>
+              <FontAwesome5 name="microchip" size={15} color="#10B981" solid />
+            </View>
+            <Text style={styles.statValue}>{totalDevices}</Text>
+            <Text style={styles.statLabelDevices}>Devices</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardActive]}>
+            {activeDevices > 0 && <View style={styles.activeDot} />}
+            <Text style={[styles.statValue, { marginTop: activeDevices > 0 ? 0 : 16 }]}>{activeDevices}</Text>
+            <Text style={styles.statLabelActive}>Active</Text>
+          </View>
+        </View>
+
+        {/* ============== WATER TANK CARD ============== */}
+        <View style={styles.waterCard}>
+          <View style={styles.waterCardLeft}>
+            <Text style={styles.waterCardLabelLeft}>Water Tank</Text>
+            <Text style={styles.waterPercent}>
+              {typeof waterPercentage === 'number' ? `${waterPercentage}%` : '—%'}
+            </Text>
+            <View style={styles.waterProgressTrack}>
+              <View
+                style={[
+                  styles.waterProgressFill,
+                  { width: `${Math.max(0, Math.min(100, typeof waterPercentage === 'number' ? waterPercentage : 0))}%` },
+                ]}
+              />
             </View>
           </View>
+          <View style={styles.waterCardDivider} />
+          <View style={styles.waterCardRight}>
+            <Text style={styles.waterCardLabelRight}>Flow</Text>
+            <Text style={styles.flowVal}>
+              {typeof waterFlow === 'number' ? `${Number(waterFlow).toFixed(1)} L/min` : '—'}
+            </Text>
+            <View style={styles.waterDropWrap}>
+              <View style={styles.waterDropBig}>
+                <FontAwesome5 name="tint" size={28} color="#0A84FF" solid />
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.showTankBtn}
+            onPress={async () => {
+              try { await logService.logButtonClick('Show Tank'); } catch (e) {}
+              navigation.navigate('Devices', { screen: 'WaterTank' });
+            }}
+          >
+            <Text style={styles.showTankBtnText}>Show Tank </Text>
+            <Ionicons name="chevron-forward" size={14} color="#0A84FF" />
+          </TouchableOpacity>
         </View>
-   {/* Quick Actions */}
+
+        {/* ============== QUICK ACTIONS ============== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickRow}>
             {[
-              { label: 'Rooms', emoji: '🛋️', onPress: async () => { try { await logService.logButtonClick('Quick Rooms'); } catch (e) {} ; navigation.navigate('Rooms'); } },
-              { label: 'Motor On/Off', emoji: '🔘', visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'), onPress: async () => { 
+              {
+                label: 'Rooms',
+                icon: <Ionicons name="home" size={22} color="#0A84FF" />,
+                bg: '#E6F1FF',
+                onPress: async () => {
+                  try { await logService.logButtonClick('Quick Rooms'); } catch (e) {}
+                  navigation.navigate('Rooms');
+                },
+              },
+              {
+                label: 'Motor',
+                icon: <Ionicons name="power" size={22} color="#10B981" />,
+                bg: '#E2F7EC',
+                visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'),
+                onPress: async () => {
                   try { await logService.logButtonClick('Quick Motor Toggle'); } catch (e) {}
                   try {
                     const list = await esp8266Service.getDevicesFromServer();
@@ -876,9 +973,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                     void ensureDeviceRulesSaved(devId);
                     if (typeof (target as any).device1 !== 'undefined') {
                       const currentRaw = (target as any).device1;
-                      const current = typeof currentRaw === 'number' ? currentRaw === 1
-                        : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
-                        : !!currentRaw;
+                      const current = typeof currentRaw === 'number'
+                        ? currentRaw === 1
+                        : typeof currentRaw === 'string'
+                          ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
+                          : !!currentRaw;
                       const nextVal = current ? 0 : 1;
                       const pendingKey = await enqueueDeviceServerUpdate(devId, { device1: nextVal });
                       const ok = await esp8266Service.updateDeviceOnServer(devId, { device1: nextVal });
@@ -909,8 +1008,16 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   } catch (err) {
                     Toast.show({ type: 'error', text1: 'Error', text2: 'Unable to toggle motor', position: 'bottom' });
                   }
-                } },
-              { label: 'Lock/Unlock', emoji: lockOn ? '🔒' : '🔓', visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'), onPress: async () => {
+                },
+              },
+              {
+                label: 'Lock/Unlock',
+                icon: (
+                  <Ionicons name={lockOn ? 'lock' : 'lock-open'} size={22} color="#EF4444" />
+                ),
+                bg: '#FFE7E7',
+                visible: (devices.length > 0) || ((user?.subdeviceIds?.length || 0) > 0) || (user?.role === 'admin'),
+                onPress: async () => {
                   try { await logService.logButtonClick('Quick Door Toggle'); } catch (e) {}
                   try {
                     const list = await esp8266Service.getDevicesFromServer();
@@ -935,9 +1042,11 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       lockTimeoutRef.current = null;
                     }
                     const currentRaw = (target as any).device2;
-                    const current = typeof currentRaw === 'number' ? currentRaw === 1
-                      : typeof currentRaw === 'string' ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
-                      : !!currentRaw;
+                    const current = typeof currentRaw === 'number'
+                      ? currentRaw === 1
+                      : typeof currentRaw === 'string'
+                        ? (currentRaw.trim().toLowerCase() === '1' || currentRaw.trim().toLowerCase() === 'true')
+                        : !!currentRaw;
                     const nextVal = current ? 0 : 1;
                     const pendingKey = await enqueueDeviceServerUpdate(devId, { device2: nextVal });
                     const ok = await esp8266Service.updateDeviceOnServer(devId, { device2: nextVal });
@@ -972,31 +1081,58 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   } catch {
                     Toast.show({ type: 'error', text1: 'Error', text2: 'Unable to toggle door', position: 'bottom' });
                   }
-                } },
-              { label: 'Shop', emoji: '🛒', onPress: async () => { try { await logService.logButtonClick('Quick Shop'); } catch (e) {} ; navigation.navigate('Shop', { screen: 'ProductList' }); } },
-              { label: 'Subscriptions', emoji: '�', onPress: async () => { try { await logService.logButtonClick('Quick Subscriptions'); } catch (e) {} ; navigation.navigate('Subscriptions'); } },
-            ].filter((a: any) => (a.visible === undefined ? true : !!a.visible)).map((a) => (
-              <TouchableOpacity key={a.label} style={styles.quickItem} activeOpacity={0.85} onPress={a.onPress}>
-                <View style={[styles.quickIcon, a.label === 'Motor On/Off' ? (motorOn ? styles.quickIconOn : styles.quickIconOff) : undefined]}>
-                  {a.label === 'Lock/Unlock' ? (
-                    <Ionicons name={lockOn ? 'lock-closed-outline' : 'lock-open-outline'} size={22} color={COLORS.textDark} />
-                  ) : (
-                    <Text style={styles.quickEmoji}>{a.emoji}</Text>
-                  )}
-                </View>
-                <Text style={styles.quickLabel}>{a.label}</Text>
-              </TouchableOpacity>
-            ))}
+                },
+              },
+              {
+                label: 'Shop',
+                icon: <Ionicons name="cart" size={22} color="#F59E0B" />,
+                bg: '#FFF3DD',
+                onPress: async () => {
+                  try { await logService.logButtonClick('Quick Shop'); } catch (e) {}
+                  navigation.navigate('Shop', { screen: 'ProductList' });
+                },
+              },
+              {
+                label: 'Subscriptions',
+                icon: <FontAwesome5 name="crown" size={20} color="#8B5CF6" solid />,
+                bg: '#F1E7FF',
+                onPress: async () => {
+                  try { await logService.logButtonClick('Quick Subscriptions'); } catch (e) {}
+                  navigation.navigate('Subscriptions');
+                },
+              },
+            ]
+              .filter((a: any) => a.visible === undefined ? true : !!a.visible)
+              .map((a) => (
+                <TouchableOpacity
+                  key={a.label}
+                  style={styles.quickItem}
+                  activeOpacity={0.8}
+                  onPress={a.onPress}
+                >
+                  <View style={[styles.quickIconCircle, { backgroundColor: a.bg }]}>
+                    {a.icon}
+                  </View>
+                  <Text style={styles.quickLabel}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
           </View>
         </View>
-        {/* Rooms Section (matches screenshot style) */}
+
+        {/* ============== ROOMS ============== */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Rooms</Text>
-            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Rooms'); } catch (e) {} ; navigation.navigate('Rooms'); }}>
+            <TouchableOpacity
+              onPress={async () => {
+                try { await logService.logButtonClick('See All Rooms'); } catch (e) {}
+                navigation.navigate('Rooms');
+              }}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
+
           {rooms.length > 0 ? (
             <FlatList
               data={rooms.slice(0, 5)}
@@ -1011,65 +1147,63 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Favorite Devices (2x2 grid with power toggle) */}
+        {/* ============== FAVORITE DEVICES (LIST) ============== */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Favorite Devices</Text>
-            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Devices'); } catch (e) {} ; navigation.navigate('Devices'); }}>
+            <TouchableOpacity
+              onPress={async () => {
+                try { await logService.logButtonClick('See All Devices'); } catch (e) {}
+                navigation.navigate('Devices');
+              }}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
+
           {devices.length > 0 ? (
-            <View style={styles.devicesList}>
-              {devices.slice(0, 4).map(device => (
-                <View
-                  key={device.id}
-                  style={[
-                    styles.deviceCard,
-                    device.status === 'on' ? styles.deviceCardOn : styles.deviceCardOff,
-                  ]}
-                >
-                  <View style={styles.deviceIconBubble}>
-                    <Text style={styles.deviceIconText}>{device.type?.[0] || '🔌'}</Text>
-                  </View>
+            <View style={styles.favList}>
+              {devices.slice(0, 3).map((device) => {
+                const isOn = device.status === 'on';
+                return (
                   <TouchableOpacity
+                    key={device.id}
+                    style={styles.favRow}
+                    activeOpacity={0.85}
                     onPress={() => navigateToDevice(device.id)}
-                    style={{ flex: 1 }}
-                    activeOpacity={0.8}
                   >
-                    <View style={styles.deviceInfo}>
-                      <Text style={[styles.deviceName, device.status === 'on' ? styles.deviceTextOn : styles.deviceTextOff]}>{device.name}</Text>
+                    <View style={[styles.favIcon, styles.favIconWater]}>
+                      <FontAwesome5 name="tint" size={18} color="#0A84FF" solid />
                     </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.favName} numberOfLines={1}>{device.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <View style={[styles.statusDot, { backgroundColor: isOn ? '#10B981' : '#A0AEC0' }]} />
+                        <Text style={[styles.favStatus, { color: isOn ? '#10B981' : '#9AA4B2' }]}>
+                          {isOn ? 'Online' : 'Offline'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#B6C0CE" />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={async () => {
-                      const next = device.status === 'on' ? 'off' : 'on';
-                      const pendingKey = await enqueueDeviceServerControl(device.id, next as any);
-                      const ok = await esp8266Service.controlDeviceOnServer(device.id, next as any);
-                      if (ok) {
-                        await resolvePendingDeviceCommand(pendingKey);
-                        setDevices(prev => prev.map(d => d.id === device.id ? { ...d, status: next as any } : d));
-                      } else {
-                        Toast.show({ type: 'error', text1: 'Action failed', text2: 'Could not toggle device', position: 'bottom' });
-                      }
-                    }}
-                    style={styles.powerButton}
-                  >
-                    <View style={[styles.powerDot, device.status === 'on' ? styles.powerDotOn : styles.powerDotOff]} />
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : (
             <Text style={styles.emptyText}>No devices added yet</Text>
           )}
         </View>
 
-        {/* Products Section */}
+        {/* ============== FEATURED PRODUCTS ============== */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured Products</Text>
-            <TouchableOpacity onPress={async () => { try { await logService.logButtonClick('See All Products'); } catch (e) {} ; navigation.navigate('Shop'); }}>
+            <TouchableOpacity
+              onPress={async () => {
+                try { await logService.logButtonClick('See All Products'); } catch (e) {}
+                navigation.navigate('Shop');
+              }}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -1079,21 +1213,20 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.productCard}
-                  onPress={async () => { try { await logService.logButtonClick('View Product', { productId: item.id, name: item.name }); } catch (e) {} ; navigation.navigate('Shop', {
-                    screen: 'ProductDetail',
-                    params: { productId: item.id }
-                  }); }}
+                  onPress={async () => {
+                    try { await logService.logButtonClick('View Product', { productId: item.id, name: item.name }); } catch (e) {}
+                    navigation.navigate('Shop', {
+                      screen: 'ProductDetail',
+                      params: { productId: item.id }
+                    });
+                  }}
+                  activeOpacity={0.85}
                 >
                   <Image
                     source={{ uri: item.imageUrl }}
                     style={styles.productImage}
                     resizeMode="cover"
                   />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-                    <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
-                    <Text style={styles.productCategory}>{item.category}</Text>
-                  </View>
                 </TouchableOpacity>
               )}
               keyExtractor={(item) => item.id}
@@ -1105,236 +1238,346 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             <Text style={styles.emptyText}>No products available</Text>
           )}
         </View>
-
-     
       </ScrollView>
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>VooDoo Smart Home © 2026</Text>
-      </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({container: {
-  flex: 1,
-  backgroundColor: COLORS.background,
-},
-loadingContainer: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: COLORS.background,
-},
-scrollContent: {
-  padding: SIZES.padding,
-  paddingBottom: SIZES.padding * 3.5,
-},
-  header: {
-    marginBottom: SIZES.margin,
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    minHeight: SIZES.height,
+    backgroundColor: '#F7FCFD',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
-  burger: { width: 32, height: 24, justifyContent: 'space-between', marginRight: 12 },
-  burgerLine: { height: 3, backgroundColor: COLORS.white, borderRadius: 2 },
-  title: {
-    ...FONTS.h1,
-    color: COLORS.white,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-statsContainer: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginBottom: SIZES.base,
-},
-  statCard: {
-    width: '30%',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.padding / 2,
+    backgroundColor: '#F7FCFD',
   },
-  statCardRooms: { backgroundColor: COLORS.primaryLight },
-  statCardDevices: { backgroundColor: COLORS.primaryLight },
-  statCardActive: { backgroundColor: COLORS.primaryLight },
-  statValue: {
-    ...FONTS.h2,
-    color: COLORS.textDark,
-    marginBottom: SIZES.base / 2,
-  },
-  statValueRooms: { color: COLORS.primaryDark },
-  statValueDevices: { color: COLORS.primaryDark },
-  statValueActive: { color: COLORS.primaryDark },
-  statLabel: {
-    ...FONTS.body3,
-    color: COLORS.textMedium,
-  },
-  statLabelRooms: { color: COLORS.primary },
-  statLabelDevices: { color: COLORS.primary },
-  statLabelActive: { color: COLORS.primary },
-section: {
-  marginBottom: SIZES.base,
-},
-sectionHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: SIZES.base / 3,
-},
-sectionTitle: {
-  ...FONTS.h3,
-  color: COLORS.textDark,
-},
-seeAllText: {
-  ...FONTS.body3,
-  color: COLORS.primary,
-},
-  roomsList: { paddingRight: SIZES.padding },
-  roomCardImageWrap: {
-    width: 180,
-    marginRight: SIZES.margin / 2,
-    marginVertical: SIZES.base / 4,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 8,
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-  },
-  roomCardImage: { width: '100%', height: 110, justifyContent: 'flex-end' },
-  roomCardImageInner: { borderRadius: SIZES.radius },
-  roomCardImageFallback: { backgroundColor: COLORS.card, borderRadius: SIZES.radius },
-  fallbackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  fallbackEmoji: { fontSize: 24 },
-  roomCardOverlay: { backgroundColor: 'rgba(255,255,255,0.9)', borderBottomLeftRadius: SIZES.radius, borderBottomRightRadius: SIZES.radius, padding: SIZES.base },
-  roomName: {
-    ...FONTS.h4,
-    color: COLORS.textDark,
-    marginBottom: SIZES.base,
-  },
-  deviceCount: {
-    ...FONTS.body3,
-    color: COLORS.textLight,
-  },
-devicesList: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  justifyContent: 'space-between',
-},
-  deviceCard: {
-    width: '48%',
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: SIZES.base / 4,
+  safeTop: { backgroundColor: 'transparent' },
+
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    ...SHADOWS.large,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'transparent',
   },
-  deviceCardOn: { backgroundColor: COLORS.primaryLight },
-  deviceCardOff: { backgroundColor: COLORS.white },
-  deviceIconBubble: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryLight, marginRight: 12 },
-  deviceIconText: { fontSize: 16 },
-  deviceInfo: {
-    flex: 1,
-  },
-  deviceName: { ...FONTS.body2, marginBottom: SIZES.base / 2 },
-  deviceType: { ...FONTS.body3 },
-  deviceTextOn: { color: COLORS.white ,fontSize: 12},
-  deviceSubTextOn: { color: '#cfe3ff' },
-  deviceTextOff: { color: COLORS.textDark },
-  deviceSubTextOff: { color: COLORS.textLight },
-  powerButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-  powerDot: { width: 14, height: 14, borderRadius: 7 },
-  powerDotOn: { backgroundColor: COLORS.info },
-  statusIndicator: { width: 10, height: 10, borderRadius: 5 },
-  powerDotOff: { backgroundColor: COLORS.gray },
-  emptyText: {
-    ...FONTS.body2,
-    color: COLORS.textLight,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginVertical: SIZES.base,
-  },
-  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.base, flexWrap: 'nowrap' },
-  quickItem: { alignItems: 'center', width: '19%' },
-  quickIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', ...SHADOWS.small },
-  quickIconOn: { backgroundColor: COLORS.warning },
-  quickIconOff: { backgroundColor: COLORS.primaryLight },
-  quickEmoji: { fontSize: 20 },
-  quickLabel: { ...FONTS.small, color: COLORS.textLight, marginTop: 6 },
-  productsList: {
-    paddingRight: SIZES.padding / 2,
-  },
-  productCard: {
-    width: 150,
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    marginRight: SIZES.margin / 2,
-    marginVertical: SIZES.small,
-    ...SHADOWS.large,
-  },
-productImage: {
-  width: '100%',
-  height: 100,
-  borderTopLeftRadius: SIZES.radius,
-  borderTopRightRadius: SIZES.radius,
-},
-productInfo: {
-  padding: SIZES.padding,
-},
-productName: {
-  ...FONTS.body3,
-  color: COLORS.textDark,
-  marginBottom: SIZES.base / 2,
-},
-productPrice: {
-  ...FONTS.h4,
-  color: COLORS.primary,
-  marginBottom: SIZES.base / 2,
-},
-  productCategory: {
-    ...FONTS.small,
-    color: COLORS.textLight,
-  },
-  footer: {
-    padding: SIZES.padding,
-    backgroundColor: COLORS.card,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+  topBarIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  footerText: {
-    ...FONTS.body3,
-    color: COLORS.textLight,
-  },
-  waterMetrics: {
+  cartBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    ...SHADOWS.large,
+    justifyContent: 'center',
   },
-  metricRow: {
-    marginTop: SIZES.base / 2,
-    alignItems: 'center',
+  cartBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 120,
+  },
+  bgWave1: {
+    position: 'absolute',
+    top: -30,
+    left: -40,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: '#DFF6F0',
+    opacity: 0.9,
+  },
+  bgWave2: {
+    position: 'absolute',
+    top: 60,
+    right: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: '#D6EFFF',
+    opacity: 0.6,
+  },
+
+  headingRow: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  headingTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#0B1F3A',
+    letterSpacing: 0.2,
+  },
+  headingSub: {
+      marginTop: 4,
+      color: '#64748B',
+      fontSize: 15,
+      fontWeight: '500',
+  },
+
+  statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
+    marginBottom: 16,
   },
-  row: {
+  statCard: {
+    width: '31%',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingTop: 14,
+    paddingBottom: 14,
+    alignItems: 'flex-start',
+  },
+  statIconPill: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+  statCardRooms: { backgroundColor: '#E6F1FF' },
+  statCardDevices: { backgroundColor: '#E2F7EC' },
+  statCardActive: { backgroundColor: '#FFF5E1' },
+  statValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0B1F3A',
+    marginTop: 2,
+  },
+  statLabelRooms: { color: '#1D4ED8', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  statLabelDevices: { color: '#047857', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  statLabelActive: { color: '#B45309', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  activeDot: {
+    position: 'absolute',
+    top: 16,
+    right: 14,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+
+  waterCard: {
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 50,
+    backgroundColor: '#fff',
+    marginBottom: 20,
     flexDirection: 'row',
-     justifyContent: 'space-between',
-     width: '100%',
-     columnGap: SIZES.base,
+    alignItems: 'flex-start',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E7F0F3',
+    shadowColor: '#0B1F3A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
-  metricLabel: {
-    ...FONTS.body2,
-    color: COLORS.success,
-    marginBottom: SIZES.base / 2,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
+  waterCardLeft: { flex: 1.1 },
+  waterCardRight: { flex: 1, alignItems: 'flex-start' },
+  waterCardDivider: {
+    width: 1,
+    height: 78,
+    backgroundColor: '#EDF2F4',
+    marginHorizontal: 14,
+    marginTop: 6,
+  },
+  waterCardLabelLeft: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  waterPercent: {
+    marginTop: 8,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#0B1F3A',
+    letterSpacing: 0.3,
+  },
+  waterProgressTrack: {
+    marginTop: 14,
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E4EFF8',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  waterProgressFill: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2E7CF6',
+  },
+  waterCardLabelRight: { color: '#64748B', fontSize: 13, fontWeight: '600' },
+  flowVal: { marginTop: 8, fontSize: 22, fontWeight: '700', color: '#0B1F3A' },
+  waterDropWrap: {
+    marginTop: 10,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D6EFFF',
+  },
+  waterDropBig: { width: 66, height: 66, borderRadius: 33, alignItems: 'center', justifyContent: 'center', backgroundColor: '#B5E6FF' },
+  showTankBtn: {
+    position: 'absolute',
+    right: 16,
+    top: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  showTankBtnText: { color: '#0A84FF', fontSize: 13, fontWeight: '700' },
+
+  section: { marginBottom: 18 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B1F3A',
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0A84FF',
+  },
+
+  quickRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  quickItem: {
+    width: '18%',
+    alignItems: 'center',
+  },
+  quickIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#334155',
+  },
+
+  roomsList: { paddingRight: 16 },
+  roomCardImageWrap: {
+    width: 240,
+    height: 160,
+    marginRight: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowColor: '#0B1F3A',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  roomCardImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  roomCardImageInner: { borderRadius: 20 },
+  roomCardOverlay: {
+    marginHorizontal: 10,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  roomName: {
+    color: '#0B1F3A',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  deviceCount: {
+      marginTop: 4,
+      color: '#64748B',
+      fontSize: 12,
+      fontWeight: '500',
+  },
+
+  favList: { marginTop: 4 },
+  favRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#EAF1F3',
+    marginBottom: 10,
+    shadowColor: '#0B1F3A',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  favIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favIconWater: { backgroundColor: '#DDF1FF' },
+  favName: { fontSize: 16, fontWeight: '700', color: '#0B1F3A' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  favStatus: { fontSize: 12, fontWeight: '600' },
+
+  productsList: { paddingRight: 16 },
+  productCard: {
+    width: 130,
+    height: 130,
+    marginRight: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E9EFF2',
+  },
+  productImage: { width: '100%', height: '100%' },
+
+  emptyText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
 

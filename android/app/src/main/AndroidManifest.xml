@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" 
+xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -53,6 +54,16 @@
          service for automation still runs via the fallback Wifi lock + exact
          alarms, but we still need to DECLARE the permission for Play policy. -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+    <!-- Foreground Service -->
+
+
+    <!-- Wi-Fi / nearby devices -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
 
     <application
         android:name=".MainApplication"
@@ -67,6 +78,20 @@
         <meta-data
             android:name="android.app.shortcuts"
             android:resource="@xml/shortcuts" />
+
+        <!-- Push / Local Notification Configuration -->
+        <meta-data
+            android:name="com.dieam.reactnativepushnotification.notification_channel_name"
+            android:value="VooDoo Notifications" />
+        <meta-data
+            android:name="com.dieam.reactnativepushnotification.notification_channel_description"
+            android:value="General alerts" />
+        <meta-data
+            android:name="com.dieam.reactnativepushnotification.notification_icon"
+            android:resource="@mipmap/ic_notification" />
+        <meta-data
+            android:name="com.dieam.reactnativepushnotification.notification_color"
+            android:resource="@android:color/white" />
 
         <!-- Main Activity -->
         <activity
@@ -123,10 +148,11 @@
         <!-- React Native Background Actions         -->
         <!-- ======================================= -->
 
-        <service
-            android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
-            android:foregroundServiceType="connectedDevice"
-            android:exported="false" />
+            <service
+                android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
+                android:foregroundServiceType="connectedDevice"
+                android:exported="false"
+                tools:replace="android:foregroundServiceType" />
 
 
         <!-- React Native Background Fetch: HeadlessTask + BootReceiver are

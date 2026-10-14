@@ -72,6 +72,8 @@ export class NotificationService {
           channelId: 'voodoo-default',
           title,
           message: body,
+          smallIcon: 'ic_notification',
+          largeIcon: 'ic_launcher',
           vibrate: true,
           vibration: 500,
           playSound: true,
@@ -141,6 +143,8 @@ export class NotificationService {
         PushNotification.localNotificationSchedule({
           id: String(idNumber),
           channelId: 'voodoo-default',
+          smallIcon: 'ic_notification',
+          largeIcon: 'ic_launcher',
           // Minimize tray visibility: use minimal content and auto-cancel quickly
           message: '\u200B',
           title: '',

@@ -42,6 +42,9 @@ async function bgScheduleTask(opts: {
     if (typeof PN?.localNotificationSchedule === 'function') {
       PN.localNotificationSchedule({
         id,
+        channelId: 'voodoo-default',
+        smallIcon: 'ic_notification',
+        largeIcon: 'ic_launcher',
         userInfo: { id, taskId: opts.taskId, source: 'voodoo-backup-notification' },
         message: ' ',
         playSound: false,
