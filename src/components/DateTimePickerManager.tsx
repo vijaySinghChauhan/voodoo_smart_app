@@ -1,5 +1,16 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
-import { DatePickerModal, TimePickerModal } from 'react-native-paper-dates';
+
+import React, {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
+
+import {
+  DatePickerModal,
+  TimePickerModal,
+} from 'react-native-paper-dates';
 
 export interface DateTimePickerConfig {
   value: Date | null;
@@ -11,79 +22,145 @@ export interface DateTimePickerManagerRef {
   open: (config: DateTimePickerConfig) => void;
 }
 
-export const DateTimePickerManager = forwardRef<DateTimePickerManagerRef, {}>((props, ref) => {
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [timePickerVisible, setTimePickerVisible] = useState(false);
-  const [pickerConfig, setPickerConfig] = useState<DateTimePickerConfig | null>(null);
-  const [tempDate, setTempDate] = useState(new Date());
+export const DateTimePickerManager =
+  forwardRef<DateTimePickerManagerRef, {}>((props, ref) => {
+    const [pickerVisible, setPickerVisible] = useState(false);
+    const [timePickerVisible, setTimePickerVisible] = useState(false);
+    const [pickerConfig, setPickerConfig] =
+      useState<DateTimePickerConfig | null>(null);
+    const [tempDate, setTempDate] = useState(new Date());
 
-  useImperativeHandle(ref, () => ({
-    open: (config: DateTimePickerConfig) => {
+    const configRef = useRef<DateTimePickerConfig | null>(null);
+    const tempDateRef = useRef(new Date());
+    const pendingConfigRef = useRef<DateTimePickerConfig | null>(null);
+    const openingRef = useRef(false);
+
+    const updateTempDate = (date: Date) => {
+      tempDateRef.current = date;
+      setTempDate(date);
+    };
+
+    const open = useCallback((config: DateTimePickerConfig) => {
+      // Queue a new request if the previous modal is still open.
+      if (openingRef.current) {
+        pendingConfigRef.current = config;
+        setPickerVisible(false);
+        setTimePickerVisible(false);
+        return;
+      }
+
+      openingRef.current = true;
+      configRef.current = config;
       setPickerConfig(config);
-      const initialDate = config.value ? new Date(config.value) : new Date();
-      setTempDate(initialDate);
-      
+
+      const initialDate = config.value
+        ? new Date(config.value)
+        : new Date();
+
+      updateTempDate(initialDate);
+
       if (config.type === 'time') {
         setTimePickerVisible(true);
       } else {
         setPickerVisible(true);
       }
-    }
-  }));
+    }, []);
 
-  const onConfirmDate = ({ date }: any) => {
-    setPickerVisible(false);
-    if (!pickerConfig) return;
+    useImperativeHandle(ref, () => ({ open }), [open]);
 
-    const baseDate = date || tempDate;
-    const prev = tempDate;
-    
-    const newDate = new Date(baseDate);
-    // Keep previous time
-    newDate.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
-    setTempDate(newDate);
+    const finishAndOpenPending = useCallback(() => {
+      configRef.current = null;
+      setPickerConfig(null);
+      openingRef.current = false;
 
-    if (pickerConfig.type === 'datetime') {
-        // Proceed to time picker
-        setTimeout(() => setTimePickerVisible(true), 300);
-    } else {
-        // Done (type='date')
-        pickerConfig.onChange(newDate);
-        setPickerConfig(null);
-    }
-  };
+      const pending = pendingConfigRef.current;
+      pendingConfigRef.current = null;
 
-  const onConfirmTime = ({ hours, minutes }: any) => {
-    setTimePickerVisible(false);
-    if (!pickerConfig) return;
+      if (pending) {
+        // Let the previous modal finish its dismissal first.
+        requestAnimationFrame(() => open(pending));
+      }
+    }, [open]);
 
-    const newDate = new Date(tempDate);
-    newDate.setHours(hours);
-    newDate.setMinutes(minutes);
-    newDate.setSeconds(0);
-    newDate.setMilliseconds(0);
-    
-    pickerConfig.onChange(newDate);
-    setPickerConfig(null);
-  };
+    const onConfirmDate = useCallback(
+      ({ date }: { date?: Date }) => {
+        setPickerVisible(false);
 
-  return (
-    <>
-      <DatePickerModal
-        locale="en"
-        mode="single"
-        visible={pickerVisible}
-        onDismiss={() => setPickerVisible(false)}
-        date={tempDate}
-        onConfirm={onConfirmDate}
-      />
-      <TimePickerModal
-        visible={timePickerVisible}
-        onDismiss={() => setTimePickerVisible(false)}
-        onConfirm={onConfirmTime}
-        hours={tempDate.getHours()}
-        minutes={tempDate.getMinutes()}
-      />
-    </>
-  );
-});
+        const config = configRef.current;
+        if (!config) {
+          finishAndOpenPending();
+          return;
+        }
+
+        const previous = tempDateRef.current;
+        const selectedDate = new Date(date ?? previous);
+
+        selectedDate.setHours(
+          previous.getHours(),
+          previous.getMinutes(),
+          0,
+          0,
+        );
+
+        updateTempDate(selectedDate);
+
+        if (config.type === 'datetime') {
+          // Keep the configuration active for the time selection.
+          requestAnimationFrame(() => setTimePickerVisible(true));
+        } else {
+          config.onChange(selectedDate);
+          finishAndOpenPending();
+        }
+      },
+      [finishAndOpenPending],
+    );
+
+    const onConfirmTime = useCallback(
+      ({ hours, minutes }: { hours: number; minutes: number }) => {
+        setTimePickerVisible(false);
+
+        const config = configRef.current;
+        if (!config) {
+          finishAndOpenPending();
+          return;
+        }
+
+        const selectedDate = new Date(tempDateRef.current);
+        selectedDate.setHours(hours, minutes, 0, 0);
+
+        updateTempDate(selectedDate);
+        config.onChange(selectedDate);
+
+        finishAndOpenPending();
+      },
+      [finishAndOpenPending],
+    );
+
+    const dismiss = useCallback(() => {
+      setPickerVisible(false);
+      setTimePickerVisible(false);
+      pendingConfigRef.current = null;
+      finishAndOpenPending();
+    }, [finishAndOpenPending]);
+
+    return (
+      <>
+        <DatePickerModal
+          locale="en"
+          mode="single"
+          visible={pickerVisible}
+          onDismiss={dismiss}
+          date={tempDate}
+          onConfirm={onConfirmDate}
+        />
+
+        <TimePickerModal
+          visible={timePickerVisible}
+          onDismiss={dismiss}
+          onConfirm={onConfirmTime}
+          hours={tempDate.getHours()}
+          minutes={tempDate.getMinutes()}
+        />
+      </>
+    );
+  });

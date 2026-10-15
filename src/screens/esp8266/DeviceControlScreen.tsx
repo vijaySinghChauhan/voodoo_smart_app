@@ -2576,22 +2576,25 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <TouchableOpacity
               style={styles.schedTimeBlock}
               disabled={!canControl || !supplyWaterTimerEnabled || !morningScheduleEnabled}
-              onPress={() => {
-                openTimePicker(morningStartTime, (d) => { setMorningStartTime(d); }, undefined, morningEndTime || undefined);
-                const st = morningStartTime;
-                openPicker({
-                  type: 'time',
-                  value: st ?? new Date(),
-                  onChange: (d) => {
-                    setMorningStartTime(d);
-                    openPicker({
-                      type: 'time',
-                      value: morningEndTime ?? d,
-                      onChange: (e) => { setMorningEndTime(e); persistRules(); refreshAutomationSchedule(); }
-                    });
-                  }
-                });
-              }}
+             onPress={() => {
+                      openPicker({
+                        type: 'time',
+                        value: morningStartTime ?? new Date(),
+                        onChange: (start) => {
+                          setMorningStartTime(start);
+
+                          openPicker({
+                            type: 'time',
+                            value: morningEndTime ?? start,
+                            onChange: (end) => {
+                              setMorningEndTime(end);
+                              persistRules();
+                              refreshAutomationSchedule();
+                            },
+                          });
+                        },
+                      });
+                    }}
             >
               <Text style={styles.schedTimeStart}>{formatHHMM(morningStartTime)}</Text>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -2625,20 +2628,29 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             <TouchableOpacity
               style={styles.schedTimeBlock}
               disabled={!canControl || !supplyWaterTimerEnabled || !eveningScheduleEnabled}
-              onPress={() => {
-                openPicker({
-                  type: 'time',
-                  value: eveningStartTime ?? new Date(),
-                  onChange: (d) => {
-                    setEveningStartTime(d);
-                    openPicker({
-                      type: 'time',
-                      value: eveningEndTime ?? d,
-                      onChange: (e) => { setEveningEndTime(e); persistRules(); refreshAutomationSchedule(); }
-                    });
-                  }
-                });
-              }}
+
+
+        onPress={() => {
+          openPicker({
+            type: 'time',
+            value: morningStartTime ?? new Date(),
+            onChange: (start) => {
+              setMorningStartTime(start);
+
+              openPicker({
+                type: 'time',
+                value: morningEndTime ?? start,
+                onChange: (end) => {
+                  setMorningEndTime(end);
+                  persistRules();
+                  refreshAutomationSchedule();
+                },
+              });
+            },
+          });
+        }}
+
+
             >
               <Text style={styles.schedTimeStart}>{formatHHMM(eveningStartTime)}</Text>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">

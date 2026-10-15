@@ -1537,23 +1537,24 @@ export async function hasAnyActiveAutomationSchedules(): Promise<boolean> {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const ruleKeys = keys.filter((k) => k.startsWith('auto_rules_'));
-    if (ruleKeys.length === 0) return false;
-    const entries = await AsyncStorage.multiGet(ruleKeys);
-    for (const [, value] of entries) {
-      if (!value) continue;
-      let rules: any = null;
-      try { rules = JSON.parse(value); } catch {}
-      if (!rules) continue;
-      const checkSec = (sec: any) => {
-        if (!sec) return false;
-        if (!sec.enabled) return false;
-        if (sec.morningEnabled || sec.eveningEnabled) return true;
-        return false;
-      };
-      if (checkSec(rules?.supplyWater)) return true;
-      if (checkSec(rules?.wateringPlants)) return true;
-      if (checkSec(rules?.dogFeed)) return true;
-      if (checkSec(rules?.acControl)) return true;
+    if (ruleKeys.length > 0) {
+      const entries = await AsyncStorage.multiGet(ruleKeys);
+      for (const [, value] of entries) {
+        if (!value) continue;
+        let rules: any = null;
+        try { rules = JSON.parse(value); } catch {}
+        if (!rules) continue;
+        if (rules?.on?.enabled || rules?.off?.enabled || rules?.noFlow?.enabled) return true;
+        const checkSec = (sec: any) => {
+          if (!sec || !sec.enabled) return false;
+          if (sec.morningEnabled !== false || sec.eveningEnabled === true || sec.frequency === 'once' || sec.frequency === 'everyday') return true;
+          return false;
+        };
+        if (checkSec(rules?.supplyWater)) return true;
+        if (checkSec(rules?.wateringPlants)) return true;
+        if (checkSec(rules?.dogFeed)) return true;
+        if (checkSec(rules?.acControl)) return true;
+      }
     }
   } catch {}
   try {

@@ -43,10 +43,10 @@ xmlns:tools="http://schemas.android.com/tools">
     <!-- Foreground Service - Android 14+
          VooDoo runs a persistent foreground service for IoT/home-automation
          command scheduling and device state keep-alive (pump, lock, bulb,
-         fan, watering, dog feeder). This maps to the CONNECTED_DEVICES
-         foregroundServiceType because the service maintains an ongoing
-         command channel to Wi-Fi/ESP8266 devices and their server state. -->
+         fan, watering, dog feeder). This uses dataSync foregroundServiceType
+         for reliable background communication and scheduled timer triggers. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
     <!-- Required runtime permission for foregroundServiceType connectedDevice
@@ -150,7 +150,7 @@ xmlns:tools="http://schemas.android.com/tools">
 
             <service
                 android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
-                android:foregroundServiceType="connectedDevice"
+                android:foregroundServiceType="dataSync"
                 android:exported="false"
                 tools:replace="android:foregroundServiceType" />
 
