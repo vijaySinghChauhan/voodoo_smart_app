@@ -34,7 +34,7 @@ import { COLORS, SHADOWS } from '../../theme/theme';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import BackgroundTimer from 'react-native-background-timer';
-import { enqueueDeviceServerControl, enqueueDeviceServerUpdate, refreshAutomationSchedule, resolvePendingDeviceCommand, scheduleLockAutoOff } from '../../services/background/backgroundService';
+import { clearNoFlowPending, enqueueDeviceServerControl, enqueueDeviceServerUpdate, refreshAutomationSchedule, resolvePendingDeviceCommand, scheduleLockAutoOff, scheduleNoFlowPending } from '../../services/background/backgroundService';
 
 
 interface DeviceStatus {
@@ -1352,7 +1352,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
         noFlowTimerRef.current = null;
       }
       // Arm new timer only if rule enabled and power currently ON
-      if (noFlowAutoOffEnabled && isPowerOn) {
+      if (noFlowAutoOffEnabled && isPowerOn && selectedDeviceId) {
+        scheduleNoFlowPending(selectedDeviceId, Math.max(1, noFlowDelaySec) * 1000).catch(() => {});
         noFlowTimerRef.current = BackgroundTimer.setTimeout(() => {
           try {
             const fr = flowRateRef.current;
@@ -1385,6 +1386,8 @@ const brightnessToPercent = (rawBrightness: number, target: number) => {
             }
           } catch {}
         }, Math.max(1, noFlowDelaySec) * 1000);
+      } else if (!isPowerOn && selectedDeviceId) {
+        clearNoFlowPending(selectedDeviceId).catch(() => {});
       }
     } catch {}
     return () => {

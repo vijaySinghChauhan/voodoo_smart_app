@@ -571,7 +571,7 @@ function brightnessToPercent(raw: number, target: number): number {
   return Math.max(0, Math.min(100, Math.round(filled)));
 }
 
-async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise<void> {
+export async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
@@ -610,7 +610,7 @@ async function scheduleNoFlowPending(deviceId: string, delayMs: number): Promise
   } catch {}
 }
 
-async function clearNoFlowPending(deviceId: string): Promise<void> {
+export async function clearNoFlowPending(deviceId: string): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_NO_FLOW_KEY);
     const list: Array<{ deviceId: string; dueAt: number }> = raw ? JSON.parse(raw) : [];
@@ -679,25 +679,14 @@ export async function processPendingNoFlowAutoOff(): Promise<void> {
           });
           // #endregion
           if (!isOn) {
+            // Motor is already OFF
           } else if (typeof flowOk === 'number' && isFinite(flowOk) && flowOk >= NO_FLOW_THRESHOLD) {
-          } else if (!(typeof flowOk === 'number' && isFinite(flowOk))) {
-            keep.push({ deviceId: String(item.deviceId), dueAt: now + 10000 });
-          } else if (flowOk < NO_FLOW_THRESHOLD) {
-            // #region debug-point C:no-flow-off-attempt
-            dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow OFF attempt', {
-              deviceId: String(item.deviceId),
-              flowOk,
-            });
-            // #endregion
+            // Water flow is active & normal
+          } else {
+            // Auto delay OFF due or low flow detected while motor ON — turn OFF motor
             try {
               const k1 = await enqueueDeviceServerControl(String(item.deviceId), 'off');
               const ok1 = await esp8266Service.controlDeviceOnServer(String(item.deviceId), 'off' as any);
-              // #region debug-point C:no-flow-control-result
-              dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow control result', {
-                deviceId: String(item.deviceId),
-                ok: !!ok1,
-              });
-              // #endregion
               if (ok1) {
                 await resolvePendingDeviceCommand(k1);
               }
@@ -705,17 +694,10 @@ export async function processPendingNoFlowAutoOff(): Promise<void> {
             try {
               const k2 = await enqueueDeviceServerUpdate(String(item.deviceId), { device1: 0 });
               const ok2 = await esp8266Service.updateDeviceOnServer(String(item.deviceId), { device1: 0 });
-              // #region debug-point C:no-flow-update-result
-              dbg('C', 'backgroundService.ts:processPendingNoFlowAutoOff', 'No-flow update result', {
-                deviceId: String(item.deviceId),
-                ok: !!ok2,
-              });
-              // #endregion
               if (ok2) {
                 await resolvePendingDeviceCommand(k2);
               }
             } catch {}
-            keep.push({ deviceId: String(item.deviceId), dueAt: now + 15000 });
           }
         } catch {}
       } else {
